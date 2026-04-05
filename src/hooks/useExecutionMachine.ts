@@ -361,7 +361,7 @@ export function useExecutionMachine(): UseExecutionMachineResult {
       if (IN_FLIGHT_STATUSES.has(moduleState.status)) {
         e.preventDefault();
         e.returnValue =
-          "LIMINAL aktif execution sırasında sekme açık kalmalıdır.";
+          "LIMINAL must stay open during an active execution.";
       }
     };
     window.addEventListener("beforeunload", handler);

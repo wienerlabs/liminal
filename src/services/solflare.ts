@@ -165,7 +165,7 @@ class SolflareService {
     const provider = this.getProvider();
     if (!provider) {
       throw new Error(
-        `Solflare cüzdanı bulunamadı. Lütfen Solflare eklentisini yükleyin: ${SOLFLARE_DOWNLOAD_URL}`,
+        `Solflare wallet not found. Please install the Solflare extension: ${SOLFLARE_DOWNLOAD_URL}`,
       );
     }
 
@@ -175,7 +175,7 @@ class SolflareService {
       const addr = provider.publicKey?.toString();
       if (!addr) {
         throw new Error(
-          "Solflare bağlantısı kurulamadı. Lütfen tekrar deneyin.",
+          "Solflare connection failed. Please try again.",
         );
       }
       this.setState({
@@ -200,17 +200,17 @@ class SolflareService {
     const provider = this.getProvider();
     if (!provider) {
       throw new Error(
-        "Solflare cüzdanı bulunamadı. Lütfen Solflare eklentisini yükleyin ve bağlanın.",
+        "Solflare wallet not found. Please install the Solflare extension and connect.",
       );
     }
     if (!provider.isConnected || !this.state.connected) {
       throw new Error(
-        "Solflare bağlı değil. İşlemi imzalamak için önce cüzdanınızı bağlayın.",
+        "Solflare not connected. Connect your wallet before signing a transaction.",
       );
     }
     if (typeof provider.signTransaction !== "function") {
       throw new Error(
-        "Solflare sürümünüz transaction signing desteklemiyor. Lütfen Solflare'i güncelleyin.",
+        "Your Solflare version does not support transaction signing. Please update Solflare.",
       );
     }
 
@@ -249,13 +249,13 @@ function normalizeSignError(err: unknown): Error {
       ? err.message
       : typeof err === "string"
         ? err
-        : "bilinmeyen hata";
+        : "unknown error";
   if (/reject|cancel|denied|user rejected/i.test(message)) {
     return new Error(
-      "Solflare'de işlem reddedildi. Devam etmek için işlemi onaylamanız gerekir.",
+      "Transaction rejected in Solflare. Approve it to continue.",
     );
   }
-  return new Error(`Solflare imza hatası: ${message}`);
+  return new Error(`Solflare signing error: ${message}`);
 }
 
 function normalizeConnectError(err: unknown): Error {
@@ -264,19 +264,19 @@ function normalizeConnectError(err: unknown): Error {
       ? err.message
       : typeof err === "string"
         ? err
-        : "bilinmeyen hata";
+        : "unknown error";
   const code =
     typeof err === "object" && err !== null && "code" in err
       ? (err as { code?: number }).code
       : undefined;
 
-  // Solflare ve EIP-1193 benzeri rejection kodları
+  // Solflare and EIP-1193 style rejection codes.
   if (code === 4001 || /reject|cancel|denied|user rejected/i.test(message)) {
     return new Error(
-      'Solflare bağlantısı reddedildi. Cüzdanı bağlamak için Solflare popup\'ında "Onayla" seçeneğine basmanız gerekir.',
+      'Solflare connection rejected. Click "Approve" in the Solflare popup to connect your wallet.',
     );
   }
-  return new Error(`Solflare bağlantı hatası: ${message}`);
+  return new Error(`Solflare connection error: ${message}`);
 }
 
 // ---------------------------------------------------------------------------

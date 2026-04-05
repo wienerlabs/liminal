@@ -126,14 +126,14 @@ function analyzeSimulationFailure(
     };
   }
 
-  // 3) Hiçbir ipucu yoksa ham log snippet ver.
+  // 3) No clues at all — fall back to a raw log snippet.
   const snippet =
     result.errorMessage ??
     (result.logs ?? []).join(" ").slice(0, 180) ??
-    "bilinmeyen hata";
+    "unknown error";
   return {
     component: "unknown",
-    message: `Transaction simulation başarısız: ${snippet}`,
+    message: `Transaction simulation failed: ${snippet}`,
   };
 }
 
@@ -272,12 +272,12 @@ export async function batchWithdrawAndSwap(
   // --- Validation --------------------------------------------------------
   if (!kaminoWithdrawIx || kaminoWithdrawIx.length === 0) {
     throw new Error(
-      "Kamino withdraw instruction listesi boş. Batch oluşturulamaz.",
+      "Kamino withdraw instruction list is empty. Cannot build batch.",
     );
   }
   if (!dflowSwapIx || dflowSwapIx.length === 0) {
     throw new Error(
-      "DFlow swap instruction listesi boş. Batch oluşturulamaz.",
+      "DFlow swap instruction list is empty. Cannot build batch.",
     );
   }
 
@@ -299,7 +299,7 @@ export async function batchWithdrawAndSwap(
     }).compileToV0Message(lookupTables);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    throw new Error(`Batch transaction message compile hatası: ${message}`);
+    throw new Error(`Batch transaction message compile error: ${message}`);
   }
 
   const transaction = new VersionedTransaction(compiled);
@@ -336,7 +336,7 @@ export async function batchWithdrawAndSwap(
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    throw new Error(`Batch broadcast hatası: ${message}`);
+    throw new Error(`Batch broadcast error: ${message}`);
   }
 
   // --- Confirm with 60s timeout ------------------------------------------

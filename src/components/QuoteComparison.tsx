@@ -173,9 +173,9 @@ export const QuoteComparison: FC<QuoteComparisonProps> = ({
   if (isDFlowSlippageError(error)) {
     return (
       <div style={styles.warningCard} role="alert">
-        <div style={styles.warningTitle}>FİYAT BEKLENİYOR</div>
+        <div style={styles.warningTitle}>WAITING FOR PRICE</div>
         <div style={styles.warningText}>
-          Anlık slippage limit üzerinde, fiyat bekleniyor...
+          Current slippage exceeds limit, waiting for price to recover...
         </div>
         <div style={styles.warningDetail}>{error}</div>
       </div>
@@ -188,7 +188,7 @@ export const QuoteComparison: FC<QuoteComparisonProps> = ({
   if (error && !quote) {
     return (
       <div style={styles.errorCard} role="alert">
-        <div style={styles.errorTitle}>QUOTE ALINAMADI</div>
+        <div style={styles.errorTitle}>QUOTE FAILED</div>
         <div style={styles.errorText}>{error}</div>
       </div>
     );
@@ -220,7 +220,7 @@ export const QuoteComparison: FC<QuoteComparisonProps> = ({
       <div style={styles.card}>
         <div style={styles.label}>QUOTE COMPARISON</div>
         <div style={styles.hintText}>
-          Quote almak için token pair ve miktar girin.
+          Select a token pair and amount to fetch a quote.
         </div>
       </div>
     );
@@ -245,7 +245,7 @@ export const QuoteComparison: FC<QuoteComparisonProps> = ({
 
       {refreshNotice && (
         <div style={styles.refreshNotice} role="status">
-          Quote yenilendi
+          Quote refreshed
         </div>
       )}
 
@@ -258,7 +258,7 @@ export const QuoteComparison: FC<QuoteComparisonProps> = ({
             {marketQuote.outAmount.toLocaleString("en-US", {
               maximumFractionDigits: 6,
             })}{" "}
-            çıkış
+            out
           </div>
         </div>
 
@@ -288,10 +288,10 @@ export const QuoteComparison: FC<QuoteComparisonProps> = ({
             }}
           >
             {isImprovement
-              ? "DFlow avantajı"
+              ? "DFlow advantage"
               : isLoss
-                ? "DFlow dezavantajı"
-                : "eşit"}
+                ? "DFlow disadvantage"
+                : "equal"}
           </div>
         </div>
 
@@ -310,16 +310,16 @@ export const QuoteComparison: FC<QuoteComparisonProps> = ({
             {dflowQuote.outAmount.toLocaleString("en-US", {
               maximumFractionDigits: 6,
             })}{" "}
-            çıkış
+            out
           </div>
         </div>
       </div>
 
       <div style={styles.divider} />
 
-      {/* USD karşılığı */}
+      {/* USD equivalent */}
       <div style={styles.usdRow}>
-        <span style={styles.usdLabel}>Dolar cinsinden</span>
+        <span style={styles.usdLabel}>In USD</span>
         <span
           style={{
             ...styles.usdValue,
@@ -333,8 +333,8 @@ export const QuoteComparison: FC<QuoteComparisonProps> = ({
           {dflowQuote.priceImprovement === 0
             ? "—"
             : isImprovement
-              ? `${formatUSD(dflowQuote.priceImprovement)} ekstra`
-              : `${formatUSD(dflowQuote.priceImprovement)} daha az`}
+              ? `${formatUSD(dflowQuote.priceImprovement)} extra`
+              : `${formatUSD(dflowQuote.priceImprovement)} less`}
         </span>
       </div>
 
@@ -346,8 +346,8 @@ export const QuoteComparison: FC<QuoteComparisonProps> = ({
         }}
       >
         {countdownExpired
-          ? "Quote süresi doldu, yenileniyor..."
-          : `Quote ${secondsLeft} saniye içinde sona eriyor`}
+          ? "Quote expired, refreshing..."
+          : `Quote expires in ${secondsLeft}s`}
       </div>
     </div>
   );

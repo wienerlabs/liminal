@@ -44,12 +44,12 @@ export function parseError(
   const code4001 = extractCode(error) === 4001;
   const timestamp = new Date();
 
-  // --- Solana RPC hataları -----------------------------------------------
+  // --- Solana RPC errors -------------------------------------------------
   if (/transaction was not confirmed/i.test(rawMessage)) {
     const secs = rawMessage.match(/(\d+)\s*seconds?/i)?.[1] ?? "60";
     return {
       code: ErrorCode.TRANSACTION_TIMEOUT,
-      message: `Transaction ${secs} saniyede onaylanamadı. Ağ yoğunluğu yüksek, tekrar denenebilir.`,
+      message: `Transaction was not confirmed in ${secs}s. Network is congested, please retry.`,
       sliceIndex,
       retryable: true,
       timestamp,
@@ -59,7 +59,7 @@ export function parseError(
   if (/blockhash not found/i.test(rawMessage)) {
     return {
       code: ErrorCode.TRANSACTION_TIMEOUT,
-      message: "Blockhash süresi doldu. Transaction yeniden gönderilecek.",
+      message: "Blockhash expired. The transaction will be resent.",
       sliceIndex,
       retryable: true,
       timestamp,
@@ -70,7 +70,7 @@ export function parseError(
     return {
       code: ErrorCode.UNKNOWN,
       message:
-        "Hesap rent'i için yeterli SOL yok. Cüzdana küçük miktarda SOL ekleyin.",
+        "Not enough SOL for account rent. Add a small amount of SOL to your wallet.",
       sliceIndex,
       retryable: false,
       timestamp,
@@ -81,65 +81,65 @@ export function parseError(
     console.error("[LIMINAL] Custom program error:", error);
     return {
       code: ErrorCode.UNKNOWN,
-      message: `Program hatası oluştu. Detay: ${truncate(rawMessage, 140)}`,
+      message: `Program error occurred. Detail: ${truncate(rawMessage, 140)}`,
       sliceIndex,
       retryable: false,
       timestamp,
     };
   }
 
-  // --- Solflare wallet hataları ------------------------------------------
-  if (code4001 || /user rejected|reddedil|cüzdanda reddedildi/i.test(rawMessage)) {
+  // --- Solflare wallet errors --------------------------------------------
+  if (code4001 || /user rejected|rejected in wallet/i.test(rawMessage)) {
     return {
       code: ErrorCode.WALLET_REJECTED,
       message:
-        "İşlem cüzdanda reddedildi. Tekrar onaylamak için 'Tekrar Dene'ye tıklayın.",
+        "Transaction rejected in wallet. Click 'Retry' to approve again.",
       sliceIndex,
       retryable: true,
       timestamp,
     };
   }
 
-  if (/wallet not connected|solflare bağlı değil/i.test(rawMessage)) {
+  if (/wallet not connected|solflare not connected/i.test(rawMessage)) {
     return {
       code: ErrorCode.WALLET_REJECTED,
       message:
-        "Cüzdan bağlantısı koptu. Sayfayı yenileyip yeniden bağlanın.",
+        "Wallet disconnected. Refresh the page and reconnect.",
       sliceIndex,
       retryable: false,
       timestamp,
     };
   }
 
-  // --- DFlow hataları -----------------------------------------------------
-  if (/quote expired|quote süresi doldu/i.test(rawMessage)) {
+  // --- DFlow errors ------------------------------------------------------
+  if (/quote expired/i.test(rawMessage)) {
     return {
       code: ErrorCode.DFLOW_QUOTE_EXPIRED,
       message:
-        "DFlow quote süresi doldu. Yeni quote alınıp tekrar denenecek.",
+        "DFlow quote expired. A new quote will be fetched and retried.",
       sliceIndex,
       retryable: true,
       timestamp,
     };
   }
 
-  if (/slippage tolerance exceeded|anlık slippage|slippage.+(limit|aşıldı)/i.test(rawMessage)) {
+  if (/slippage tolerance exceeded|current slippage|slippage.+(limit|exceed)/i.test(rawMessage)) {
     return {
       code: ErrorCode.SLIPPAGE_EXCEEDED,
       message:
-        "Slippage limiti aşıldı. Dilim fiyat düzelince tekrar denenecek.",
+        "Slippage limit exceeded. The slice will retry once the price recovers.",
       sliceIndex,
       retryable: true,
       timestamp,
     };
   }
 
-  // --- Kamino hataları ----------------------------------------------------
-  if (/insufficient liquidity|likidite.*yok/i.test(rawMessage)) {
+  // --- Kamino errors -----------------------------------------------------
+  if (/insufficient liquidity/i.test(rawMessage)) {
     return {
       code: ErrorCode.KAMINO_INSUFFICIENT_LIQUIDITY,
       message:
-        "Kamino vault'ta yeterli likidite yok. Çekim şu an yapılamıyor.",
+        "Not enough liquidity in Kamino vault. Withdrawal is currently unavailable.",
       sliceIndex,
       retryable: false,
       timestamp,
@@ -150,15 +150,15 @@ export function parseError(
     return {
       code: ErrorCode.KAMINO_WITHDRAW_FAILED,
       message:
-        "Kamino reserve verisi güncelleniyor, tekrar denenecek.",
+        "Kamino reserve data is updating, will retry shortly.",
       sliceIndex,
       retryable: true,
       timestamp,
     };
   }
 
-  // --- Batch simulation specifik ------------------------------------------
-  if (/simulation.*başarısız|simulation failed/i.test(rawMessage)) {
+  // --- Batch simulation specific -----------------------------------------
+  if (/simulation (failed|unsuccessful)/i.test(rawMessage)) {
     return {
       code: ErrorCode.DFLOW_SIMULATION_FAILED,
       message: rawMessage,
@@ -168,17 +168,17 @@ export function parseError(
     };
   }
 
-  // --- Phase-based fallback -----------------------------------------------
+  // --- Phase-based fallback ----------------------------------------------
   if (phase) {
     const fallback = phaseFallback(phase, rawMessage, sliceIndex, timestamp);
     if (fallback) return fallback;
   }
 
-  // --- Tanınmayan: UNKNOWN + tam log --------------------------------------
-  console.error("[LIMINAL] parseError tanımadı:", error);
+  // --- Unrecognized: UNKNOWN + log ---------------------------------------
+  console.error("[LIMINAL] parseError unrecognized:", error);
   return {
     code: ErrorCode.UNKNOWN,
-    message: `Beklenmeyen hata: ${truncate(rawMessage, 100)}`,
+    message: `Unexpected error: ${truncate(rawMessage, 100)}`,
     sliceIndex,
     retryable: false,
     timestamp,
@@ -201,7 +201,7 @@ function extractMessage(error: unknown): string {
       return String(error);
     }
   }
-  return String(error ?? "bilinmeyen hata");
+  return String(error ?? "unknown error");
 }
 
 function extractCode(error: unknown): number | undefined {

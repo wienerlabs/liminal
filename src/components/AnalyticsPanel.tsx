@@ -131,13 +131,13 @@ function formatDuration(ms: number): string {
   const h = Math.floor(totalSec / 3600);
   const m = Math.floor((totalSec % 3600) / 60);
   const s = totalSec % 60;
-  if (h > 0) return `${h}s ${m}dk`;
-  if (m > 0) return `${m}dk ${s}s`;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${s}s`;
   return `${s}s`;
 }
 
 function formatDate(d: Date): string {
-  return d.toLocaleDateString("tr-TR", {
+  return d.toLocaleDateString("en-US", {
     day: "numeric",
     month: "long",
     hour: "2-digit",
@@ -146,7 +146,7 @@ function formatDate(d: Date): string {
 }
 
 function formatTime(d: Date): string {
-  return d.toLocaleTimeString("tr-TR", {
+  return d.toLocaleTimeString("en-US", {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
@@ -190,22 +190,22 @@ export const AnalyticsPanel: FC = () => {
   }, []);
 
   return (
-    <aside style={styles.panel} aria-label="Analytics paneli">
+    <aside style={styles.panel} aria-label="Analytics panel">
       <header style={styles.header}>ANALYTICS</header>
 
       <nav style={styles.tabs}>
         <TabButton
-          label="Anlık"
+          label="Live"
           active={activeTab === "live"}
           onClick={() => handleTabChange("live")}
         />
         <TabButton
-          label="Geçmiş"
+          label="History"
           active={activeTab === "history"}
           onClick={() => handleTabChange("history")}
         />
         <TabButton
-          label="Protokol"
+          label="Protocol"
           active={activeTab === "protocol"}
           onClick={() => handleTabChange("protocol")}
         />
@@ -297,7 +297,7 @@ const LiveTab: FC<{
   if (!hasData) {
     return (
       <div style={styles.emptyHint}>
-        Execution başladığında gerçek zamanlı analitik burada görünecek.
+        Real-time analytics will appear here when an execution starts.
       </div>
     );
   }
@@ -331,7 +331,7 @@ const ValueCaptureBanner: FC<{
 
   return (
     <div style={styles.valueCaptureBanner}>
-      <div style={styles.valueCaptureLabel}>TOPLAM KAZANIM</div>
+      <div style={styles.valueCaptureLabel}>TOTAL GAIN</div>
       <div
         style={{
           ...styles.valueCaptureValue,
@@ -530,7 +530,7 @@ function useLiveKaminoYield(
         ]);
       } catch (err) {
         console.warn(
-          `[LIMINAL] Kamino yield sample hatası: ${err instanceof Error ? err.message : String(err)}`,
+          `[LIMINAL] Kamino yield sample error: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
     };
@@ -655,7 +655,7 @@ const LiveTimeline: FC<{
 
   return (
     <div style={styles.chartCard}>
-      <div style={styles.chartLabel}>TAMAMLANAN DİLİMLER</div>
+      <div style={styles.chartLabel}>COMPLETED SLICES</div>
       <div style={styles.timelineList}>
         {ordered.map((slice) => {
           const r = slice.result!;
@@ -669,7 +669,7 @@ const LiveTimeline: FC<{
             >
               <div style={styles.timelineHeader}>
                 <span style={styles.timelineTitle}>
-                  Dilim {slice.sliceIndex + 1}
+                  Slice {slice.sliceIndex + 1}
                 </span>
                 <span style={styles.timelineTime}>
                   {formatTime(r.confirmedAt)}
@@ -746,7 +746,7 @@ const HistoryTab: FC<{ isMobile: boolean }> = ({ isMobile }) => {
 
   if (history.length === 0) {
     return (
-      <div style={styles.emptyHint}>Henüz tamamlanmış execution yok.</div>
+      <div style={styles.emptyHint}>No completed executions yet.</div>
     );
   }
 
@@ -816,20 +816,20 @@ const HistoryCard: FC<{
         </button>
         {confirmingDelete ? (
           <div style={styles.confirmGroup}>
-            <span style={styles.confirmText}>Emin misin?</span>
+            <span style={styles.confirmText}>Are you sure?</span>
             <button
               type="button"
               onClick={onConfirmDelete}
               style={styles.confirmYes}
             >
-              SİL
+              DELETE
             </button>
             <button
               type="button"
               onClick={onCancelDelete}
               style={styles.confirmNo}
             >
-              İPTAL
+              CANCEL
             </button>
           </div>
         ) : (
@@ -837,8 +837,8 @@ const HistoryCard: FC<{
             type="button"
             onClick={onRequestDelete}
             style={styles.deleteBtn}
-            title="Sil"
-            aria-label="Execution geçmişini sil"
+            title="Delete"
+            aria-label="Delete execution history"
           >
             ×
           </button>
@@ -868,7 +868,7 @@ const HistoryCard: FC<{
           {formatUSD(summary.totalKaminoYieldUsd)}
         </span>
         <span style={styles.historyDivider}>|</span>
-        <span style={styles.historyValueKey}>Toplam:</span>{" "}
+        <span style={styles.historyValueKey}>Total:</span>{" "}
         <span
           style={{
             color: total >= 0 ? THEME.success : THEME.amber,
@@ -906,19 +906,19 @@ const HistoryDetailModal: FC<{
 
         <div style={styles.modalSummaryGrid}>
           <SummaryMetric
-            label="Toplam miktar"
+            label="Total amount"
             value={`${formatAmount(summary.totalInputAmount, 4)} ${inputSymbol}`}
           />
           <SummaryMetric
-            label="Alınan"
+            label="Received"
             value={`${formatAmount(summary.totalOutputAmount, 4)} ${outputSymbol}`}
           />
           <SummaryMetric
-            label="Ortalama fill"
+            label="Average fill"
             value={formatAmount(summary.averageExecutionPrice, 6)}
           />
           <SummaryMetric
-            label="Baseline fiyat"
+            label="Baseline price"
             value={formatAmount(summary.baselinePrice, 6)}
           />
           <SummaryMetric
@@ -945,7 +945,7 @@ const HistoryDetailModal: FC<{
             color={THEME.success}
           />
           <SummaryMetric
-            label="Toplam kazanım"
+            label="Total gain"
             value={formatUSD(summary.totalValueCaptureUsd)}
             color={
               summary.totalValueCaptureUsd >= 0
@@ -955,25 +955,25 @@ const HistoryDetailModal: FC<{
             big
           />
           <SummaryMetric
-            label="Süre"
+            label="Duration"
             value={formatDuration(summary.executionDurationMs)}
           />
           <SummaryMetric
-            label="Dilim"
-            value={`${summary.completedSlices} tamamlandı`}
+            label="Slices"
+            value={`${summary.completedSlices} completed`}
           />
         </div>
 
-        <div style={styles.modalSectionTitle}>DİLİM DETAYLARI</div>
+        <div style={styles.modalSectionTitle}>SLICE DETAILS</div>
         <div style={styles.tableWrap}>
           <table style={styles.table}>
             <thead>
               <tr>
                 <th style={styles.th}>#</th>
-                <th style={styles.th}>Fiyat</th>
+                <th style={styles.th}>Price</th>
                 <th style={styles.th}>Bps</th>
                 <th style={styles.th}>Yield $</th>
-                <th style={styles.th}>Süre</th>
+                <th style={styles.th}>Duration</th>
                 <th style={styles.th}>Tx</th>
               </tr>
             </thead>
@@ -995,7 +995,7 @@ const HistoryDetailModal: FC<{
               rel="noreferrer noopener"
               style={styles.explorerLink}
             >
-              Dilim {s.sliceIndex + 1}: {s.signature.slice(0, 8)}...
+              Slice {s.sliceIndex + 1}: {s.signature.slice(0, 8)}...
               {s.signature.slice(-8)}
             </a>
           ))}
@@ -1125,7 +1125,7 @@ const ProtocolTab: FC<{ isMobile: boolean }> = ({ isMobile }) => {
   if (!stats) {
     return (
       <div style={styles.emptyHint}>
-        Protokol istatistikleri execution tamamlandıkça burada görünecek.
+        Protocol statistics will appear here as executions complete.
       </div>
     );
   }
@@ -1138,39 +1138,39 @@ const ProtocolTab: FC<{ isMobile: boolean }> = ({ isMobile }) => {
       }}
     >
       <ProtocolMetric
-        label="Toplam execution"
+        label="Total executions"
         value={stats.totalExecutions.toLocaleString("en-US")}
       />
       <ProtocolMetric
-        label="Toplam hacim"
+        label="Total volume"
         value={formatUSD(stats.totalVolumeUsd)}
       />
       <ProtocolMetric
-        label="Toplam DFlow kazanımı"
+        label="Total DFlow gain"
         value={formatUSD(stats.totalDFlowUsd)}
         color={THEME.success}
       />
       <ProtocolMetric
-        label="Toplam Kamino yield"
+        label="Total Kamino yield"
         value={formatUSD(stats.totalKaminoUsd)}
         color={THEME.success}
       />
       <ProtocolMetric
-        label="Toplam value capture"
+        label="Total value capture"
         value={formatUSD(stats.totalValueCapture)}
         color={THEME.success}
         big
       />
       <ProtocolMetric
-        label="Ortalama execution süresi"
+        label="Average execution duration"
         value={formatDuration(stats.avgDurationMs)}
       />
       <ProtocolMetric
-        label="En çok kullanılan pair"
+        label="Most used pair"
         value={`${stats.topPair} (${stats.topCount}×)`}
       />
       <ProtocolMetric
-        label="En yüksek tek execution"
+        label="Best single execution"
         value={formatUSD(stats.maxCapture)}
         color={THEME.success}
       />

@@ -66,8 +66,8 @@ function formatDuration(ms: number): string {
   const h = Math.floor(totalSec / 3600);
   const m = Math.floor((totalSec % 3600) / 60);
   const s = totalSec % 60;
-  if (h > 0) return `${h}sa ${m}dk`;
-  if (m > 0) return `${m}dk ${s}s`;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${s}s`;
   return `${s}s`;
 }
 
@@ -133,7 +133,7 @@ export const ExecutionSummaryCard: FC<ExecutionSummaryCardProps> = ({
   return (
     <div style={styles.card}>
       <div style={styles.checkmark}>✓</div>
-      <div style={styles.title}>EXECUTION TAMAMLANDI</div>
+      <div style={styles.title}>EXECUTION COMPLETED</div>
 
       <div style={styles.pairRow}>
         <span style={styles.pairText}>
@@ -144,14 +144,14 @@ export const ExecutionSummaryCard: FC<ExecutionSummaryCardProps> = ({
         {formatAmount(totalInput, 4)} {inputSymbol}
       </div>
       <div style={styles.durationRow}>
-        Süre: {formatDuration(durationMs)}
+        Duration: {formatDuration(durationMs)}
       </div>
 
       <div style={styles.divider} />
 
       <div style={styles.metricsGrid}>
         <Metric
-          label="Ortalama fill"
+          label="Average fill"
           value={formatAmount(averageFill, 6)}
         />
         <Metric
@@ -159,7 +159,7 @@ export const ExecutionSummaryCard: FC<ExecutionSummaryCardProps> = ({
           value={formatAmount(baselinePrice, 6)}
         />
         <Metric
-          label="DFlow kazanımı"
+          label="DFlow gain"
           value={formatUSD(state.totalPriceImprovementUsd)}
           sub={`${formatBps(state.totalPriceImprovementBps)} bps`}
           color={
@@ -171,14 +171,14 @@ export const ExecutionSummaryCard: FC<ExecutionSummaryCardProps> = ({
         <Metric
           label="Kamino yield"
           value={`${formatAmount(kaminoYieldTokens, 6)} ${inputSymbol}`}
-          sub="gerçek yield (token)"
+          sub="actual yield (tokens)"
           color={THEME.success}
         />
       </div>
 
       <div style={styles.divider} />
 
-      <div style={styles.valueCaptureLabel}>TOPLAM KAZANIM (DFLOW)</div>
+      <div style={styles.valueCaptureLabel}>TOTAL GAIN (DFLOW)</div>
       <div
         style={{
           ...styles.valueCaptureValue,
@@ -189,8 +189,7 @@ export const ExecutionSummaryCard: FC<ExecutionSummaryCardProps> = ({
         {formatUSD(totalValueCaptureUsd)}
       </div>
       <div style={styles.valueCaptureHint}>
-        Kamino yield'ın USD karşılığı Analytics → Geçmiş sekmesinde detaylı
-        görünür.
+        Kamino yield USD value is shown in detail under Analytics → History.
       </div>
 
       <div style={styles.actions}>
@@ -199,14 +198,14 @@ export const ExecutionSummaryCard: FC<ExecutionSummaryCardProps> = ({
           onClick={onReset}
           style={styles.primaryButton}
         >
-          YENİ EXECUTION BAŞLAT
+          START NEW EXECUTION
         </button>
         <button
           type="button"
           onClick={handleViewDetails}
           style={styles.secondaryButton}
         >
-          DETAYLARI GÖR
+          VIEW DETAILS
         </button>
       </div>
     </div>

@@ -138,10 +138,10 @@ export const VaultPreview: FC<VaultPreviewProps> = ({
   if (!vault) {
     return (
       <div style={styles.warningCard} role="alert">
-        <div style={styles.warningTitle}>VAULT BULUNAMADI</div>
+        <div style={styles.warningTitle}>NO VAULT FOUND</div>
         <div style={styles.warningText}>
-          Bu token için aktif Kamino vault bulunamadı, idle sermaye park
-          edilemeyecek.
+          No active Kamino vault found for this token. Idle capital cannot
+          be parked.
         </div>
       </div>
     );
@@ -169,7 +169,7 @@ export const VaultPreview: FC<VaultPreviewProps> = ({
 
       <div style={styles.divider} />
 
-      <div style={styles.yieldLabel}>Bu execution boyunca tahmini kazanç</div>
+      <div style={styles.yieldLabel}>Estimated yield for this execution</div>
       <div style={styles.yieldValue}>{formatUSD(estimatedYield)}</div>
     </div>
   );

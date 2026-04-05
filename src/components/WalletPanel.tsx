@@ -179,7 +179,7 @@ export const WalletPanel: FC = () => {
       setTokens(tokenBalances);
     } catch (err) {
       setBalanceError(
-        err instanceof Error ? err.message : "Bakiye yüklenirken bir hata oluştu.",
+        err instanceof Error ? err.message : "An error occurred while loading balances.",
       );
     } finally {
       setBalanceLoading(false);
@@ -203,7 +203,7 @@ export const WalletPanel: FC = () => {
       await connectWallet();
     } catch (err) {
       setConnectError(
-        err instanceof Error ? err.message : "Bağlantı sırasında bir hata oluştu.",
+        err instanceof Error ? err.message : "An error occurred while connecting.",
       );
     }
   }, []);
@@ -221,11 +221,11 @@ export const WalletPanel: FC = () => {
   // -----------------------------------------------------------------------
   if (!wallet.connected) {
     return (
-      <aside style={styles.panel} aria-label="Cüzdan paneli">
-        <header style={styles.header}>CÜZDAN</header>
+      <aside style={styles.panel} aria-label="Wallet panel">
+        <header style={styles.header}>WALLET</header>
         <div style={styles.emptyBody}>
           <div style={styles.emptyHint}>
-            LIMINAL'i kullanmaya başlamak için Solflare cüzdanınızı bağlayın.
+            Connect your Solflare wallet to start using LIMINAL.
           </div>
           <button
             type="button"
@@ -237,7 +237,7 @@ export const WalletPanel: FC = () => {
               cursor: wallet.connecting ? "wait" : "pointer",
             }}
           >
-            {wallet.connecting ? "BAĞLANIYOR..." : "CONNECT SOLFLARE"}
+            {wallet.connecting ? "CONNECTING..." : "CONNECT SOLFLARE"}
           </button>
           {connectError && (
             <div role="alert" style={styles.errorText}>
@@ -253,11 +253,11 @@ export const WalletPanel: FC = () => {
   // Connected state: adres + bakiyeler + disconnect
   // -----------------------------------------------------------------------
   return (
-    <aside style={styles.panel} aria-label="Cüzdan paneli">
-      <header style={styles.header}>CÜZDAN</header>
+    <aside style={styles.panel} aria-label="Wallet panel">
+      <header style={styles.header}>WALLET</header>
 
       <section style={styles.section}>
-        <div style={styles.sectionLabel}>ADRES</div>
+        <div style={styles.sectionLabel}>ADDRESS</div>
         <div style={styles.addressValue}>
           {wallet.address ? shortAddress(wallet.address) : "—"}
         </div>
@@ -266,12 +266,12 @@ export const WalletPanel: FC = () => {
       <div style={styles.divider} />
 
       <section style={styles.section}>
-        <div style={styles.sectionLabel}>BAKİYELER</div>
+        <div style={styles.sectionLabel}>BALANCES</div>
 
         {balanceError ? (
           <div style={styles.errorBlock} role="alert">
             <div style={styles.errorText}>
-              Bakiye yüklenemedi. Solana RPC yanıt vermedi.
+              Failed to load balances. Solana RPC did not respond.
             </div>
             <div style={styles.errorDetail}>{balanceError}</div>
             <button
@@ -279,7 +279,7 @@ export const WalletPanel: FC = () => {
               onClick={handleRetryBalances}
               style={styles.secondaryButton}
             >
-              Yeniden Dene
+              Retry
             </button>
           </div>
         ) : balanceLoading || sol === null || tokens === null ? (
@@ -313,20 +313,20 @@ export const WalletPanel: FC = () => {
       {/* Kompakt geçmiş — son 3 execution */}
       <section style={styles.section}>
         <div style={styles.historyHeaderRow}>
-          <div style={styles.sectionLabel}>GEÇMİŞ</div>
+          <div style={styles.sectionLabel}>HISTORY</div>
           {recentHistory.length > 0 && (
             <button
               type="button"
               onClick={() => requestAnalyticsTab("history")}
               style={styles.historyAllLink}
             >
-              Tüm Geçmiş →
+              View All →
             </button>
           )}
         </div>
 
         {recentHistory.length === 0 ? (
-          <div style={styles.historyEmpty}>Henüz execution yok.</div>
+          <div style={styles.historyEmpty}>No executions yet.</div>
         ) : (
           <div style={styles.historyList}>
             {recentHistory.map((h) => (
@@ -360,7 +360,7 @@ const HistoryRowCompact: FC<{ execution: HistoricalExecution }> = ({
 }) => {
   const total = execution.summary.totalValueCaptureUsd;
   const positive = total >= 0;
-  const dateStr = execution.createdAt.toLocaleDateString("tr-TR", {
+  const dateStr = execution.createdAt.toLocaleDateString("en-US", {
     day: "numeric",
     month: "short",
   });

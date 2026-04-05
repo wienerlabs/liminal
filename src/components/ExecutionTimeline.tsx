@@ -71,7 +71,7 @@ if (
 // ---------------------------------------------------------------------------
 
 function formatTime(date: Date): string {
-  return date.toLocaleTimeString("tr-TR", {
+  return date.toLocaleTimeString("en-US", {
     hour: "2-digit",
     minute: "2-digit",
   });
@@ -83,8 +83,8 @@ function formatDuration(ms: number): string {
   const h = Math.floor(totalSec / 3600);
   const m = Math.floor((totalSec % 3600) / 60);
   const s = totalSec % 60;
-  if (h > 0) return `${h}s ${m}dk`;
-  if (m > 0) return `${m}dk ${s}s`;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${s}s`;
   return `${s}s`;
 }
 
@@ -106,28 +106,28 @@ function formatBps(bps: number): string {
   })} bps`;
 }
 
-/** Status → Türkçe label + dilim numarası enrich. */
+/** Status → English label enriched with slice number. */
 function statusLabel(state: ExecutionState): string {
   const n = state.currentSliceIndex + 1;
   switch (state.status) {
     case ExecutionStatus.IDLE:
-      return "Hazır";
+      return "Ready";
     case ExecutionStatus.CONFIGURED:
-      return "Yapılandırıldı";
+      return "Configured";
     case ExecutionStatus.DEPOSITING:
-      return "Kamino'ya yatırılıyor...";
+      return "Depositing to Kamino...";
     case ExecutionStatus.ACTIVE:
-      return "Execution aktif";
+      return "Execution active";
     case ExecutionStatus.SLICE_WITHDRAWING:
-      return `Dilim ${n} çekiliyor...`;
+      return `Slice ${n} withdrawing...`;
     case ExecutionStatus.SLICE_EXECUTING:
-      return `Dilim ${n} execute ediliyor...`;
+      return `Slice ${n} executing...`;
     case ExecutionStatus.COMPLETING:
-      return "Tamamlanıyor...";
+      return "Completing...";
     case ExecutionStatus.DONE:
-      return "Tamamlandı";
+      return "Completed";
     case ExecutionStatus.ERROR:
-      return "Hata oluştu";
+      return "Error";
   }
 }
 
@@ -205,7 +205,7 @@ export const ExecutionTimeline: FC<ExecutionTimelineProps> = ({
         </div>
 
         <div style={styles.summaryCell}>
-          <div style={styles.summaryLabel}>DİLİM</div>
+          <div style={styles.summaryLabel}>SLICES</div>
           <div style={styles.summaryValue}>
             {completedCount}/{totalCount || "—"}
           </div>
@@ -250,7 +250,7 @@ export const ExecutionTimeline: FC<ExecutionTimelineProps> = ({
         </div>
 
         <div style={styles.summaryCell}>
-          <div style={styles.summaryLabel}>KALAN</div>
+          <div style={styles.summaryLabel}>REMAINING</div>
           <div style={styles.summaryValue}>
             {state.estimatedCompletionAt && remainingMs > 0
               ? formatDuration(remainingMs)
@@ -295,13 +295,13 @@ export const ExecutionTimeline: FC<ExecutionTimelineProps> = ({
         />
       )}
 
-      {/* DONE özeti */}
+      {/* DONE summary */}
       {state.status === ExecutionStatus.DONE && (
         <div style={styles.doneCard}>
-          <div style={styles.doneTitle}>EXECUTION TAMAMLANDI</div>
+          <div style={styles.doneTitle}>EXECUTION COMPLETED</div>
           <div style={styles.doneGrid}>
             <DoneMetric
-              label="Toplam iyileştirme"
+              label="Total improvement"
               value={formatBps(state.totalPriceImprovementBps)}
               color={
                 state.totalPriceImprovementBps >= 0
@@ -310,7 +310,7 @@ export const ExecutionTimeline: FC<ExecutionTimelineProps> = ({
               }
             />
             <DoneMetric
-              label="Dolar cinsinden"
+              label="In USD"
               value={formatUSD(state.totalPriceImprovementUsd)}
               color={
                 state.totalPriceImprovementUsd >= 0
@@ -324,7 +324,7 @@ export const ExecutionTimeline: FC<ExecutionTimelineProps> = ({
               color={THEME.success}
             />
             <DoneMetric
-              label="Süre"
+              label="Duration"
               value={
                 state.startedAt && state.completedAt
                   ? formatDuration(
@@ -341,7 +341,7 @@ export const ExecutionTimeline: FC<ExecutionTimelineProps> = ({
             onClick={onReset}
             style={styles.doneResetButton}
           >
-            YENİ EXECUTION
+            NEW EXECUTION
           </button>
         </div>
       )}
@@ -401,7 +401,7 @@ const SliceRow: FC<{
       <div style={styles.sliceBody}>
         <div style={styles.sliceHeader}>
           <span style={styles.sliceNumber}>
-            Dilim {slice.sliceIndex + 1}
+            Slice {slice.sliceIndex + 1}
           </span>
           <span style={styles.sliceAmount}>
             {slice.amount.toLocaleString("en-US", {
@@ -413,12 +413,12 @@ const SliceRow: FC<{
           {status === "pending" && (
             <>
               {secondsUntil > 0
-                ? `~${formatTime(slice.targetExecutionTime)}'de execute edilecek`
-                : "Sıra bekleniyor..."}
+                ? `~${formatTime(slice.targetExecutionTime)}`
+                : "Awaiting turn..."}
             </>
           )}
-          {status === "executing" && "Execute ediliyor..."}
-          {status === "skipped" && "Slippage limitini aştı, ertelendi"}
+          {status === "executing" && "Executing..."}
+          {status === "skipped" && "Slippage exceeded, deferred"}
           {status === "completed" && slice.result && (
             <CompletedDetails result={slice.result} />
           )}

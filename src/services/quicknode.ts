@@ -32,20 +32,20 @@ const COMMITMENT: Commitment = "confirmed";
 const RPC_TIMEOUT_MS = 15_000;
 const PYTH_STALE_CONFIDENCE_RATIO = 0.05; // confidence > 5% of price → stale
 
-// Module-load-time safety: developer görmezse sessizce fail etme.
+// Module-load-time safety: never fail silently if the developer forgets it.
 if (typeof console !== "undefined" && !QUICKNODE_RPC_ENDPOINT) {
   console.error(
-    "[LIMINAL] UYARI: QUICKNODE_RPC_ENDPOINT boş. Tüm RPC çağrıları hata fırlatacak. " +
-      "src/services/quicknode.ts dosyasındaki sabiti Quicknode dashboard > " +
-      "Solana Mainnet > HTTP Provider URL ile doldurun.",
+    "[LIMINAL] WARNING: QUICKNODE_RPC_ENDPOINT is empty. All RPC calls will throw. " +
+      "Fill the constant at the top of src/services/quicknode.ts with " +
+      "your Quicknode dashboard > Solana Mainnet > HTTP Provider URL.",
   );
 }
 
 function requireEndpoint(): string {
   if (!QUICKNODE_RPC_ENDPOINT) {
     throw new Error(
-      "Quicknode RPC endpoint yapılandırılmamış. " +
-        "src/services/quicknode.ts içindeki QUICKNODE_RPC_ENDPOINT değerini doldurun.",
+      "Quicknode RPC endpoint is not configured. " +
+        "Fill the QUICKNODE_RPC_ENDPOINT constant at the top of src/services/quicknode.ts.",
     );
   }
   return QUICKNODE_RPC_ENDPOINT;
@@ -148,12 +148,12 @@ export function resolveTokenSymbol(mint: string): string {
   return symbolFor(mint);
 }
 
-function parsePublicKey(address: string, label = "cüzdan adresi"): PublicKey {
+function parsePublicKey(address: string, label = "wallet address"): PublicKey {
   try {
     return new PublicKey(address);
   } catch {
     throw new Error(
-      `Geçersiz Solana ${label}: "${address}". Lütfen Solflare'i yeniden bağlayın.`,
+      `Invalid Solana ${label}: "${address}". Please reconnect Solflare.`,
     );
   }
 }
@@ -172,7 +172,7 @@ async function withTimeout<T>(
 ): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => {
-      reject(new Error(`${label} zaman aşımına uğradı (${ms}ms).`));
+      reject(new Error(`${label} timed out (${ms}ms).`));
     }, ms);
     promise.then(
       (value) => {
@@ -194,7 +194,7 @@ async function withTimeout<T>(
 /** Wallet'ın native SOL bakiyesini döner. Lamport → SOL dönüşümü dahil. */
 export async function getSOLBalance(walletAddress: string): Promise<number> {
   if (!walletAddress) {
-    throw new Error("Cüzdan adresi gerekli — önce Solflare'i bağlayın.");
+    throw new Error("Wallet address required — connect Solflare first.");
   }
   const pubkey = parsePublicKey(walletAddress);
   const connection = createConnection();
@@ -203,20 +203,20 @@ export async function getSOLBalance(walletAddress: string): Promise<number> {
     const lamports = await withTimeout(
       connection.getBalance(pubkey, COMMITMENT),
       RPC_TIMEOUT_MS,
-      "SOL bakiyesi sorgusu",
+      "SOL balance query",
     );
     return lamports / LAMPORTS_PER_SOL;
   } catch (err) {
-    if (err instanceof Error && /zaman aşımına uğradı/.test(err.message)) {
+    if (err instanceof Error && /timed out/.test(err.message)) {
       throw err;
     }
     if (isNetworkError(err)) {
       throw new Error(
-        "Quicknode RPC'ye ulaşılamıyor. İnternet bağlantınızı ve RPC endpoint'inizi kontrol edin.",
+        "Cannot reach Quicknode RPC. Check your internet connection and RPC endpoint.",
       );
     }
     const message = err instanceof Error ? err.message : String(err);
-    throw new Error(`SOL bakiyesi alınamadı: ${message}`);
+    throw new Error(`Failed to fetch SOL balance: ${message}`);
   }
 }
 
@@ -240,7 +240,7 @@ export async function getSPLTokenBalances(
   walletAddress: string,
 ): Promise<TokenBalance[]> {
   if (!walletAddress) {
-    throw new Error("Cüzdan adresi gerekli — önce Solflare'i bağlayın.");
+    throw new Error("Wallet address required — connect Solflare first.");
   }
   const pubkey = parsePublicKey(walletAddress);
   const connection = createConnection();
@@ -254,19 +254,19 @@ export async function getSPLTokenBalances(
         COMMITMENT,
       ),
       RPC_TIMEOUT_MS,
-      "SPL token hesapları sorgusu",
+      "SPL token accounts query",
     );
   } catch (err) {
-    if (err instanceof Error && /zaman aşımına uğradı/.test(err.message)) {
+    if (err instanceof Error && /timed out/.test(err.message)) {
       throw err;
     }
     if (isNetworkError(err)) {
       throw new Error(
-        "Quicknode RPC'ye ulaşılamıyor. İnternet bağlantınızı ve RPC endpoint'inizi kontrol edin.",
+        "Cannot reach Quicknode RPC. Check your internet connection and RPC endpoint.",
       );
     }
     const message = err instanceof Error ? err.message : String(err);
-    throw new Error(`SPL token bakiyeleri alınamadı: ${message}`);
+    throw new Error(`Failed to fetch SPL token balances: ${message}`);
   }
 
   type Row = { mint: string; balance: number };

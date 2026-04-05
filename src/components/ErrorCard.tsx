@@ -41,27 +41,27 @@ const SANS = "var(--font-sans)";
 function errorTitle(code: ErrorCode): string {
   switch (code) {
     case ErrorCode.KAMINO_DEPOSIT_FAILED:
-      return "Kamino Deposit Başarısız";
+      return "Kamino Deposit Failed";
     case ErrorCode.KAMINO_WITHDRAW_FAILED:
-      return "Kamino Çekim Başarısız";
+      return "Kamino Withdraw Failed";
     case ErrorCode.KAMINO_INSUFFICIENT_LIQUIDITY:
-      return "Yetersiz Vault Likiditesi";
+      return "Insufficient Vault Liquidity";
     case ErrorCode.DFLOW_QUOTE_EXPIRED:
-      return "DFlow Quote Süresi Doldu";
+      return "DFlow Quote Expired";
     case ErrorCode.DFLOW_QUOTE_FAILED:
-      return "DFlow Quote Alınamadı";
+      return "DFlow Quote Failed";
     case ErrorCode.DFLOW_SIMULATION_FAILED:
-      return "Transaction Simulation Başarısız";
+      return "Transaction Simulation Failed";
     case ErrorCode.DFLOW_EXECUTION_FAILED:
-      return "DFlow Swap Başarısız";
+      return "DFlow Swap Failed";
     case ErrorCode.SLIPPAGE_EXCEEDED:
-      return "Slippage Limiti Aşıldı";
+      return "Slippage Limit Exceeded";
     case ErrorCode.TRANSACTION_TIMEOUT:
-      return "Transaction Zaman Aşımı";
+      return "Transaction Timeout";
     case ErrorCode.WALLET_REJECTED:
-      return "Cüzdan Reddetti";
+      return "Wallet Rejected";
     case ErrorCode.UNKNOWN:
-      return "Beklenmeyen Hata";
+      return "Unexpected Error";
   }
 }
 
@@ -119,10 +119,10 @@ export const ErrorCard: FC<ErrorCardProps> = ({ error, onRetry, onReset }) => {
         <div style={styles.titleBlock}>
           <div style={{ ...styles.title, color: iconColor }}>{title}</div>
           <div style={styles.timestamp}>
-            {formatTime(error.timestamp)}'de oluştu
+            occurred at {formatTime(error.timestamp)}
             {error.sliceIndex !== null && (
               <span style={styles.sliceBadge}>
-                · Dilim {error.sliceIndex + 1}
+                · Slice {error.sliceIndex + 1}
               </span>
             )}
           </div>
@@ -133,8 +133,8 @@ export const ErrorCard: FC<ErrorCardProps> = ({ error, onRetry, onReset }) => {
 
       {showFundsSafeMessage && (
         <div style={styles.fundsSafe}>
-          Bu hata otomatik düzeltilemez. Kamino'daki fonlarınız güvende,
-          manuel çekim gerekebilir.
+          This error cannot be auto-recovered. Your funds in Kamino are safe;
+          manual withdrawal may be required.
         </div>
       )}
 
@@ -145,7 +145,7 @@ export const ErrorCard: FC<ErrorCardProps> = ({ error, onRetry, onReset }) => {
             onClick={onRetry}
             style={styles.retryButton}
           >
-            TEKRAR DENE
+            RETRY
           </button>
         ) : (
           <button
@@ -153,7 +153,7 @@ export const ErrorCard: FC<ErrorCardProps> = ({ error, onRetry, onReset }) => {
             onClick={onReset}
             style={styles.resetButton}
           >
-            EXECUTION'I SIFIRLA
+            RESET EXECUTION
           </button>
         )}
       </div>

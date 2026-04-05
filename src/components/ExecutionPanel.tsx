@@ -67,10 +67,10 @@ const WINDOW_PRESETS: Array<{
   ms: number;
   suggestedSlices: number;
 }> = [
-  { label: "30dk", ms: 30 * 60 * 1000, suggestedSlices: 3 },
-  { label: "1sa", ms: 60 * 60 * 1000, suggestedSlices: 4 },
-  { label: "2sa", ms: 2 * 60 * 60 * 1000, suggestedSlices: 6 },
-  { label: "4sa", ms: 4 * 60 * 60 * 1000, suggestedSlices: 8 },
+  { label: "30m", ms: 30 * 60 * 1000, suggestedSlices: 3 },
+  { label: "1h", ms: 60 * 60 * 1000, suggestedSlices: 4 },
+  { label: "2h", ms: 2 * 60 * 60 * 1000, suggestedSlices: 6 },
+  { label: "4h", ms: 4 * 60 * 60 * 1000, suggestedSlices: 8 },
 ];
 
 const DEFAULT_SLIPPAGE_BPS = 50;
@@ -176,7 +176,7 @@ function useAvailableTokens(wallet: WalletState): {
         setError(
           err instanceof Error
             ? err.message
-            : "Token listesi alınırken bir hata oluştu.",
+            : "An error occurred while loading tokens.",
         );
       } finally {
         if (!cancelled) setLoading(false);
@@ -216,7 +216,7 @@ function useOptimalVault(inputMint: string): {
       } catch (err) {
         if (!cancelled) {
           console.warn(
-            `[LIMINAL] selectOptimalVault hatası: ${err instanceof Error ? err.message : String(err)}`,
+            `[LIMINAL] selectOptimalVault error: ${err instanceof Error ? err.message : String(err)}`,
           );
           setVault(null);
         }
@@ -269,7 +269,7 @@ export const ExecutionPanel: FC = () => {
     state.status === ExecutionStatus.SLICE_EXECUTING ||
     state.status === ExecutionStatus.COMPLETING;
 
-  const lockedTooltip = "Aktif execution sırasında değiştirilemez.";
+  const lockedTooltip = "Cannot be changed during active execution.";
 
   // --- Form state ---------------------------------------------------------
   const [fromMint, setFromMint] = useState<string>("");
@@ -360,7 +360,7 @@ export const ExecutionPanel: FC = () => {
       queueMicrotask(() => start());
     } catch (err) {
       console.error(
-        `[LIMINAL] Execution başlatma hatası: ${err instanceof Error ? err.message : String(err)}`,
+        `[LIMINAL] Execution start error: ${err instanceof Error ? err.message : String(err)}`,
       );
     }
   }, [
@@ -386,22 +386,22 @@ export const ExecutionPanel: FC = () => {
   // Render
   // ------------------------------------------------------------------------
   return (
-    <section style={styles.panel} aria-label="Execution paneli">
+    <section style={styles.panel} aria-label="Execution panel">
       <header style={styles.header}>EXECUTE</header>
 
       {/* Recovery prompt */}
       {pendingRecovery && (
         <div style={styles.recoveryBanner} role="alert">
-          <div style={styles.recoveryTitle}>TAMAMLANMAMIŞ EXECUTION</div>
+          <div style={styles.recoveryTitle}>INCOMPLETE EXECUTION</div>
           <div style={styles.recoveryText}>
-            Önceki oturumdan devam etmeyen bir execution var. Kaldığı yerden
-            devam etmek ister misiniz?
+            An execution from your previous session was not completed. Would
+            you like to resume from where it left off?
           </div>
           {!pendingRecovery.canResume && (
             <div style={styles.recoveryWarning}>
-              Devam etmek için orijinal cüzdanı (
+              To resume you must reconnect the original wallet (
               {pendingRecovery.walletAddress.slice(0, 4)}...
-              {pendingRecovery.walletAddress.slice(-4)}) bağlamanız gerekir.
+              {pendingRecovery.walletAddress.slice(-4)}).
             </div>
           )}
           <div style={styles.recoveryActions}>
@@ -415,14 +415,14 @@ export const ExecutionPanel: FC = () => {
                 cursor: pendingRecovery.canResume ? "pointer" : "not-allowed",
               }}
             >
-              DEVAM ET
+              RESUME
             </button>
             <button
               type="button"
               onClick={discardRecovery}
               style={styles.recoverySecondary}
             >
-              İPTAL ET
+              DISCARD
             </button>
           </div>
         </div>
@@ -431,8 +431,8 @@ export const ExecutionPanel: FC = () => {
       {!wallet.connected ? (
         <div style={styles.emptyBody}>
           <div style={styles.emptyHint}>
-            Token pair seçimi ve execution konfigürasyonu için önce sol
-            paneldeki Solflare bağlantısını kurun.
+            Connect your Solflare wallet from the left panel to select a
+            token pair and configure an execution.
           </div>
         </div>
       ) : state.status === ExecutionStatus.DONE ? (
@@ -449,12 +449,12 @@ export const ExecutionPanel: FC = () => {
               </div>
             ) : tokensError ? (
               <div style={styles.errorBlock}>
-                <div style={styles.errorText}>Token listesi yüklenemedi.</div>
+                <div style={styles.errorText}>Failed to load tokens.</div>
                 <div style={styles.errorDetail}>{tokensError}</div>
               </div>
             ) : tokens.length === 0 ? (
               <div style={styles.hintText}>
-                Cüzdanınızda swap edilebilecek token bulunamadı.
+                No swappable tokens found in your wallet.
               </div>
             ) : (
               <div
@@ -485,7 +485,7 @@ export const ExecutionPanel: FC = () => {
 
           {/* Canlı fiyat */}
           <div style={styles.section}>
-            <div style={styles.sectionLabel}>CANLI FİYAT (PYTH)</div>
+            <div style={styles.sectionLabel}>LIVE PRICE (PYTH)</div>
             <PriceDisplay
               mints={activeMints}
               tokens={tokens}
@@ -513,7 +513,7 @@ export const ExecutionPanel: FC = () => {
 
           {/* Miktar */}
           <div style={styles.section}>
-            <div style={styles.sectionLabel}>MİKTAR</div>
+            <div style={styles.sectionLabel}>AMOUNT</div>
             <input
               type="text"
               inputMode="decimal"
@@ -533,7 +533,7 @@ export const ExecutionPanel: FC = () => {
             />
             {fromToken && (
               <div style={styles.amountHint}>
-                Bakiye: {fromBalance.toLocaleString("en-US", {
+                Balance: {fromBalance.toLocaleString("en-US", {
                   maximumFractionDigits: 4,
                 })}{" "}
                 {fromToken.symbol}
@@ -543,7 +543,7 @@ export const ExecutionPanel: FC = () => {
               </div>
             )}
             {amountExceedsBalance && (
-              <div style={styles.amountError}>Bakiyeden fazla miktar.</div>
+              <div style={styles.amountError}>Amount exceeds balance.</div>
             )}
           </div>
 
@@ -585,9 +585,9 @@ export const ExecutionPanel: FC = () => {
             </div>
           </div>
 
-          {/* Dilim sayısı */}
+          {/* Slice count */}
           <div style={styles.section}>
-            <div style={styles.sectionLabel}>DİLİM SAYISI</div>
+            <div style={styles.sectionLabel}>SLICE COUNT</div>
             <input
               type="number"
               min={1}
@@ -708,16 +708,16 @@ export const ExecutionPanel: FC = () => {
           {/* Transaction count preview — CLAUDE.md BLOK 6 Pre-approval UX */}
           {canConfigure && sliceCount > 0 && (
             <div style={styles.txPreview}>
-              Bu execution boyunca toplam{" "}
+              You will sign{" "}
               <span style={styles.txPreviewValue}>
-                {1 + sliceCount + 1} transaction
+                {1 + sliceCount + 1} transactions
               </span>{" "}
-              imzalayacaksınız (1 deposit + {sliceCount} batched slice + 1 final
+              total (1 deposit + {sliceCount} batched slices + 1 final
               withdraw).
             </div>
           )}
 
-          {/* Başlat butonu */}
+          {/* Start button */}
           <div style={styles.footer}>
             <button
               type="button"
@@ -730,7 +730,7 @@ export const ExecutionPanel: FC = () => {
                 minHeight: isMobile ? 56 : undefined,
               }}
             >
-              EXECUTION BAŞLAT
+              START EXECUTION
             </button>
           </div>
         </>
@@ -764,7 +764,7 @@ const TokenSelect: FC<{
         cursor: disabled ? "not-allowed" : "pointer",
       }}
     >
-      <option value="">— seç —</option>
+      <option value="">— select —</option>
       {tokens.map((t) => (
         <option key={t.mint} value={t.mint}>
           {t.symbol}
@@ -786,7 +786,7 @@ const PriceDisplay: FC<{
   if (mints.length === 0) {
     return (
       <div style={styles.hintText}>
-        Fiyat izlemek için yukarıdan bir token seçin.
+        Select a token above to track its price.
       </div>
     );
   }
@@ -794,7 +794,7 @@ const PriceDisplay: FC<{
     return (
       <div style={styles.warningBlock}>
         <div style={styles.warningText}>
-          Fiyat verisi alınamıyor, Pyth bağlantısı kontrol ediliyor...
+          Price data unavailable, checking Pyth connection...
         </div>
       </div>
     );
@@ -827,7 +827,7 @@ const PriceDisplay: FC<{
       })}
       {lastUpdated && (
         <div style={styles.timestamp}>
-          Son güncelleme: {secondsSince(lastUpdated, now)}s önce
+          Last updated: {secondsSince(lastUpdated, now)}s ago
         </div>
       )}
     </div>

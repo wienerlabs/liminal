@@ -185,12 +185,12 @@ async function postJson<T>(
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") {
       throw new Error(
-        `DFlow endorsement server ${timeoutMs / 1000}s içinde yanıt vermedi.`,
+        `DFlow endorsement server ${timeoutMs / 1000}s did not respond in time.`,
       );
     }
     if (err instanceof TypeError && /fetch|network/i.test(err.message)) {
       throw new Error(
-        `DFlow endorsement server'a ulaşılamıyor (${DFLOW_ENDORSEMENT_SERVER}). Ağ bağlantınızı kontrol edin.`,
+        `DFlow endorsement server not reachable (${DFLOW_ENDORSEMENT_SERVER}). Check your network connection.`,
       );
     }
     throw err;
@@ -215,7 +215,7 @@ async function getMintDecimals(mint: string): Promise<number> {
     info = await connection.getParsedAccountInfo(new PublicKey(mint), COMMITMENT);
   } catch (err) {
     throw new Error(
-      `Token decimal bilgisi alınamadı (${mint}): ${err instanceof Error ? err.message : String(err)}`,
+      `Failed to fetch token decimals (${mint}): ${err instanceof Error ? err.message : String(err)}`,
     );
   }
 
@@ -224,7 +224,7 @@ async function getMintDecimals(mint: string): Promise<number> {
   const decimals = parsed?.info?.decimals;
   if (typeof decimals !== "number") {
     throw new Error(
-      `Geçerli SPL token mint değil veya decimal bilgisi yok: ${mint}`,
+      `Not a valid SPL token mint or missing decimals: ${mint}`,
     );
   }
   decimalsCache.set(mint, decimals);
@@ -290,10 +290,10 @@ export async function getQuote(
   slippageBps: number,
 ): Promise<DFlowQuote> {
   if (!Number.isFinite(amount) || amount <= 0) {
-    throw new Error("Geçersiz miktar. 0'dan büyük bir değer girin.");
+    throw new Error("Invalid amount. Enter a value greater than 0.");
   }
   if (!Number.isFinite(slippageBps) || slippageBps < 0) {
-    throw new Error("Geçersiz slippage toleransı.");
+    throw new Error("Invalid slippage tolerance.");
   }
 
   const [inDecimals, outDecimals] = await Promise.all([
@@ -304,7 +304,7 @@ export async function getQuote(
   const amountLamports = BigInt(Math.floor(amount * 10 ** inDecimals));
   if (amountLamports <= 0n) {
     throw new Error(
-      "Miktar token decimal'ine çevrildiğinde sıfır. Daha büyük bir değer girin.",
+      "Amount converts to zero in token decimals. Enter a larger value.",
     );
   }
 
@@ -324,13 +324,13 @@ export async function getQuote(
 
   if (!marketLeg) {
     throw new Error(
-      "DFlow market baseline quote'u alınamadı. Sunucu eksik veri döndü.",
+      "DFlow market baseline quote missing — server returned incomplete data.",
     );
   }
   if (!dflowLeg) {
     // BLOK 3 fallback kuralı: Jupiter'a fallback yapmıyoruz, hata fırlatıyoruz.
     throw new Error(
-      "DFlow MEV-protected quote'u bu dilim için alınamadı. Lütfen tekrar deneyin veya execution window'u uzatın.",
+      "DFlow MEV-protected quote is unavailable for this slice. Please retry or extend the execution window.",
     );
   }
 
@@ -383,7 +383,7 @@ export async function getQuote(
 
   // Expiry kontrolü: server zaten geçmiş expiry döndürdüyse execute etmeyiz.
   if (quote.dflowQuote.expiresAt <= now) {
-    throw new Error("Quote süresi doldu, yeni quote alınıyor.");
+    throw new Error("Quote expired, fetching a new quote.");
   }
 
   // Slippage threshold kontrolü — BLOK 3 iki katmanlı slippage disiplini.
@@ -393,7 +393,7 @@ export async function getQuote(
   );
   if (actualImpactBps > slippageBps) {
     throw new Error(
-      `Anlık slippage %${(actualImpactBps / 100).toFixed(2)}, belirlenen limit %${(slippageBps / 100).toFixed(2)}. Execute edilmedi.`,
+      `Current slippage %${(actualImpactBps / 100).toFixed(2)}, configured limit %${(slippageBps / 100).toFixed(2)}. Execution skipped.`,
     );
   }
 
@@ -410,30 +410,30 @@ function mapSimulationError(
 ): string {
   const logStr = (logs ?? []).join(" ").toLowerCase();
   if (/insufficient.+funds?|insufficient lamports/.test(logStr)) {
-    return "Yetersiz bakiye. İşlem için gereken token miktarı cüzdanınızda yok.";
+    return "Insufficient balance. Your wallet does not have enough tokens for this transaction.";
   }
   if (/slippage|price impact/.test(logStr)) {
-    return "Slippage limiti aşıldı. Fiyat quote alındıktan sonra değişti.";
+    return "Slippage limit exceeded. Price moved after quote was fetched.";
   }
   if (/blockhash/.test(logStr)) {
-    return "Blockhash süresi doldu. Quote'u yenileyip tekrar deneyin.";
+    return "Blockhash expired. Refresh the quote and retry.";
   }
   const errStr =
     typeof err === "string"
       ? err
       : JSON.stringify(err ?? {}).slice(0, 160);
-  return `Simülasyon başarısız: ${errStr}`;
+  return `Simulation failed: ${errStr}`;
 }
 
 function mapBroadcastError(message: string): string {
   if (/insufficient/i.test(message)) {
-    return "Yetersiz bakiye. SOL (gas) ve token bakiyenizi kontrol edin.";
+    return "Insufficient balance. Check your SOL (gas) and token balances.";
   }
   if (/blockhash/i.test(message)) {
-    return "Blockhash süresi doldu. Lütfen quote'u yenileyin ve tekrar deneyin.";
+    return "Blockhash expired. Refresh the quote and retry.";
   }
   if (/network|fetch|timeout/i.test(message)) {
-    return "Ağ hatası. Quicknode RPC bağlantınızı kontrol edin.";
+    return "Network error. Check your Quicknode RPC connection.";
   }
   return message;
 }
@@ -441,7 +441,7 @@ function mapBroadcastError(message: string): string {
 function decodeSwapTransaction(raw: RawSwapResponse): VersionedTransaction {
   const b64 = raw.swapTransaction ?? raw.transaction ?? raw.tx;
   if (typeof b64 !== "string" || b64.length === 0) {
-    throw new Error("DFlow swap response'da transaction bulunamadı.");
+    throw new Error("DFlow swap response did not contain a transaction.");
   }
   let bytes: Uint8Array;
   try {
@@ -455,14 +455,14 @@ function decodeSwapTransaction(raw: RawSwapResponse): VersionedTransaction {
     }
   } catch (err) {
     throw new Error(
-      `DFlow swap transaction base64 decode hatası: ${err instanceof Error ? err.message : String(err)}`,
+      `DFlow swap transaction base64 decode error: ${err instanceof Error ? err.message : String(err)}`,
     );
   }
   try {
     return VersionedTransaction.deserialize(bytes);
   } catch (err) {
     throw new Error(
-      `DFlow swap transaction deserialize hatası: ${err instanceof Error ? err.message : String(err)}`,
+      `DFlow swap transaction deserialize error: ${err instanceof Error ? err.message : String(err)}`,
     );
   }
 }
@@ -480,7 +480,7 @@ export async function executeSwap(
   // Expiry check — BLOK 3: stale quote ile execute YASAK.
   const now = Date.now();
   if (quote.dflowQuote.expiresAt <= now) {
-    throw new Error("Quote süresi doldu, yeni quote alınıyor.");
+    throw new Error("Quote expired, fetching a new quote.");
   }
 
   const connection = createConnection();
@@ -503,7 +503,7 @@ export async function executeSwap(
     });
     if (simResult.value.err) {
       throw new Error(
-        `Transaction simulation başarısız: ${mapSimulationError(simResult.value.err, simResult.value.logs)} İşlem iptal edildi.`,
+        `Transaction simulation failed: ${mapSimulationError(simResult.value.err, simResult.value.logs)} Transaction aborted.`,
       );
     }
   } catch (err) {
@@ -511,7 +511,7 @@ export async function executeSwap(
       throw err;
     }
     throw new Error(
-      `DFlow execute simülasyon hatası: ${err instanceof Error ? err.message : String(err)}. İşlem iptal edildi.`,
+      `DFlow execute simulation error: ${err instanceof Error ? err.message : String(err)}. Transaction aborted.`,
     );
   }
 
@@ -534,7 +534,7 @@ export async function executeSwap(
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     throw new Error(
-      `DFlow execute broadcast hatası: ${mapBroadcastError(message)}`,
+      `DFlow execute broadcast error: ${mapBroadcastError(message)}`,
     );
   }
 
@@ -553,7 +553,7 @@ export async function executeSwap(
           () =>
             reject(
               new Error(
-                `DFlow execute onayı ${TX_TIMEOUT_MS / 1000}s içinde gelmedi. Signature: ${signature}`,
+                `DFlow execute confirmation ${TX_TIMEOUT_MS / 1000}s did not arrive in time. Signature: ${signature}`,
               ),
             ),
           TX_TIMEOUT_MS,
@@ -625,7 +625,7 @@ export async function fetchSwapInstructions(
 }> {
   // Expiry check — stale quote ile build YASAK.
   if (quote.dflowQuote.expiresAt <= Date.now()) {
-    throw new Error("Quote süresi doldu, yeni quote alınıyor.");
+    throw new Error("Quote expired, fetching a new quote.");
   }
 
   const rawSwap = await postJson<RawSwapResponse>(DFLOW_SWAP_PATH, {
@@ -729,13 +729,13 @@ export function calculateTWAPSlices(
   windowDurationMs: number,
 ): TWAPSlice[] {
   if (!Number.isFinite(totalAmount) || totalAmount <= 0) {
-    throw new Error("Geçersiz totalAmount. 0'dan büyük bir değer girin.");
+    throw new Error("Invalid totalAmount. Enter a value greater than 0.");
   }
   if (!Number.isInteger(sliceCount) || sliceCount < 1) {
-    throw new Error("Geçersiz sliceCount. 1 veya daha büyük bir tam sayı girin.");
+    throw new Error("Invalid sliceCount. Enter an integer of 1 or greater.");
   }
   if (!Number.isFinite(windowDurationMs) || windowDurationMs < 0) {
-    throw new Error("Geçersiz windowDurationMs. Negatif olmayan bir sayı girin.");
+    throw new Error("Invalid windowDurationMs. Enter a non-negative number.");
   }
 
   const now = Date.now();
@@ -787,7 +787,7 @@ export async function getBaselinePrice(
   const quote = await getQuote(inputMint, outputMint, amount, MAX_SLIPPAGE_BPS);
   const { inAmount, outAmount } = quote.marketQuote;
   if (inAmount <= 0) {
-    throw new Error("Baseline hesaplama hatası: marketQuote.inAmount sıfır.");
+    throw new Error("Baseline computation error: marketQuote.inAmount is zero.");
   }
   return outAmount / inAmount;
 }

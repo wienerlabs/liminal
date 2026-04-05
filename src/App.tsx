@@ -114,7 +114,7 @@ export const App: FC = () => {
         }
       } catch (err) {
         console.warn(
-          `[LIMINAL] Solflare in-app browser auto-connect hatası: ${err instanceof Error ? err.message : String(err)}`,
+          `[LIMINAL] Solflare in-app browser auto-connect error: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
     })();
@@ -140,7 +140,7 @@ export const App: FC = () => {
           >
             <span style={styles.pulseDot} />
             <span style={styles.activeExecText}>
-              Execution aktif: Dilim {sliceN}/{sliceM}
+              Execution active: Slice {sliceN}/{sliceM}
             </span>
             <span style={styles.activeExecUsd}>
               $
@@ -160,7 +160,7 @@ export const App: FC = () => {
 
         <nav style={styles.mobileTabBar}>
           <MobileTabButton
-            label="Cüzdan"
+            label="Wallet"
             active={mobileTab === "wallet"}
             onClick={() => setMobileTab("wallet")}
           />
@@ -170,7 +170,7 @@ export const App: FC = () => {
             onClick={() => setMobileTab("execute")}
           />
           <MobileTabButton
-            label="Analitik"
+            label="Analytics"
             active={mobileTab === "analytics"}
             onClick={() => setMobileTab("analytics")}
           />
@@ -216,9 +216,9 @@ export const App: FC = () => {
         </aside>
       </div>
       {!wallet.connected && !device.isSolflareInAppBrowser && (
-        // Boş durum hint — kullanıcıyı sol panele yönlendirir.
+        // Empty-state hint — steers user to the left panel.
         <div style={styles.desktopFooterHint}>
-          Başlamak için sol panelden Solflare cüzdanınızı bağlayın.
+          Connect your Solflare wallet from the left panel to get started.
         </div>
       )}
     </div>
@@ -232,7 +232,7 @@ export const App: FC = () => {
 const SolflareBanner: FC = () => (
   <div style={styles.solflareBanner}>
     <span style={styles.solflareDot} />
-    <span>Solflare üzerinden açıldı</span>
+    <span>Opened via Solflare</span>
   </div>
 );
 

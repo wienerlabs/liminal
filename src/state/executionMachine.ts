@@ -237,7 +237,7 @@ export function configure(
  */
 export function reset(state: ExecutionState): ExecutionState {
   if (IN_FLIGHT_STATUSES.has(state.status)) {
-    throw new Error("Aktif execution sırasında sıfırlanamaz.");
+    throw new Error("Cannot reset during an active execution.");
   }
   return initialState;
 }
