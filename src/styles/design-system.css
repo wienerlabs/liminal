@@ -1,0 +1,182 @@
+/**
+ * LIMINAL — Design System
+ *
+ * Tek truth source. Tüm renkler, tipografi, stroke'lar, shadow'lar, animation
+ * keyframe'leri burada tanımlanır. Component'ler ve utility'ler yalnızca bu
+ * CSS variable'larına referans verir — hardcoded hex değer kalmaz.
+ *
+ * Tek istisna: --color-warn (#f59e0b). Bu, paletten gelmeyen tek uyarı rengi
+ * ve user spec'inde açıkça exception olarak tanımlandı.
+ *
+ * Palette: Light/pastel blue spektrumu (open-color inspired).
+ * Body zemini: radial gradient, fixed attachment — scroll'da kaymaz.
+ * Typography: Bricolage Grotesque (Google Fonts, 12..96 opsz + 200..800 wght).
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&display=swap');
+
+:root {
+  /* ----- Ana palet ---------------------------------------------------- */
+  --color-1: #edf2fa; /* en açık — arka plan */
+  --color-2: #d7e3fc;
+  --color-3: #ccdbfd;
+  --color-4: #c1d3fe;
+  --color-5: #abc4ff; /* en koyu — vurgu / accent */
+
+  /* ----- Metin -------------------------------------------------------- */
+  --color-text: #0a0a0f;
+  --color-text-muted: #3a3a4a;
+  --color-text-inverse: #ffffff;
+
+  /* ----- Stroke sistemi ---------------------------------------------- */
+  --color-stroke: rgba(0, 0, 0, 0.12);
+  --color-stroke-nested: rgba(0, 0, 0, 0.18);
+  --color-stroke-hover: rgba(0, 0, 0, 0.22);
+
+  /* ----- Shadow ------------------------------------------------------- */
+  --shadow-component:
+    0 1px 4px rgba(0, 0, 0, 0.06),
+    0 0 0 1px rgba(0, 0, 0, 0.04);
+  --shadow-raised:
+    0 4px 12px rgba(0, 0, 0, 0.08),
+    0 0 0 1px rgba(0, 0, 0, 0.06);
+  --shadow-accent-glow: 0 0 28px rgba(171, 196, 255, 0.5);
+
+  /* ----- Uyarı (paletten-dışı tek istisna) --------------------------- */
+  --color-warn: #f59e0b;
+  --color-warn-bg: rgba(245, 158, 11, 0.08);
+  --color-warn-border: rgba(245, 158, 11, 0.4);
+
+  /* ----- Accent derivatives (rgba türetmeler) ------------------------ */
+  --color-accent-bg-soft: rgba(171, 196, 255, 0.2);
+  --color-accent-bg-strong: rgba(171, 196, 255, 0.5);
+  --color-accent-border: rgba(171, 196, 255, 0.6);
+
+  /* ----- Surface (panel üstü elevated katmanlar) --------------------- */
+  --surface-raised: rgba(255, 255, 255, 0.55);
+  --surface-raised-strong: rgba(255, 255, 255, 0.8);
+
+  /* ----- Overlay ------------------------------------------------------ */
+  --color-overlay: rgba(10, 10, 15, 0.6);
+
+  /* ----- Tipografi --------------------------------------------------- */
+  --font-sans: 'Bricolage Grotesque', system-ui, -apple-system, sans-serif;
+  --font-mono: 'Bricolage Grotesque', ui-monospace, Menlo, Consolas, monospace;
+
+  /* ----- Radius sistemi ---------------------------------------------- */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+}
+
+/* ===================================================================== */
+/* Global resets + body texture                                          */
+/* ===================================================================== */
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  /* Subtle diagonal radial gradient — scroll'da kaymaz. */
+  background: radial-gradient(
+    ellipse at 20% 50%,
+    #d7e3fc 0%,
+    #edf2fa 50%,
+    #ccdbfd 100%
+  );
+  background-attachment: fixed;
+  background-color: var(--color-1);
+  min-height: 100vh;
+  min-height: 100svh;
+  min-height: 100dvh;
+}
+
+/* Liminal root container — tam viewport yüksekliği, dvh fallback zinciri. */
+.liminal-root {
+  min-height: 100vh;
+  min-height: 100svh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Sayısal değerler için tabular-nums yardımcısı. */
+.liminal-num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===================================================================== */
+/* Button/input defaults                                                 */
+/* ===================================================================== */
+
+button,
+input,
+select,
+textarea {
+  font-family: var(--font-sans);
+  color: var(--color-text);
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: 2px solid var(--color-5);
+  outline-offset: 2px;
+}
+
+/* ===================================================================== */
+/* Keyframes — tüm component'lerin paylaştığı animasyonlar              */
+/* ===================================================================== */
+
+@keyframes liminal-active-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.85);
+  }
+}
+
+@keyframes liminal-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(0.98);
+  }
+}
+
+@keyframes liminal-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes liminal-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
