@@ -1,0 +1,35 @@
+{
+  "name": "liminal",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Intelligent execution terminal on Solana — TWAP + Kamino yield + DFlow MEV-protected routing",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@dflow-protocol/client": "^0.5.6",
+    "@kamino-finance/klend-sdk": "^7.3.22",
+    "@pythnetwork/client": "^2.22.1",
+    "@solana/web3.js": "^1.95.3",
+    "canvas-confetti": "^1.9.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "recharts": "^2.13.0"
+  },
+  "devDependencies": {
+    "@types/canvas-confetti": "^1.6.4",
+    "@types/node": "^20.14.10",
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.2",
+    "typescript": "^5.6.2",
+    "vite": "^5.4.8",
+    "vite-plugin-node-polyfills": "^0.26.0",
+    "vite-plugin-top-level-await": "^1.6.0",
+    "vite-plugin-wasm": "^3.6.0"
+  }
+}

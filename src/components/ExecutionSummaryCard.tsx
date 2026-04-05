@@ -1,0 +1,376 @@
+/**
+ * LIMINAL — ExecutionSummaryCard
+ *
+ * BLOK 7 "DONE" state'inin ExecutionPanel içindeki görsel karşılığı. Tam
+ * ekran overlay değil — config form'unun yerini alan inline kart. Kullanıcı
+ * "Yeni Execution Başlat" ile reset, "Detayları Gör" ile AnalyticsPanel'in
+ * Geçmiş sekmesine yönlenir.
+ *
+ * Veri disiplini: bu component hiçbir şey üretmez, state machine'in DONE
+ * snapshot'ını render eder.
+ */
+
+import type { CSSProperties, FC } from "react";
+import type { ExecutionState } from "../state/executionMachine";
+import { resolveTokenSymbol } from "../services/quicknode";
+import { requestAnalyticsTab } from "../state/analyticsNav";
+
+// ---------------------------------------------------------------------------
+// Theme
+// ---------------------------------------------------------------------------
+
+const THEME = {
+  panel: "var(--color-1)",
+  panelElevated: "var(--surface-raised)",
+  border: "var(--color-stroke)",
+  text: "var(--color-text)",
+  textMuted: "var(--color-text-muted)",
+  accent: "var(--color-5)",
+  success: "var(--color-5)",
+  amber: "var(--color-warn)",
+  shadow: "var(--shadow-component)",
+} as const;
+
+const MONO = "var(--font-mono)";
+const SANS = "var(--font-sans)";
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function formatUSD(n: number): string {
+  const abs = Math.abs(n);
+  const decimals = abs < 1 ? 4 : 2;
+  const sign = n < 0 ? "-" : "";
+  return `${sign}$${abs.toLocaleString("en-US", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  })}`;
+}
+
+function formatAmount(n: number, decimals = 4): string {
+  return n.toLocaleString("en-US", { maximumFractionDigits: decimals });
+}
+
+function formatBps(bps: number): string {
+  const sign = bps >= 0 ? "+" : "";
+  return `${sign}${bps.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+function formatDuration(ms: number): string {
+  if (ms <= 0) return "0s";
+  const totalSec = Math.floor(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0) return `${h}sa ${m}dk`;
+  if (m > 0) return `${m}dk ${s}s`;
+  return `${s}s`;
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
+export type ExecutionSummaryCardProps = {
+  state: ExecutionState;
+  onReset: () => void;
+};
+
+export const ExecutionSummaryCard: FC<ExecutionSummaryCardProps> = ({
+  state,
+  onReset,
+}) => {
+  const completedSlices = state.slices.filter(
+    (s) => s.status === "completed" && s.result,
+  );
+
+  const totalInput = completedSlices.reduce(
+    (s, x) => s + (x.result?.inputAmount ?? 0),
+    0,
+  );
+  const totalOutput = completedSlices.reduce(
+    (s, x) => s + (x.result?.outputAmount ?? 0),
+    0,
+  );
+  const averageFill = totalInput > 0 ? totalOutput / totalInput : 0;
+
+  // Baseline: ilk slice'ın marketPrice'ı
+  const baselinePrice =
+    completedSlices.length > 0
+      ? (completedSlices[0].result?.marketPrice ?? 0)
+      : 0;
+
+  const durationMs =
+    state.startedAt && state.completedAt
+      ? state.completedAt.getTime() - state.startedAt.getTime()
+      : 0;
+
+  const inputSymbol = state.config
+    ? resolveTokenSymbol(state.config.inputMint)
+    : "—";
+  const outputSymbol = state.config
+    ? resolveTokenSymbol(state.config.outputMint)
+    : "—";
+
+  // Kamino yield input token cinsinden; burada gösterilebilir ama
+  // USD değeri için Pyth'e ihtiyacımız var. AnalyticsPanel bunu yapıyor —
+  // burada input token miktarı + dolar karşılığını totalPriceImprovementUsd
+  // üzerinden sadece DFlow için gösteriyoruz. Toplam value capture
+  // hesabında Kamino yield token cinsinden ekleniyor (approximation).
+  // Gerçek USD Kamino yield ile birleştirilmiş Toplam Kazanım AnalyticsPanel
+  // Geçmiş sekmesindeki kart modal'ında daha doğru gösterilir.
+  const kaminoYieldTokens = state.totalYieldEarned;
+  const totalValueCaptureUsd = state.totalPriceImprovementUsd; // USD kesin kısım
+
+  const handleViewDetails = (): void => {
+    requestAnalyticsTab("history");
+  };
+
+  return (
+    <div style={styles.card}>
+      <div style={styles.checkmark}>✓</div>
+      <div style={styles.title}>EXECUTION TAMAMLANDI</div>
+
+      <div style={styles.pairRow}>
+        <span style={styles.pairText}>
+          {inputSymbol} → {outputSymbol}
+        </span>
+      </div>
+      <div style={styles.amountRow}>
+        {formatAmount(totalInput, 4)} {inputSymbol}
+      </div>
+      <div style={styles.durationRow}>
+        Süre: {formatDuration(durationMs)}
+      </div>
+
+      <div style={styles.divider} />
+
+      <div style={styles.metricsGrid}>
+        <Metric
+          label="Ortalama fill"
+          value={formatAmount(averageFill, 6)}
+        />
+        <Metric
+          label="Baseline"
+          value={formatAmount(baselinePrice, 6)}
+        />
+        <Metric
+          label="DFlow kazanımı"
+          value={formatUSD(state.totalPriceImprovementUsd)}
+          sub={`${formatBps(state.totalPriceImprovementBps)} bps`}
+          color={
+            state.totalPriceImprovementUsd >= 0
+              ? THEME.success
+              : THEME.amber
+          }
+        />
+        <Metric
+          label="Kamino yield"
+          value={`${formatAmount(kaminoYieldTokens, 6)} ${inputSymbol}`}
+          sub="gerçek yield (token)"
+          color={THEME.success}
+        />
+      </div>
+
+      <div style={styles.divider} />
+
+      <div style={styles.valueCaptureLabel}>TOPLAM KAZANIM (DFLOW)</div>
+      <div
+        style={{
+          ...styles.valueCaptureValue,
+          color:
+            totalValueCaptureUsd >= 0 ? THEME.success : THEME.amber,
+        }}
+      >
+        {formatUSD(totalValueCaptureUsd)}
+      </div>
+      <div style={styles.valueCaptureHint}>
+        Kamino yield'ın USD karşılığı Analytics → Geçmiş sekmesinde detaylı
+        görünür.
+      </div>
+
+      <div style={styles.actions}>
+        <button
+          type="button"
+          onClick={onReset}
+          style={styles.primaryButton}
+        >
+          YENİ EXECUTION BAŞLAT
+        </button>
+        <button
+          type="button"
+          onClick={handleViewDetails}
+          style={styles.secondaryButton}
+        >
+          DETAYLARI GÖR
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Sub-components
+// ---------------------------------------------------------------------------
+
+const Metric: FC<{
+  label: string;
+  value: string;
+  sub?: string;
+  color?: string;
+}> = ({ label, value, sub, color }) => (
+  <div style={styles.metric}>
+    <div style={styles.metricLabel}>{label}</div>
+    <div style={{ ...styles.metricValue, color: color ?? THEME.text }}>
+      {value}
+    </div>
+    {sub && <div style={styles.metricSub}>{sub}</div>}
+  </div>
+);
+
+// ---------------------------------------------------------------------------
+// Styles
+// ---------------------------------------------------------------------------
+
+const styles: Record<string, CSSProperties> = {
+  card: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    padding: "28px 24px",
+    gap: 10,
+    background: "var(--color-accent-bg-soft)",
+    border: `1px solid var(--color-accent-border)`,
+    borderRadius: 12,
+    margin: "16px 20px",
+    fontFamily: MONO,
+  },
+  checkmark: {
+    fontSize: 52,
+    color: THEME.success,
+    lineHeight: 1,
+    marginBottom: 4,
+  },
+  title: {
+    fontSize: 14,
+    fontWeight: 700,
+    color: THEME.success,
+    letterSpacing: 1.5,
+    textTransform: "uppercase",
+  },
+  pairRow: {
+    marginTop: 6,
+  },
+  pairText: {
+    fontSize: 16,
+    fontWeight: 600,
+    color: THEME.text,
+  },
+  amountRow: {
+    fontSize: 13,
+    color: THEME.textMuted,
+    fontVariantNumeric: "tabular-nums",
+  },
+  durationRow: {
+    fontSize: 11,
+    color: THEME.textMuted,
+    fontVariantNumeric: "tabular-nums",
+  },
+  divider: {
+    width: "100%",
+    height: 1,
+    background: THEME.border,
+    margin: "12px 0 4px",
+  },
+  metricsGrid: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: 14,
+    width: "100%",
+  },
+  metric: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 3,
+    alignItems: "center",
+    textAlign: "center",
+  },
+  metricLabel: {
+    fontSize: 9,
+    color: THEME.textMuted,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  metricValue: {
+    fontSize: 14,
+    fontWeight: 700,
+    fontVariantNumeric: "tabular-nums",
+  },
+  metricSub: {
+    fontSize: 9,
+    color: THEME.textMuted,
+    fontVariantNumeric: "tabular-nums",
+  },
+  valueCaptureLabel: {
+    fontSize: 10,
+    color: THEME.textMuted,
+    letterSpacing: 1.5,
+    textTransform: "uppercase",
+    marginTop: 8,
+  },
+  valueCaptureValue: {
+    fontSize: 32,
+    fontWeight: 700,
+    fontVariantNumeric: "tabular-nums",
+    marginTop: 2,
+    lineHeight: 1.1,
+  },
+  valueCaptureHint: {
+    fontSize: 9,
+    color: THEME.textMuted,
+    textAlign: "center",
+    maxWidth: 280,
+    lineHeight: 1.5,
+    marginTop: 6,
+  },
+  actions: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+    width: "100%",
+    marginTop: 14,
+  },
+  primaryButton: {
+    fontFamily: MONO,
+    fontSize: 12,
+    fontWeight: 700,
+    color: "var(--color-text-inverse)",
+    background: THEME.accent,
+    border: "none",
+    borderRadius: 8,
+    padding: "14px 20px",
+    width: "100%",
+    letterSpacing: 1,
+    cursor: "pointer",
+    boxShadow: "0 0 28px var(--color-accent-bg-strong)",
+  },
+  secondaryButton: {
+    fontFamily: MONO,
+    fontSize: 11,
+    fontWeight: 600,
+    color: THEME.text,
+    background: "transparent",
+    border: `1px solid ${THEME.border}`,
+    borderRadius: 8,
+    padding: "12px 20px",
+    width: "100%",
+    letterSpacing: 1,
+    cursor: "pointer",
+  },
+};
+
+export default ExecutionSummaryCard;

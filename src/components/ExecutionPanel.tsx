@@ -1,0 +1,1153 @@
+/**
+ * LIMINAL — ExecutionPanel
+ *
+ * BLOK 7 "Orta Panel" — LIMINAL'in aksiyon merkezi. Bu revizyonda:
+ *  1. Token pair seçimi (wallet token listesi — öncekinden korundu)
+ *  2. Canlı fiyat göstergesi (Pyth — öncekinden korundu)
+ *  3. Miktar / execution window / dilim sayısı / slippage input'ları (AKTİF)
+ *  4. selectOptimalVault ile otomatik Kamino vault seçimi + VaultPreview
+ *  5. QuoteComparison (state machine'in currentQuote'una bağlı)
+ *  6. useExecutionMachine orchestration'ı (configure → start → timeline)
+ *  7. Recovery prompt
+ *
+ * Input'lar sadece IDLE/CONFIGURED state'lerinde editable. In-flight
+ * state'lerde locked + tooltip.
+ */
+
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+  type FC,
+} from "react";
+import {
+  getSOLBalance,
+  getSPLTokenBalances,
+  subscribeWallet,
+  type WalletState,
+} from "../services/solflare";
+import { selectOptimalVault, type KaminoVault } from "../services/kamino";
+import { usePriceMonitor } from "../hooks/usePriceMonitor";
+import { useExecutionMachine } from "../hooks/useExecutionMachine";
+import { useDeviceDetection } from "../hooks/useDeviceDetection";
+import { ExecutionStatus } from "../state/executionMachine";
+import VaultPreview from "./VaultPreview";
+import QuoteComparison from "./QuoteComparison";
+import ExecutionTimeline from "./ExecutionTimeline";
+import ExecutionSummaryCard from "./ExecutionSummaryCard";
+
+// ---------------------------------------------------------------------------
+// Theme
+// ---------------------------------------------------------------------------
+
+const THEME = {
+  panel: "var(--color-1)",
+  panelElevated: "var(--surface-raised)",
+  border: "var(--color-stroke)",
+  borderHover: "var(--color-stroke-hover)",
+  text: "var(--color-text)",
+  textMuted: "var(--color-text-muted)",
+  accent: "var(--color-5)",
+  accentGlow: "var(--shadow-accent-glow)",
+  danger: "var(--color-warn)",
+  amber: "var(--color-warn)",
+  shadow: "var(--shadow-component)",
+} as const;
+
+const MONO = "var(--font-mono)";
+const SANS = "var(--font-sans)";
+
+const SOL_MINT = "So11111111111111111111111111111111111111112";
+
+// Execution window preset'leri (BLOK 7 Adım 3)
+const WINDOW_PRESETS: Array<{
+  label: string;
+  ms: number;
+  suggestedSlices: number;
+}> = [
+  { label: "30dk", ms: 30 * 60 * 1000, suggestedSlices: 3 },
+  { label: "1sa", ms: 60 * 60 * 1000, suggestedSlices: 4 },
+  { label: "2sa", ms: 2 * 60 * 60 * 1000, suggestedSlices: 6 },
+  { label: "4sa", ms: 4 * 60 * 60 * 1000, suggestedSlices: 8 },
+];
+
+const DEFAULT_SLIPPAGE_BPS = 50;
+const MIN_SLIPPAGE_BPS = 10;
+const MAX_SLIPPAGE_BPS = 300;
+
+// ---------------------------------------------------------------------------
+// Shimmer keyframes — idempotent
+// ---------------------------------------------------------------------------
+
+const SHIMMER_STYLE_ID = "liminal-execution-panel-shimmer";
+if (
+  typeof document !== "undefined" &&
+  !document.getElementById(SHIMMER_STYLE_ID) &&
+  !document.getElementById("liminal-wallet-panel-shimmer")
+) {
+  const style = document.createElement("style");
+  style.id = SHIMMER_STYLE_ID;
+  style.textContent = `
+    @keyframes liminal-shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+// ---------------------------------------------------------------------------
+// Formatting helpers
+// ---------------------------------------------------------------------------
+
+function formatUSD(n: number): string {
+  const decimals = n < 1 ? 6 : 2;
+  return `$${n.toLocaleString("en-US", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  })}`;
+}
+
+function secondsSince(date: Date, now: Date): number {
+  return Math.max(0, Math.floor((now.getTime() - date.getTime()) / 1000));
+}
+
+function bpsToPercent(bps: number): string {
+  return `%${(bps / 100).toFixed(2)}`;
+}
+
+// ---------------------------------------------------------------------------
+// Available tokens hook (wallet'tan beslenir)
+// ---------------------------------------------------------------------------
+
+type AvailableToken = {
+  mint: string;
+  symbol: string;
+  balance: number;
+};
+
+function useAvailableTokens(wallet: WalletState): {
+  tokens: AvailableToken[];
+  loading: boolean;
+  error: string | null;
+} {
+  const [tokens, setTokens] = useState<AvailableToken[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!wallet.connected || !wallet.address) {
+      setTokens([]);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    const address = wallet.address;
+    void (async () => {
+      try {
+        const [solBalance, splTokens] = await Promise.all([
+          getSOLBalance(address),
+          getSPLTokenBalances(address),
+        ]);
+        if (cancelled) return;
+
+        const combined: AvailableToken[] = [];
+        if (solBalance > 0) {
+          combined.push({ mint: SOL_MINT, symbol: "SOL", balance: solBalance });
+        }
+        for (const t of splTokens) {
+          if (t.mint === SOL_MINT) continue;
+          combined.push({
+            mint: t.mint,
+            symbol: t.symbol,
+            balance: t.balance,
+          });
+        }
+        setTokens(combined);
+      } catch (err) {
+        if (cancelled) return;
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Token listesi alınırken bir hata oluştu.",
+        );
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [wallet.connected, wallet.address]);
+
+  return { tokens, loading, error };
+}
+
+// ---------------------------------------------------------------------------
+// Optimal vault selection hook
+// ---------------------------------------------------------------------------
+
+function useOptimalVault(inputMint: string): {
+  vault: KaminoVault | null;
+  loading: boolean;
+} {
+  const [vault, setVault] = useState<KaminoVault | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!inputMint) {
+      setVault(null);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    void (async () => {
+      try {
+        const selected = await selectOptimalVault(inputMint);
+        if (!cancelled) setVault(selected);
+      } catch (err) {
+        if (!cancelled) {
+          console.warn(
+            `[LIMINAL] selectOptimalVault hatası: ${err instanceof Error ? err.message : String(err)}`,
+          );
+          setVault(null);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [inputMint]);
+
+  return { vault, loading };
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
+export const ExecutionPanel: FC = () => {
+  // --- Wallet & tokens ----------------------------------------------------
+  const [wallet, setWallet] = useState<WalletState>({
+    connected: false,
+    connecting: false,
+    address: null,
+  });
+  useEffect(() => {
+    const unsub = subscribeWallet(setWallet);
+    return unsub;
+  }, []);
+  const { tokens, loading: tokensLoading, error: tokensError } =
+    useAvailableTokens(wallet);
+
+  // --- Device detection for mobile responsive adjustments ----------------
+  const device = useDeviceDetection();
+  const isMobile = device.isMobile;
+
+  // --- Execution machine --------------------------------------------------
+  const machine = useExecutionMachine();
+  const { state, configure, start, retry, reset } = machine;
+  const { pendingRecovery, resumeRecovery, discardRecovery } = machine;
+
+  const isIdleOrConfigured =
+    state.status === ExecutionStatus.IDLE ||
+    state.status === ExecutionStatus.CONFIGURED;
+  const isInFlight =
+    state.status === ExecutionStatus.DEPOSITING ||
+    state.status === ExecutionStatus.ACTIVE ||
+    state.status === ExecutionStatus.SLICE_WITHDRAWING ||
+    state.status === ExecutionStatus.SLICE_EXECUTING ||
+    state.status === ExecutionStatus.COMPLETING;
+
+  const lockedTooltip = "Aktif execution sırasında değiştirilemez.";
+
+  // --- Form state ---------------------------------------------------------
+  const [fromMint, setFromMint] = useState<string>("");
+  const [toMint, setToMint] = useState<string>("");
+  const [amountStr, setAmountStr] = useState<string>("");
+  const [windowMs, setWindowMs] = useState<number>(WINDOW_PRESETS[1].ms);
+  const [sliceCount, setSliceCount] = useState<number>(
+    WINDOW_PRESETS[1].suggestedSlices,
+  );
+  const [slippageBps, setSlippageBps] = useState<number>(DEFAULT_SLIPPAGE_BPS);
+
+  // Wallet değiştiğinde form'u temizle (sadece in-flight değilse).
+  useEffect(() => {
+    if (isInFlight) return;
+    if (!wallet.connected) {
+      setFromMint("");
+      setToMint("");
+      setAmountStr("");
+    }
+  }, [wallet.connected, isInFlight]);
+
+  useEffect(() => {
+    if (isInFlight) return;
+    if (fromMint && !tokens.find((t) => t.mint === fromMint)) setFromMint("");
+    if (toMint && !tokens.find((t) => t.mint === toMint)) setToMint("");
+  }, [tokens, fromMint, toMint, isInFlight]);
+
+  // --- Pyth price monitor -------------------------------------------------
+  const activeMints = useMemo(
+    () => [fromMint, toMint].filter((m): m is string => !!m),
+    [fromMint, toMint],
+  );
+  const priceMonitor = usePriceMonitor(activeMints, 5000);
+  const { prices, lastUpdated: priceLastUpdated } = priceMonitor;
+
+  // --- 1s tick (timestamp ve countdown gösterimleri için) ------------------
+  const [now, setNow] = useState<Date>(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  // --- Optimal vault -------------------------------------------------------
+  const { vault: optimalVault, loading: vaultLoading } =
+    useOptimalVault(fromMint);
+
+  // --- Derived values -----------------------------------------------------
+  const amountNum = useMemo(() => {
+    const n = parseFloat(amountStr);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  }, [amountStr]);
+
+  const fromToken = tokens.find((t) => t.mint === fromMint);
+  const fromBalance = fromToken?.balance ?? 0;
+  const amountExceedsBalance = amountNum > fromBalance;
+
+  const fromUsdPrice = fromMint ? (prices[fromMint] ?? 0) : 0;
+  const amountUsd = amountNum * fromUsdPrice;
+
+  const canConfigure =
+    wallet.connected &&
+    !!fromMint &&
+    !!toMint &&
+    amountNum > 0 &&
+    !amountExceedsBalance &&
+    sliceCount >= 1 &&
+    slippageBps >= MIN_SLIPPAGE_BPS &&
+    slippageBps <= MAX_SLIPPAGE_BPS &&
+    !!optimalVault &&
+    isIdleOrConfigured;
+
+  // --- Actions ------------------------------------------------------------
+  const handleConfigureAndStart = useCallback(() => {
+    if (!canConfigure || !optimalVault) return;
+    try {
+      configure({
+        inputMint: fromMint,
+        outputMint: toMint,
+        totalAmount: amountNum,
+        sliceCount,
+        windowDurationMs: windowMs,
+        slippageBps,
+        kaminoVaultAddress: optimalVault.marketAddress,
+      });
+      // configure senkron — bir sonraki tick'te state CONFIGURED olacak.
+      // useEffect ile start'ı tetikleyemeyeceğimiz için burada kısa bir
+      // microtask bekleyip start çağırıyoruz.
+      queueMicrotask(() => start());
+    } catch (err) {
+      console.error(
+        `[LIMINAL] Execution başlatma hatası: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }, [
+    canConfigure,
+    optimalVault,
+    configure,
+    start,
+    fromMint,
+    toMint,
+    amountNum,
+    sliceCount,
+    windowMs,
+    slippageBps,
+  ]);
+
+  const handleWindowPreset = useCallback((ms: number, suggested: number) => {
+    if (isInFlight) return;
+    setWindowMs(ms);
+    setSliceCount(suggested);
+  }, [isInFlight]);
+
+  // ------------------------------------------------------------------------
+  // Render
+  // ------------------------------------------------------------------------
+  return (
+    <section style={styles.panel} aria-label="Execution paneli">
+      <header style={styles.header}>EXECUTE</header>
+
+      {/* Recovery prompt */}
+      {pendingRecovery && (
+        <div style={styles.recoveryBanner} role="alert">
+          <div style={styles.recoveryTitle}>TAMAMLANMAMIŞ EXECUTION</div>
+          <div style={styles.recoveryText}>
+            Önceki oturumdan devam etmeyen bir execution var. Kaldığı yerden
+            devam etmek ister misiniz?
+          </div>
+          {!pendingRecovery.canResume && (
+            <div style={styles.recoveryWarning}>
+              Devam etmek için orijinal cüzdanı (
+              {pendingRecovery.walletAddress.slice(0, 4)}...
+              {pendingRecovery.walletAddress.slice(-4)}) bağlamanız gerekir.
+            </div>
+          )}
+          <div style={styles.recoveryActions}>
+            <button
+              type="button"
+              onClick={resumeRecovery}
+              disabled={!pendingRecovery.canResume}
+              style={{
+                ...styles.recoveryPrimary,
+                opacity: pendingRecovery.canResume ? 1 : 0.4,
+                cursor: pendingRecovery.canResume ? "pointer" : "not-allowed",
+              }}
+            >
+              DEVAM ET
+            </button>
+            <button
+              type="button"
+              onClick={discardRecovery}
+              style={styles.recoverySecondary}
+            >
+              İPTAL ET
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!wallet.connected ? (
+        <div style={styles.emptyBody}>
+          <div style={styles.emptyHint}>
+            Token pair seçimi ve execution konfigürasyonu için önce sol
+            paneldeki Solflare bağlantısını kurun.
+          </div>
+        </div>
+      ) : state.status === ExecutionStatus.DONE ? (
+        <ExecutionSummaryCard state={state} onReset={reset} />
+      ) : (
+        <>
+          {/* Token pair */}
+          <div style={styles.section}>
+            <div style={styles.sectionLabel}>TOKEN PAIR</div>
+            {tokensLoading ? (
+              <div style={styles.row}>
+                <SkeletonBox width="48%" height={44} />
+                <SkeletonBox width="48%" height={44} />
+              </div>
+            ) : tokensError ? (
+              <div style={styles.errorBlock}>
+                <div style={styles.errorText}>Token listesi yüklenemedi.</div>
+                <div style={styles.errorDetail}>{tokensError}</div>
+              </div>
+            ) : tokens.length === 0 ? (
+              <div style={styles.hintText}>
+                Cüzdanınızda swap edilebilecek token bulunamadı.
+              </div>
+            ) : (
+              <div
+                style={{
+                  ...styles.row,
+                  flexDirection: isMobile ? "column" : "row",
+                }}
+              >
+                <TokenSelect
+                  label="From"
+                  value={fromMint}
+                  tokens={tokens}
+                  onChange={(e) => !isInFlight && setFromMint(e.target.value)}
+                  disabled={isInFlight}
+                  lockedTooltip={lockedTooltip}
+                />
+                <TokenSelect
+                  label="To"
+                  value={toMint}
+                  tokens={tokens.filter((t) => t.mint !== fromMint)}
+                  onChange={(e) => !isInFlight && setToMint(e.target.value)}
+                  disabled={isInFlight || !fromMint}
+                  lockedTooltip={lockedTooltip}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Canlı fiyat */}
+          <div style={styles.section}>
+            <div style={styles.sectionLabel}>CANLI FİYAT (PYTH)</div>
+            <PriceDisplay
+              mints={activeMints}
+              tokens={tokens}
+              prices={prices}
+              isLoading={priceMonitor.isLoading}
+              error={priceMonitor.error}
+              lastUpdated={priceLastUpdated}
+              now={now}
+            />
+          </div>
+
+          {/* Vault preview (otomatik seçilmiş Kamino vault) */}
+          {fromMint && (
+            <div style={styles.section}>
+              <VaultPreview
+                vault={optimalVault}
+                isLoading={vaultLoading}
+                amountUsd={amountUsd}
+                windowDurationSeconds={windowMs / 1000}
+              />
+            </div>
+          )}
+
+          <div style={styles.divider} />
+
+          {/* Miktar */}
+          <div style={styles.section}>
+            <div style={styles.sectionLabel}>MİKTAR</div>
+            <input
+              type="text"
+              inputMode="decimal"
+              placeholder="0.00"
+              value={amountStr}
+              onChange={(e) => !isInFlight && setAmountStr(e.target.value)}
+              disabled={isInFlight}
+              title={isInFlight ? lockedTooltip : undefined}
+              style={{
+                ...styles.numericInput,
+                borderColor: amountExceedsBalance
+                  ? THEME.danger
+                  : THEME.border,
+                opacity: isInFlight ? 0.5 : 1,
+                cursor: isInFlight ? "not-allowed" : "text",
+              }}
+            />
+            {fromToken && (
+              <div style={styles.amountHint}>
+                Bakiye: {fromBalance.toLocaleString("en-US", {
+                  maximumFractionDigits: 4,
+                })}{" "}
+                {fromToken.symbol}
+                {amountNum > 0 && fromUsdPrice > 0 && (
+                  <span style={{ marginLeft: 8 }}>≈ {formatUSD(amountUsd)}</span>
+                )}
+              </div>
+            )}
+            {amountExceedsBalance && (
+              <div style={styles.amountError}>Bakiyeden fazla miktar.</div>
+            )}
+          </div>
+
+          {/* Execution window */}
+          <div style={styles.section}>
+            <div style={styles.sectionLabel}>EXECUTION WINDOW</div>
+            <div
+              style={{
+                ...styles.windowRow,
+                flexDirection: isMobile ? "column" : "row",
+              }}
+            >
+              {WINDOW_PRESETS.map((preset) => {
+                const active = preset.ms === windowMs;
+                return (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    disabled={isInFlight}
+                    onClick={() =>
+                      handleWindowPreset(preset.ms, preset.suggestedSlices)
+                    }
+                    title={isInFlight ? lockedTooltip : undefined}
+                    style={{
+                      ...styles.chip,
+                      background: active ? THEME.accent : THEME.panelElevated,
+                      color: active ? "var(--color-text-inverse)" : THEME.textMuted,
+                      borderColor: active ? THEME.accent : THEME.border,
+                      opacity: isInFlight ? 0.5 : 1,
+                      cursor: isInFlight ? "not-allowed" : "pointer",
+                      width: isMobile ? "100%" : undefined,
+                      minHeight: isMobile ? 44 : undefined,
+                    }}
+                  >
+                    {preset.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Dilim sayısı */}
+          <div style={styles.section}>
+            <div style={styles.sectionLabel}>DİLİM SAYISI</div>
+            <input
+              type="number"
+              min={1}
+              max={20}
+              value={sliceCount}
+              onChange={(e) => {
+                if (isInFlight) return;
+                const n = parseInt(e.target.value, 10);
+                if (Number.isFinite(n) && n >= 1 && n <= 20) setSliceCount(n);
+              }}
+              disabled={isInFlight}
+              title={isInFlight ? lockedTooltip : undefined}
+              style={{
+                ...styles.numericInput,
+                opacity: isInFlight ? 0.5 : 1,
+                cursor: isInFlight ? "not-allowed" : "text",
+              }}
+            />
+          </div>
+
+          {/* Slippage */}
+          <div style={styles.section}>
+            <div style={styles.sectionLabel}>
+              SLIPPAGE THRESHOLD ({bpsToPercent(slippageBps)})
+            </div>
+            <div
+              style={{
+                ...styles.slippageRow,
+                flexDirection: isMobile ? "column" : "row",
+                alignItems: isMobile ? "stretch" : "center",
+              }}
+            >
+              <input
+                type="range"
+                min={MIN_SLIPPAGE_BPS}
+                max={MAX_SLIPPAGE_BPS}
+                step={5}
+                value={slippageBps}
+                onChange={(e) => {
+                  if (isInFlight) return;
+                  setSlippageBps(parseInt(e.target.value, 10));
+                }}
+                disabled={isInFlight}
+                style={{
+                  ...styles.slider,
+                  opacity: isInFlight ? 0.5 : 1,
+                  width: isMobile ? "100%" : undefined,
+                }}
+              />
+              <div
+                style={{
+                  display: "flex",
+                  gap: 8,
+                  alignItems: "center",
+                  justifyContent: isMobile ? "space-between" : undefined,
+                }}
+              >
+                <input
+                  type="number"
+                  min={MIN_SLIPPAGE_BPS}
+                  max={MAX_SLIPPAGE_BPS}
+                  step={5}
+                  value={slippageBps}
+                  onChange={(e) => {
+                    if (isInFlight) return;
+                    const n = parseInt(e.target.value, 10);
+                    if (
+                      Number.isFinite(n) &&
+                      n >= MIN_SLIPPAGE_BPS &&
+                      n <= MAX_SLIPPAGE_BPS
+                    ) {
+                      setSlippageBps(n);
+                    }
+                  }}
+                  disabled={isInFlight}
+                  title={isInFlight ? lockedTooltip : undefined}
+                  style={{
+                    ...styles.numericInput,
+                    width: isMobile ? "100%" : 80,
+                    opacity: isInFlight ? 0.5 : 1,
+                    cursor: isInFlight ? "not-allowed" : "text",
+                  }}
+                />
+                <span style={styles.sliderLabel}>bps</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Quote comparison (state machine currentQuote'undan) */}
+          {(state.currentQuote || state.status === ExecutionStatus.SLICE_WITHDRAWING ||
+            state.status === ExecutionStatus.SLICE_EXECUTING) && (
+            <div style={styles.section}>
+              <QuoteComparison
+                quote={state.currentQuote}
+                isLoading={
+                  !state.currentQuote &&
+                  (state.status === ExecutionStatus.SLICE_WITHDRAWING ||
+                    state.status === ExecutionStatus.SLICE_EXECUTING)
+                }
+                error={null}
+              />
+            </div>
+          )}
+
+          {/* Timeline (her durumda ama boş slices ile idle gösterir) */}
+          {state.slices.length > 0 && (
+            <div style={styles.section}>
+              <ExecutionTimeline
+                state={state}
+                onRetry={retry}
+                onReset={reset}
+              />
+            </div>
+          )}
+
+          <div style={styles.flexSpacer} />
+
+          {/* Transaction count preview — CLAUDE.md BLOK 6 Pre-approval UX */}
+          {canConfigure && sliceCount > 0 && (
+            <div style={styles.txPreview}>
+              Bu execution boyunca toplam{" "}
+              <span style={styles.txPreviewValue}>
+                {1 + sliceCount + 1} transaction
+              </span>{" "}
+              imzalayacaksınız (1 deposit + {sliceCount} batched slice + 1 final
+              withdraw).
+            </div>
+          )}
+
+          {/* Başlat butonu */}
+          <div style={styles.footer}>
+            <button
+              type="button"
+              onClick={handleConfigureAndStart}
+              disabled={!canConfigure}
+              style={{
+                ...styles.primaryButton,
+                opacity: canConfigure ? 1 : 0.35,
+                cursor: canConfigure ? "pointer" : "not-allowed",
+                minHeight: isMobile ? 56 : undefined,
+              }}
+            >
+              EXECUTION BAŞLAT
+            </button>
+          </div>
+        </>
+      )}
+    </section>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Sub-components
+// ---------------------------------------------------------------------------
+
+const TokenSelect: FC<{
+  label: string;
+  value: string;
+  tokens: AvailableToken[];
+  onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+  disabled?: boolean;
+  lockedTooltip?: string;
+}> = ({ label, value, tokens, onChange, disabled, lockedTooltip }) => (
+  <label style={styles.selectWrap}>
+    <span style={styles.selectLabel}>{label}</span>
+    <select
+      value={value}
+      onChange={onChange}
+      disabled={disabled}
+      title={disabled ? lockedTooltip : undefined}
+      style={{
+        ...styles.select,
+        opacity: disabled ? 0.5 : 1,
+        cursor: disabled ? "not-allowed" : "pointer",
+      }}
+    >
+      <option value="">— seç —</option>
+      {tokens.map((t) => (
+        <option key={t.mint} value={t.mint}>
+          {t.symbol}
+        </option>
+      ))}
+    </select>
+  </label>
+);
+
+const PriceDisplay: FC<{
+  mints: string[];
+  tokens: AvailableToken[];
+  prices: { [mint: string]: number };
+  isLoading: boolean;
+  error: string | null;
+  lastUpdated: Date | null;
+  now: Date;
+}> = ({ mints, tokens, prices, isLoading, error, lastUpdated, now }) => {
+  if (mints.length === 0) {
+    return (
+      <div style={styles.hintText}>
+        Fiyat izlemek için yukarıdan bir token seçin.
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div style={styles.warningBlock}>
+        <div style={styles.warningText}>
+          Fiyat verisi alınamıyor, Pyth bağlantısı kontrol ediliyor...
+        </div>
+      </div>
+    );
+  }
+  if (isLoading && lastUpdated === null) {
+    return (
+      <div style={styles.priceList}>
+        {mints.map((m) => (
+          <SkeletonBox key={m} width="100%" height={28} />
+        ))}
+      </div>
+    );
+  }
+  return (
+    <div style={styles.priceList}>
+      {mints.map((mint) => {
+        const token = tokens.find((t) => t.mint === mint);
+        const symbol = token?.symbol ?? mint.slice(0, 4);
+        const price = prices[mint];
+        return (
+          <div key={mint} style={styles.priceRow}>
+            <span style={styles.priceText}>
+              1 {symbol} ={" "}
+              <span style={styles.priceValue}>
+                {price != null ? formatUSD(price) : "— $"}
+              </span>
+            </span>
+          </div>
+        );
+      })}
+      {lastUpdated && (
+        <div style={styles.timestamp}>
+          Son güncelleme: {secondsSince(lastUpdated, now)}s önce
+        </div>
+      )}
+    </div>
+  );
+};
+
+const SkeletonBox: FC<{ width: string | number; height: number }> = ({
+  width,
+  height,
+}) => (
+  <div
+    aria-hidden="true"
+    style={{
+      width,
+      height,
+      borderRadius: 4,
+      background: `linear-gradient(90deg, ${THEME.panelElevated} 0%, var(--color-3) 50%, ${THEME.panelElevated} 100%)`,
+      backgroundSize: "200% 100%",
+      animation: "liminal-shimmer 1.4s ease-in-out infinite",
+    }}
+  />
+);
+
+// ---------------------------------------------------------------------------
+// Styles
+// ---------------------------------------------------------------------------
+
+const styles: Record<string, CSSProperties> = {
+  panel: {
+    display: "flex",
+    flexDirection: "column",
+    width: "100%",
+    minHeight: 560,
+    background: THEME.panel,
+    color: THEME.text,
+    border: `1px solid ${THEME.border}`,
+    borderRadius: 12,
+    fontFamily: MONO,
+    overflow: "hidden",
+  },
+  header: {
+    fontFamily: MONO,
+    fontSize: 11,
+    letterSpacing: 2,
+    color: THEME.accent,
+    padding: "16px 20px 14px",
+    borderBottom: `1px solid ${THEME.border}`,
+    textTransform: "uppercase",
+  },
+  emptyBody: {
+    flex: 1,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "40px 24px",
+  },
+  emptyHint: {
+    fontFamily: MONO,
+    fontSize: 12,
+    color: THEME.textMuted,
+    textAlign: "center",
+    maxWidth: 280,
+    lineHeight: 1.6,
+  },
+  section: {
+    padding: "14px 20px",
+  },
+  sectionLabel: {
+    fontFamily: MONO,
+    fontSize: 10,
+    color: THEME.textMuted,
+    letterSpacing: 1.5,
+    marginBottom: 10,
+    textTransform: "uppercase",
+  },
+  divider: {
+    height: 1,
+    background: THEME.border,
+    margin: "4px 20px",
+  },
+  row: {
+    display: "flex",
+    gap: 12,
+    justifyContent: "space-between",
+  },
+  selectWrap: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 6,
+    flex: 1,
+    minWidth: 0,
+  },
+  selectLabel: {
+    fontFamily: MONO,
+    fontSize: 9,
+    color: THEME.textMuted,
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+  select: {
+    fontFamily: MONO,
+    fontSize: 13,
+    color: THEME.text,
+    background: THEME.panelElevated,
+    border: `1px solid ${THEME.border}`,
+    borderRadius: 6,
+    padding: "10px 12px",
+    width: "100%",
+    outline: "none",
+    appearance: "none",
+    WebkitAppearance: "none",
+    MozAppearance: "none",
+  },
+  numericInput: {
+    fontFamily: MONO,
+    fontSize: 14,
+    color: THEME.text,
+    background: THEME.panelElevated,
+    border: `1px solid ${THEME.border}`,
+    borderRadius: 6,
+    padding: "10px 12px",
+    width: "100%",
+    outline: "none",
+    fontVariantNumeric: "tabular-nums",
+  },
+  amountHint: {
+    fontFamily: MONO,
+    fontSize: 10,
+    color: THEME.textMuted,
+    marginTop: 6,
+    fontVariantNumeric: "tabular-nums",
+  },
+  amountError: {
+    fontFamily: MONO,
+    fontSize: 10,
+    color: THEME.danger,
+    marginTop: 6,
+  },
+  priceList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 6,
+  },
+  priceRow: {
+    display: "flex",
+    alignItems: "baseline",
+    padding: "6px 0",
+  },
+  priceText: {
+    fontFamily: MONO,
+    fontSize: 14,
+    color: THEME.text,
+    fontVariantNumeric: "tabular-nums",
+  },
+  priceValue: {
+    color: THEME.accent,
+    fontWeight: 600,
+  },
+  timestamp: {
+    fontFamily: MONO,
+    fontSize: 10,
+    color: THEME.textMuted,
+    fontVariantNumeric: "tabular-nums",
+    marginTop: 4,
+  },
+  hintText: {
+    fontFamily: MONO,
+    fontSize: 11,
+    color: THEME.textMuted,
+    lineHeight: 1.6,
+  },
+  warningBlock: {
+    padding: "12px 14px",
+    background: "var(--color-warn-bg)",
+    border: `1px solid var(--color-warn-border)`,
+    borderRadius: 6,
+  },
+  warningText: {
+    fontFamily: MONO,
+    fontSize: 12,
+    color: THEME.amber,
+    lineHeight: 1.5,
+  },
+  errorBlock: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 6,
+    padding: "12px 14px",
+    background: "var(--color-warn-bg)",
+    border: `1px solid var(--color-warn-border)`,
+    borderRadius: 6,
+  },
+  errorText: {
+    fontFamily: MONO,
+    fontSize: 12,
+    color: THEME.danger,
+    lineHeight: 1.5,
+  },
+  errorDetail: {
+    fontFamily: MONO,
+    fontSize: 10,
+    color: THEME.textMuted,
+    lineHeight: 1.5,
+  },
+  windowRow: {
+    display: "flex",
+    gap: 8,
+  },
+  chip: {
+    fontFamily: MONO,
+    fontSize: 11,
+    border: `1px solid ${THEME.border}`,
+    borderRadius: 6,
+    padding: "8px 14px",
+    letterSpacing: 0.5,
+  },
+  slippageRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+  },
+  slider: {
+    flex: 1,
+    accentColor: THEME.accent,
+  },
+  sliderLabel: {
+    fontFamily: MONO,
+    fontSize: 10,
+    color: THEME.textMuted,
+    letterSpacing: 0.5,
+  },
+  flexSpacer: {
+    flex: 1,
+  },
+  txPreview: {
+    fontFamily: MONO,
+    fontSize: 10,
+    color: THEME.textMuted,
+    textAlign: "center",
+    padding: "10px 20px 0",
+    lineHeight: 1.6,
+  },
+  txPreviewValue: {
+    color: THEME.accent,
+    fontWeight: 700,
+  },
+  footer: {
+    padding: "16px 20px",
+    borderTop: `1px solid ${THEME.border}`,
+  },
+  primaryButton: {
+    fontFamily: MONO,
+    fontSize: 13,
+    fontWeight: 600,
+    color: "var(--color-text-inverse)",
+    background: THEME.accent,
+    border: "none",
+    borderRadius: 8,
+    padding: "14px 28px",
+    width: "100%",
+    letterSpacing: 1,
+    boxShadow: `0 0 28px ${THEME.accentGlow}`,
+  },
+  recoveryBanner: {
+    margin: "12px 16px 0",
+    padding: "12px 14px",
+    background: "var(--color-accent-bg-soft)",
+    border: `1px solid var(--color-accent-border)`,
+    borderRadius: 8,
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+  },
+  recoveryTitle: {
+    fontFamily: MONO,
+    fontSize: 10,
+    color: THEME.accent,
+    letterSpacing: 1.5,
+    textTransform: "uppercase",
+    fontWeight: 700,
+  },
+  recoveryText: {
+    fontFamily: MONO,
+    fontSize: 12,
+    color: THEME.text,
+    lineHeight: 1.5,
+  },
+  recoveryWarning: {
+    fontFamily: MONO,
+    fontSize: 10,
+    color: THEME.amber,
+    lineHeight: 1.5,
+  },
+  recoveryActions: {
+    display: "flex",
+    gap: 8,
+    marginTop: 4,
+  },
+  recoveryPrimary: {
+    fontFamily: MONO,
+    fontSize: 11,
+    fontWeight: 600,
+    color: "var(--color-text-inverse)",
+    background: THEME.accent,
+    border: "none",
+    borderRadius: 6,
+    padding: "8px 16px",
+    letterSpacing: 1,
+  },
+  recoverySecondary: {
+    fontFamily: MONO,
+    fontSize: 11,
+    color: THEME.textMuted,
+    background: "transparent",
+    border: `1px solid ${THEME.border}`,
+    borderRadius: 6,
+    padding: "8px 16px",
+    cursor: "pointer",
+    letterSpacing: 1,
+  },
+};
+
+export default ExecutionPanel;

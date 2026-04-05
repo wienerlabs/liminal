@@ -1,0 +1,1627 @@
+/**
+ * LIMINAL — AnalyticsPanel
+ *
+ * BLOK 7 "Sağ Panel: Real-Time Analytics" tarafının tam implementasyonu.
+ * Üç sekme:
+ *  - "Anlık": useExecutionMachine state'inden canlı grafikler
+ *  - "Geçmiş": analyticsStore.getHistory()'den kartlar + modal detaylar
+ *  - "Protokol": tüm geçmişten türetilmiş aggregate istatistikler
+ *
+ * Veri disiplini:
+ *  - Bu component hiçbir veri üretmez. Tüm değerler state machine veya
+ *    analyticsStore'dan gelir.
+ *  - Kamino yield time series 15 saniyede bir kamino.getPositionValue
+ *    RPC çağrısıyla beslenir — BLOK 4 "gerçek yield onchain veri".
+ *  - Her sekme açıldığında store'dan taze çekilir, cache yok.
+ *
+ * Grafik stack:
+ *  - recharts (BarChart + AreaChart)
+ *  - canvas-confetti (DONE banner'ında bir kez)
+ */
+
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type FC,
+} from "react";
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import confetti from "canvas-confetti";
+import { ExecutionStatus } from "../state/executionMachine";
+import { useExecutionMachine } from "../hooks/useExecutionMachine";
+import { useDeviceDetection } from "../hooks/useDeviceDetection";
+import { getPositionValue } from "../services/kamino";
+import { getPythPrice } from "../services/quicknode";
+import {
+  deleteExecution,
+  getHistory,
+  type HistoricalExecution,
+  type SliceAnalytics,
+} from "../services/analyticsStore";
+import {
+  requestAnalyticsTab,
+  subscribeAnalyticsTab,
+  type AnalyticsTab,
+} from "../state/analyticsNav";
+
+// ---------------------------------------------------------------------------
+// Theme (CLAUDE.md BLOK 7 palet)
+// ---------------------------------------------------------------------------
+
+const THEME = {
+  panel: "var(--color-2)",
+  panelElevated: "var(--surface-raised)",
+  border: "var(--color-stroke)",
+  borderNested: "var(--color-stroke-nested)",
+  text: "var(--color-text)",
+  textMuted: "var(--color-text-muted)",
+  accent: "var(--color-5)",
+  accentSoft: "var(--color-accent-bg-strong)",
+  success: "var(--color-5)",
+  amber: "var(--color-warn)",
+  danger: "var(--color-warn)",
+  shadow: "var(--shadow-component)",
+} as const;
+
+const MONO = "var(--font-mono)";
+const SANS = "var(--font-sans)";
+
+/**
+ * CSS custom property'yi runtime'da resolve eder. canvas-confetti gibi
+ * 3rd-party kütüphaneler CSS variable string'lerini parse edemediği için
+ * gerçek hex değerine ihtiyaç duyarlar. Tarayıcıda getComputedStyle ile
+ * documentElement'ten okunur — hardcoded hex yok.
+ */
+function readCssVar(name: string): string {
+  if (typeof document === "undefined") return "";
+  return getComputedStyle(document.documentElement)
+    .getPropertyValue(name)
+    .trim();
+}
+
+const KAMINO_SAMPLE_INTERVAL_MS = 15_000;
+const SOLANA_EXPLORER_TX_BASE = "https://explorer.solana.com/tx/";
+
+// ---------------------------------------------------------------------------
+// Formatting helpers
+// ---------------------------------------------------------------------------
+
+function formatUSD(n: number): string {
+  const abs = Math.abs(n);
+  const decimals = abs < 1 ? 4 : 2;
+  const sign = n < 0 ? "-" : "";
+  return `${sign}$${abs.toLocaleString("en-US", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  })}`;
+}
+
+function formatBps(bps: number): string {
+  const sign = bps >= 0 ? "+" : "";
+  return `${sign}${bps.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+function formatAmount(n: number, decimals = 4): string {
+  return n.toLocaleString("en-US", {
+    maximumFractionDigits: decimals,
+  });
+}
+
+function formatDuration(ms: number): string {
+  if (ms <= 0) return "0s";
+  const totalSec = Math.floor(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0) return `${h}s ${m}dk`;
+  if (m > 0) return `${m}dk ${s}s`;
+  return `${s}s`;
+}
+
+function formatDate(d: Date): string {
+  return d.toLocaleDateString("tr-TR", {
+    day: "numeric",
+    month: "long",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatTime(d: Date): string {
+  return d.toLocaleTimeString("tr-TR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Keyframes injection
+// ---------------------------------------------------------------------------
+
+const STYLE_ID = "liminal-analytics-panel";
+if (typeof document !== "undefined" && !document.getElementById(STYLE_ID)) {
+  const style = document.createElement("style");
+  style.id = STYLE_ID;
+  style.textContent = `
+    @keyframes liminal-slide-in {
+      from { opacity: 0; transform: translateY(-6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
+export const AnalyticsPanel: FC = () => {
+  const { state } = useExecutionMachine();
+  const device = useDeviceDetection();
+  const [activeTab, setActiveTab] = useState<AnalyticsTab>("live");
+
+  // Harici tab değişikliği isteklerini dinle (WalletPanel, ExecutionSummaryCard)
+  useEffect(() => {
+    return subscribeAnalyticsTab(setActiveTab);
+  }, []);
+
+  const handleTabChange = useCallback((tab: AnalyticsTab) => {
+    setActiveTab(tab);
+    requestAnalyticsTab(tab);
+  }, []);
+
+  return (
+    <aside style={styles.panel} aria-label="Analytics paneli">
+      <header style={styles.header}>ANALYTICS</header>
+
+      <nav style={styles.tabs}>
+        <TabButton
+          label="Anlık"
+          active={activeTab === "live"}
+          onClick={() => handleTabChange("live")}
+        />
+        <TabButton
+          label="Geçmiş"
+          active={activeTab === "history"}
+          onClick={() => handleTabChange("history")}
+        />
+        <TabButton
+          label="Protokol"
+          active={activeTab === "protocol"}
+          onClick={() => handleTabChange("protocol")}
+        />
+      </nav>
+
+      <div style={styles.body}>
+        {activeTab === "live" && (
+          <LiveTab state={state} isMobile={device.isMobile} />
+        )}
+        {activeTab === "history" && <HistoryTab isMobile={device.isMobile} />}
+        {activeTab === "protocol" && (
+          <ProtocolTab isMobile={device.isMobile} />
+        )}
+      </div>
+    </aside>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Tab button
+// ---------------------------------------------------------------------------
+
+const TabButton: FC<{
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}> = ({ label, active, onClick }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    style={{
+      ...styles.tabButton,
+      color: active ? THEME.accent : THEME.textMuted,
+      borderBottomColor: active ? THEME.accent : "transparent",
+    }}
+  >
+    {label}
+  </button>
+);
+
+// ---------------------------------------------------------------------------
+// LIVE TAB
+// ---------------------------------------------------------------------------
+
+const LiveTab: FC<{
+  state: ReturnType<typeof useExecutionMachine>["state"];
+  isMobile: boolean;
+}> = ({ state, isMobile }) => {
+  const hasData =
+    state.status === ExecutionStatus.ACTIVE ||
+    state.status === ExecutionStatus.SLICE_WITHDRAWING ||
+    state.status === ExecutionStatus.SLICE_EXECUTING ||
+    state.status === ExecutionStatus.COMPLETING ||
+    state.status === ExecutionStatus.DONE;
+
+  // DONE confetti — bir kez. Renkler design-system.css palette'inden runtime
+  // olarak çözülür (canvas-confetti CSS variable string kabul etmez, gerçek
+  // hex değeri ister). Bu dosyada hardcoded hex yok — getComputedStyle
+  // tarayıcı runtime'ında --color-* variable'larını resolve eder.
+  const confettiFiredRef = useRef<boolean>(false);
+  useEffect(() => {
+    if (state.status === ExecutionStatus.DONE && !confettiFiredRef.current) {
+      confettiFiredRef.current = true;
+      try {
+        const colors = [
+          readCssVar("--color-5"),
+          readCssVar("--color-4"),
+          readCssVar("--color-3"),
+          readCssVar("--color-2"),
+        ].filter((c): c is string => !!c && c.length > 0);
+        confetti({
+          particleCount: 140,
+          spread: 70,
+          origin: { y: 0.4 },
+          colors: colors.length > 0 ? colors : undefined,
+        });
+      } catch {
+        /* confetti failure fatal değil */
+      }
+    }
+    if (
+      state.status !== ExecutionStatus.DONE &&
+      confettiFiredRef.current
+    ) {
+      confettiFiredRef.current = false;
+    }
+  }, [state.status]);
+
+  if (!hasData) {
+    return (
+      <div style={styles.emptyHint}>
+        Execution başladığında gerçek zamanlı analitik burada görünecek.
+      </div>
+    );
+  }
+
+  return (
+    <div style={styles.liveStack}>
+      <ValueCaptureBanner state={state} isMobile={isMobile} />
+      <DFlowBarChart state={state} isMobile={isMobile} />
+      <KaminoYieldChart state={state} />
+      <LiveTimeline state={state} />
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Value Capture Banner
+// ---------------------------------------------------------------------------
+
+const ValueCaptureBanner: FC<{
+  state: ReturnType<typeof useExecutionMachine>["state"];
+  isMobile: boolean;
+}> = ({ state, isMobile }) => {
+  // Kamino yield DONE'a kadar 0 görünür. Canlı yield için useLiveKaminoYield
+  // hook'unu tetikleyip banner'da da kullanabiliriz; basitlik için DONE'daki
+  // totalYieldEarned'ı input token değil USD cinsinden göstermek gerekir.
+  // Banner'da `state.totalYieldEarned`'ı input token olarak bırakıyoruz ve
+  // LiveKaminoYieldChart gerçek USD time series'i gösteriyor. Toplam kazanım
+  // banner'ı sadece DFlow USD + live yield tracker'ın en son noktası.
+  const liveYieldUsd = useLiveKaminoYieldUsd(state);
+  const totalValueUsd = state.totalPriceImprovementUsd + liveYieldUsd;
+
+  return (
+    <div style={styles.valueCaptureBanner}>
+      <div style={styles.valueCaptureLabel}>TOPLAM KAZANIM</div>
+      <div
+        style={{
+          ...styles.valueCaptureValue,
+          color: totalValueUsd >= 0 ? THEME.success : THEME.amber,
+          // Desktop 3rem (~48px), mobil 2rem (~32px) — user spec
+          fontSize: isMobile ? "2rem" : "3rem",
+        }}
+      >
+        {formatUSD(totalValueUsd)}
+      </div>
+      <div style={styles.valueCaptureBreakdown}>
+        <div style={styles.breakdownRow}>
+          <span style={styles.breakdownKey}>DFlow:</span>
+          <span
+            style={{
+              ...styles.breakdownValue,
+              color:
+                state.totalPriceImprovementUsd >= 0
+                  ? THEME.success
+                  : THEME.amber,
+            }}
+          >
+            {formatUSD(state.totalPriceImprovementUsd)} (
+            {formatBps(state.totalPriceImprovementBps)} bps)
+          </span>
+        </div>
+        <div style={styles.breakdownRow}>
+          <span style={styles.breakdownKey}>Kamino:</span>
+          <span style={{ ...styles.breakdownValue, color: THEME.success }}>
+            {formatUSD(liveYieldUsd)}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// DFlow Bar Chart
+// ---------------------------------------------------------------------------
+
+type BarDatum = {
+  name: string;
+  bps: number;
+  usd: number;
+  pending: boolean;
+};
+
+const DFlowBarChart: FC<{
+  state: ReturnType<typeof useExecutionMachine>["state"];
+  isMobile: boolean;
+}> = ({ state, isMobile }) => {
+  const data: BarDatum[] = useMemo(
+    () =>
+      state.slices.map((slice, i) => ({
+        name: `D${i + 1}`,
+        bps: slice.result?.priceImprovementBps ?? 0,
+        usd: slice.result?.priceImprovementUsd ?? 0,
+        pending: slice.status !== "completed",
+      })),
+    [state.slices],
+  );
+
+  if (data.length === 0) return null;
+
+  // Mobil: her bar için min 40px — toplam genişlik bar sayısına göre büyür,
+  // parent yatay scroll ile sığar.
+  const MIN_BAR_WIDTH_MOBILE = 40;
+  const mobileChartWidth = Math.max(
+    data.length * MIN_BAR_WIDTH_MOBILE + 80,
+    280,
+  );
+
+  return (
+    <div style={styles.chartCard}>
+      <div style={styles.chartLabel}>DFLOW PRICE IMPROVEMENT</div>
+      <div
+        style={{
+          ...styles.chartWrapper,
+          overflowX: isMobile ? "auto" : undefined,
+        }}
+      >
+        <div
+          style={{
+            width: isMobile ? mobileChartWidth : "100%",
+            minWidth: isMobile ? mobileChartWidth : undefined,
+          }}
+        >
+        <ResponsiveContainer width="100%" height={180}>
+          <BarChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
+            <CartesianGrid stroke={THEME.border} strokeDasharray="2 4" vertical={false} />
+            <XAxis
+              dataKey="name"
+              stroke={THEME.textMuted}
+              tick={{ fontSize: 10, fontFamily: MONO }}
+              tickLine={false}
+              axisLine={{ stroke: THEME.border }}
+            />
+            <YAxis
+              stroke={THEME.textMuted}
+              tick={{ fontSize: 10, fontFamily: MONO }}
+              tickLine={false}
+              axisLine={{ stroke: THEME.border }}
+              width={40}
+            />
+            <ReferenceLine y={0} stroke={THEME.textMuted} strokeDasharray="3 3" />
+            <Tooltip
+              cursor={{ fill: "var(--color-accent-bg-soft)" }}
+              contentStyle={{
+                background: THEME.panelElevated,
+                border: `1px solid ${THEME.border}`,
+                borderRadius: 6,
+                fontFamily: MONO,
+                fontSize: 11,
+              }}
+              labelStyle={{ color: THEME.textMuted }}
+              formatter={(_v: unknown, _n: unknown, item: { payload?: BarDatum }) => {
+                const d = item.payload;
+                if (!d) return ["", ""];
+                if (d.pending) return ["bekliyor", ""];
+                return [
+                  `${formatBps(d.bps)} bps (${formatUSD(d.usd)})`,
+                  "improvement",
+                ];
+              }}
+            />
+            <Bar dataKey="bps" radius={[3, 3, 0, 0]} animationDuration={600}>
+              {data.map((d, i) => (
+                <Cell
+                  key={i}
+                  fill={
+                    d.pending
+                      ? THEME.border
+                      : d.bps >= 0
+                        ? THEME.accent
+                        : THEME.amber
+                  }
+                />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Kamino Live Yield USD hook — 15s polling
+// ---------------------------------------------------------------------------
+
+type YieldPoint = { t: number; label: string; usd: number };
+
+function useLiveKaminoYield(
+  state: ReturnType<typeof useExecutionMachine>["state"],
+): YieldPoint[] {
+  const [series, setSeries] = useState<YieldPoint[]>([]);
+  const activeKey = `${state.kaminoVaultAddress ?? ""}:${state.config?.inputMint ?? ""}:${state.startedAt?.toISOString() ?? ""}`;
+
+  // Execution değiştiğinde seriyi sıfırla.
+  useEffect(() => {
+    setSeries([]);
+  }, [activeKey]);
+
+  // ACTIVE benzeri durumlarda 15s'de bir sample al.
+  useEffect(() => {
+    const isLive =
+      state.status === ExecutionStatus.ACTIVE ||
+      state.status === ExecutionStatus.SLICE_WITHDRAWING ||
+      state.status === ExecutionStatus.SLICE_EXECUTING ||
+      state.status === ExecutionStatus.COMPLETING;
+    if (!isLive) return;
+    if (!state.config || !state.kaminoVaultAddress) return;
+
+    let cancelled = false;
+
+    const sample = async (): Promise<void> => {
+      try {
+        const [pos, price] = await Promise.all([
+          getPositionValue(
+            state.config!.walletPublicKey,
+            state.kaminoVaultAddress!,
+            state.config!.inputMint,
+            state.kaminoDepositedAmount,
+          ),
+          getPythPrice(state.config!.inputMint),
+        ]);
+        if (cancelled) return;
+        const yieldTokens = Math.max(0, pos.yieldAccrued);
+        const yieldUsd = yieldTokens * (price ?? 0);
+        const ts = Date.now();
+        setSeries((prev) => [
+          ...prev,
+          { t: ts, label: formatTime(new Date(ts)), usd: yieldUsd },
+        ]);
+      } catch (err) {
+        console.warn(
+          `[LIMINAL] Kamino yield sample hatası: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    };
+
+    void sample();
+    const id = setInterval(() => void sample(), KAMINO_SAMPLE_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.status, activeKey]);
+
+  // DONE state'te son değer olarak totalYieldEarned × son bilinen fiyatı ekle.
+  useEffect(() => {
+    if (state.status !== ExecutionStatus.DONE) return;
+    if (series.length === 0 && state.totalYieldEarned <= 0) return;
+    // Zaten ACTIVE'den gelen son point var — DONE'da chart sabit kalır.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.status]);
+
+  return series;
+}
+
+/** Banner için son yield USD değerini verir. */
+function useLiveKaminoYieldUsd(
+  state: ReturnType<typeof useExecutionMachine>["state"],
+): number {
+  const series = useLiveKaminoYield(state);
+  if (series.length === 0) return 0;
+  return series[series.length - 1].usd;
+}
+
+// ---------------------------------------------------------------------------
+// Kamino Yield Area Chart
+// ---------------------------------------------------------------------------
+
+const KaminoYieldChart: FC<{
+  state: ReturnType<typeof useExecutionMachine>["state"];
+}> = ({ state }) => {
+  const series = useLiveKaminoYield(state);
+
+  if (series.length === 0) {
+    return (
+      <div style={styles.chartCard}>
+        <div style={styles.chartLabel}>KAMINO YIELD (CANLI)</div>
+        <div style={styles.yieldEmpty}>Yield verisi bekleniyor...</div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={styles.chartCard}>
+      <div style={styles.chartLabel}>KAMINO YIELD (CANLI)</div>
+      <div style={styles.chartWrapper}>
+        <ResponsiveContainer width="100%" height={160}>
+          <AreaChart
+            data={series}
+            margin={{ top: 8, right: 8, bottom: 0, left: -16 }}
+          >
+            <defs>
+              <linearGradient id="liminal-yield-gradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={THEME.accent} stopOpacity={0.6} />
+                <stop offset="100%" stopColor={THEME.accent} stopOpacity={0.02} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid stroke={THEME.border} strokeDasharray="2 4" vertical={false} />
+            <XAxis
+              dataKey="label"
+              stroke={THEME.textMuted}
+              tick={{ fontSize: 9, fontFamily: MONO }}
+              tickLine={false}
+              axisLine={{ stroke: THEME.border }}
+              minTickGap={20}
+            />
+            <YAxis
+              stroke={THEME.textMuted}
+              tick={{ fontSize: 9, fontFamily: MONO }}
+              tickLine={false}
+              axisLine={{ stroke: THEME.border }}
+              width={44}
+              tickFormatter={(v: number) => `$${v.toFixed(2)}`}
+            />
+            <Tooltip
+              contentStyle={{
+                background: THEME.panelElevated,
+                border: `1px solid ${THEME.border}`,
+                borderRadius: 6,
+                fontFamily: MONO,
+                fontSize: 11,
+              }}
+              labelStyle={{ color: THEME.textMuted }}
+              formatter={(v: number) => [formatUSD(v), "yield"]}
+            />
+            <Area
+              type="monotone"
+              dataKey="usd"
+              stroke={THEME.accent}
+              strokeWidth={2}
+              fill="url(#liminal-yield-gradient)"
+              isAnimationActive
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Live Timeline (tamamlanan slice kartları)
+// ---------------------------------------------------------------------------
+
+const LiveTimeline: FC<{
+  state: ReturnType<typeof useExecutionMachine>["state"];
+}> = ({ state }) => {
+  const completed = state.slices.filter((s) => s.status === "completed" && s.result);
+  if (completed.length === 0) return null;
+
+  // En yeni en üstte.
+  const ordered = [...completed].reverse();
+
+  return (
+    <div style={styles.chartCard}>
+      <div style={styles.chartLabel}>TAMAMLANAN DİLİMLER</div>
+      <div style={styles.timelineList}>
+        {ordered.map((slice) => {
+          const r = slice.result!;
+          return (
+            <div
+              key={slice.sliceIndex}
+              style={{
+                ...styles.timelineItem,
+                animation: "liminal-slide-in 300ms ease-out",
+              }}
+            >
+              <div style={styles.timelineHeader}>
+                <span style={styles.timelineTitle}>
+                  Dilim {slice.sliceIndex + 1}
+                </span>
+                <span style={styles.timelineTime}>
+                  {formatTime(r.confirmedAt)}
+                </span>
+              </div>
+              <div style={styles.timelineMetrics}>
+                <span style={styles.timelineMetric}>
+                  <span style={styles.timelineMetricLabel}>fill:</span>{" "}
+                  {formatAmount(r.executionPrice, 6)}
+                </span>
+                <span style={styles.timelineMetric}>
+                  <span style={styles.timelineMetricLabel}>market:</span>{" "}
+                  {formatAmount(r.marketPrice, 6)}
+                </span>
+              </div>
+              <div style={styles.timelineMetrics}>
+                <span
+                  style={{
+                    ...styles.timelineMetric,
+                    color:
+                      r.priceImprovementBps >= 0
+                        ? THEME.success
+                        : THEME.amber,
+                  }}
+                >
+                  {formatBps(r.priceImprovementBps)} bps
+                </span>
+                <span
+                  style={{
+                    ...styles.timelineMetric,
+                    color:
+                      r.priceImprovementUsd >= 0
+                        ? THEME.success
+                        : THEME.amber,
+                  }}
+                >
+                  {formatUSD(r.priceImprovementUsd)}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// HISTORY TAB
+// ---------------------------------------------------------------------------
+
+const HistoryTab: FC<{ isMobile: boolean }> = ({ isMobile }) => {
+  const [history, setHistory] = useState<HistoricalExecution[]>([]);
+  const [selected, setSelected] = useState<HistoricalExecution | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+
+  // Tab açıldığında TAZE çek (cache yok).
+  useEffect(() => {
+    setHistory(getHistory());
+  }, []);
+
+  const refresh = useCallback(() => {
+    setHistory(getHistory());
+  }, []);
+
+  const handleDelete = useCallback(
+    (id: string) => {
+      deleteExecution(id);
+      setConfirmDelete(null);
+      refresh();
+    },
+    [refresh],
+  );
+
+  if (history.length === 0) {
+    return (
+      <div style={styles.emptyHint}>Henüz tamamlanmış execution yok.</div>
+    );
+  }
+
+  return (
+    <div
+      style={{
+        ...styles.historyStack,
+        // Desktop: 2 sütun grid, mobil: tek sütun
+        display: isMobile ? "flex" : "grid",
+        gridTemplateColumns: isMobile ? undefined : "1fr 1fr",
+        gap: 10,
+      }}
+    >
+      {history.map((h) => (
+        <HistoryCard
+          key={h.id}
+          execution={h}
+          onOpen={() => setSelected(h)}
+          onRequestDelete={() => setConfirmDelete(h.id)}
+          confirmingDelete={confirmDelete === h.id}
+          onConfirmDelete={() => handleDelete(h.id)}
+          onCancelDelete={() => setConfirmDelete(null)}
+        />
+      ))}
+
+      {selected && (
+        <HistoryDetailModal
+          execution={selected}
+          onClose={() => setSelected(null)}
+        />
+      )}
+    </div>
+  );
+};
+
+const HistoryCard: FC<{
+  execution: HistoricalExecution;
+  onOpen: () => void;
+  onRequestDelete: () => void;
+  confirmingDelete: boolean;
+  onConfirmDelete: () => void;
+  onCancelDelete: () => void;
+}> = ({
+  execution,
+  onOpen,
+  onRequestDelete,
+  confirmingDelete,
+  onConfirmDelete,
+  onCancelDelete,
+}) => {
+  const { summary, inputSymbol, outputSymbol } = execution;
+  const total = summary.totalValueCaptureUsd;
+  return (
+    <div style={styles.historyCard}>
+      <div style={styles.historyCardHeader}>
+        <button
+          type="button"
+          onClick={onOpen}
+          style={styles.historyCardTitle}
+        >
+          <span style={styles.historyPair}>
+            {inputSymbol} → {outputSymbol}
+          </span>
+          <span style={styles.historyDate}>
+            {formatDate(execution.createdAt)}
+          </span>
+        </button>
+        {confirmingDelete ? (
+          <div style={styles.confirmGroup}>
+            <span style={styles.confirmText}>Emin misin?</span>
+            <button
+              type="button"
+              onClick={onConfirmDelete}
+              style={styles.confirmYes}
+            >
+              SİL
+            </button>
+            <button
+              type="button"
+              onClick={onCancelDelete}
+              style={styles.confirmNo}
+            >
+              İPTAL
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={onRequestDelete}
+            style={styles.deleteBtn}
+            title="Sil"
+            aria-label="Execution geçmişini sil"
+          >
+            ×
+          </button>
+        )}
+      </div>
+
+      <div style={styles.historyRow}>
+        {formatAmount(summary.totalInputAmount, 2)} {inputSymbol},{" "}
+        {formatDuration(summary.executionDurationMs)}
+      </div>
+
+      <div style={styles.historyValueRow}>
+        <span style={styles.historyValueKey}>DFlow:</span>{" "}
+        <span
+          style={{
+            color:
+              summary.totalPriceImprovementUsd >= 0
+                ? THEME.success
+                : THEME.amber,
+          }}
+        >
+          {formatUSD(summary.totalPriceImprovementUsd)}
+        </span>
+        <span style={styles.historyDivider}>|</span>
+        <span style={styles.historyValueKey}>Kamino:</span>{" "}
+        <span style={{ color: THEME.success }}>
+          {formatUSD(summary.totalKaminoYieldUsd)}
+        </span>
+        <span style={styles.historyDivider}>|</span>
+        <span style={styles.historyValueKey}>Toplam:</span>{" "}
+        <span
+          style={{
+            color: total >= 0 ? THEME.success : THEME.amber,
+            fontWeight: 700,
+          }}
+        >
+          {formatUSD(total)}
+        </span>
+      </div>
+    </div>
+  );
+};
+
+const HistoryDetailModal: FC<{
+  execution: HistoricalExecution;
+  onClose: () => void;
+}> = ({ execution, onClose }) => {
+  const { summary, slices, inputSymbol, outputSymbol } = execution;
+  return (
+    <div style={styles.modalOverlay} onClick={onClose} role="dialog">
+      <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
+        <div style={styles.modalHeader}>
+          <div>
+            <div style={styles.modalTitle}>
+              {inputSymbol} → {outputSymbol}
+            </div>
+            <div style={styles.modalSubtitle}>
+              {formatDate(execution.createdAt)}
+            </div>
+          </div>
+          <button type="button" onClick={onClose} style={styles.modalClose}>
+            ×
+          </button>
+        </div>
+
+        <div style={styles.modalSummaryGrid}>
+          <SummaryMetric
+            label="Toplam miktar"
+            value={`${formatAmount(summary.totalInputAmount, 4)} ${inputSymbol}`}
+          />
+          <SummaryMetric
+            label="Alınan"
+            value={`${formatAmount(summary.totalOutputAmount, 4)} ${outputSymbol}`}
+          />
+          <SummaryMetric
+            label="Ortalama fill"
+            value={formatAmount(summary.averageExecutionPrice, 6)}
+          />
+          <SummaryMetric
+            label="Baseline fiyat"
+            value={formatAmount(summary.baselinePrice, 6)}
+          />
+          <SummaryMetric
+            label="DFlow bps"
+            value={`${formatBps(summary.totalPriceImprovementBps)}`}
+            color={
+              summary.totalPriceImprovementBps >= 0
+                ? THEME.success
+                : THEME.amber
+            }
+          />
+          <SummaryMetric
+            label="DFlow $"
+            value={formatUSD(summary.totalPriceImprovementUsd)}
+            color={
+              summary.totalPriceImprovementUsd >= 0
+                ? THEME.success
+                : THEME.amber
+            }
+          />
+          <SummaryMetric
+            label="Kamino yield"
+            value={formatUSD(summary.totalKaminoYieldUsd)}
+            color={THEME.success}
+          />
+          <SummaryMetric
+            label="Toplam kazanım"
+            value={formatUSD(summary.totalValueCaptureUsd)}
+            color={
+              summary.totalValueCaptureUsd >= 0
+                ? THEME.success
+                : THEME.amber
+            }
+            big
+          />
+          <SummaryMetric
+            label="Süre"
+            value={formatDuration(summary.executionDurationMs)}
+          />
+          <SummaryMetric
+            label="Dilim"
+            value={`${summary.completedSlices} tamamlandı`}
+          />
+        </div>
+
+        <div style={styles.modalSectionTitle}>DİLİM DETAYLARI</div>
+        <div style={styles.tableWrap}>
+          <table style={styles.table}>
+            <thead>
+              <tr>
+                <th style={styles.th}>#</th>
+                <th style={styles.th}>Fiyat</th>
+                <th style={styles.th}>Bps</th>
+                <th style={styles.th}>Yield $</th>
+                <th style={styles.th}>Süre</th>
+                <th style={styles.th}>Tx</th>
+              </tr>
+            </thead>
+            <tbody>
+              {slices.map((s) => (
+                <SliceRow key={s.sliceIndex} slice={s} />
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div style={styles.modalSectionTitle}>SOLANA EXPLORER</div>
+        <div style={styles.explorerList}>
+          {slices.map((s) => (
+            <a
+              key={s.sliceIndex}
+              href={`${SOLANA_EXPLORER_TX_BASE}${s.signature}`}
+              target="_blank"
+              rel="noreferrer noopener"
+              style={styles.explorerLink}
+            >
+              Dilim {s.sliceIndex + 1}: {s.signature.slice(0, 8)}...
+              {s.signature.slice(-8)}
+            </a>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const SliceRow: FC<{ slice: SliceAnalytics }> = ({ slice }) => {
+  const bpsColor =
+    slice.priceImprovementBps >= 0 ? THEME.success : THEME.amber;
+  return (
+    <tr>
+      <td style={styles.td}>D{slice.sliceIndex + 1}</td>
+      <td style={styles.td}>{formatAmount(slice.executionPrice, 6)}</td>
+      <td style={{ ...styles.td, color: bpsColor }}>
+        {formatBps(slice.priceImprovementBps)}
+      </td>
+      <td style={{ ...styles.td, color: THEME.success }}>
+        {formatUSD(slice.kaminoYieldUsd)}
+      </td>
+      <td style={styles.td}>{formatDuration(slice.kaminoDurationMs)}</td>
+      <td style={styles.td}>
+        <a
+          href={`${SOLANA_EXPLORER_TX_BASE}${slice.signature}`}
+          target="_blank"
+          rel="noreferrer noopener"
+          style={styles.txLink}
+        >
+          {slice.signature.slice(0, 6)}...
+        </a>
+      </td>
+    </tr>
+  );
+};
+
+const SummaryMetric: FC<{
+  label: string;
+  value: string;
+  color?: string;
+  big?: boolean;
+}> = ({ label, value, color, big }) => (
+  <div style={styles.summaryMetric}>
+    <div style={styles.summaryMetricLabel}>{label}</div>
+    <div
+      style={{
+        ...styles.summaryMetricValue,
+        color: color ?? THEME.text,
+        fontSize: big ? 18 : 13,
+        fontWeight: big ? 700 : 600,
+      }}
+    >
+      {value}
+    </div>
+  </div>
+);
+
+// ---------------------------------------------------------------------------
+// PROTOCOL TAB
+// ---------------------------------------------------------------------------
+
+const ProtocolTab: FC<{ isMobile: boolean }> = ({ isMobile }) => {
+  const [history, setHistory] = useState<HistoricalExecution[]>([]);
+
+  useEffect(() => {
+    setHistory(getHistory());
+  }, []);
+
+  const stats = useMemo(() => {
+    if (history.length === 0) return null;
+
+    const totalExecutions = history.length;
+    const totalVolumeUsd = history.reduce((s, h) => {
+      // Volume = totalInput × baselinePrice (gerçek USD tutar)
+      return s + h.summary.totalInputAmount * h.summary.baselinePrice;
+    }, 0);
+    const totalDFlowUsd = history.reduce(
+      (s, h) => s + h.summary.totalPriceImprovementUsd,
+      0,
+    );
+    const totalKaminoUsd = history.reduce(
+      (s, h) => s + h.summary.totalKaminoYieldUsd,
+      0,
+    );
+    const totalValueCapture = totalDFlowUsd + totalKaminoUsd;
+    const avgDurationMs =
+      history.reduce((s, h) => s + h.summary.executionDurationMs, 0) /
+      totalExecutions;
+
+    // En çok kullanılan pair
+    const pairCounts = new Map<string, number>();
+    for (const h of history) {
+      const key = `${h.inputSymbol} → ${h.outputSymbol}`;
+      pairCounts.set(key, (pairCounts.get(key) ?? 0) + 1);
+    }
+    let topPair = "—";
+    let topCount = 0;
+    for (const [pair, count] of pairCounts.entries()) {
+      if (count > topCount) {
+        topCount = count;
+        topPair = pair;
+      }
+    }
+
+    // En yüksek single-execution value capture
+    let maxCapture = 0;
+    for (const h of history) {
+      if (h.summary.totalValueCaptureUsd > maxCapture) {
+        maxCapture = h.summary.totalValueCaptureUsd;
+      }
+    }
+
+    return {
+      totalExecutions,
+      totalVolumeUsd,
+      totalDFlowUsd,
+      totalKaminoUsd,
+      totalValueCapture,
+      avgDurationMs,
+      topPair,
+      topCount,
+      maxCapture,
+    };
+  }, [history]);
+
+  if (!stats) {
+    return (
+      <div style={styles.emptyHint}>
+        Protokol istatistikleri execution tamamlandıkça burada görünecek.
+      </div>
+    );
+  }
+
+  return (
+    <div
+      style={{
+        ...styles.protocolStack,
+        gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+      }}
+    >
+      <ProtocolMetric
+        label="Toplam execution"
+        value={stats.totalExecutions.toLocaleString("en-US")}
+      />
+      <ProtocolMetric
+        label="Toplam hacim"
+        value={formatUSD(stats.totalVolumeUsd)}
+      />
+      <ProtocolMetric
+        label="Toplam DFlow kazanımı"
+        value={formatUSD(stats.totalDFlowUsd)}
+        color={THEME.success}
+      />
+      <ProtocolMetric
+        label="Toplam Kamino yield"
+        value={formatUSD(stats.totalKaminoUsd)}
+        color={THEME.success}
+      />
+      <ProtocolMetric
+        label="Toplam value capture"
+        value={formatUSD(stats.totalValueCapture)}
+        color={THEME.success}
+        big
+      />
+      <ProtocolMetric
+        label="Ortalama execution süresi"
+        value={formatDuration(stats.avgDurationMs)}
+      />
+      <ProtocolMetric
+        label="En çok kullanılan pair"
+        value={`${stats.topPair} (${stats.topCount}×)`}
+      />
+      <ProtocolMetric
+        label="En yüksek tek execution"
+        value={formatUSD(stats.maxCapture)}
+        color={THEME.success}
+      />
+    </div>
+  );
+};
+
+const ProtocolMetric: FC<{
+  label: string;
+  value: string;
+  color?: string;
+  big?: boolean;
+}> = ({ label, value, color, big }) => (
+  <div style={styles.protocolCard}>
+    <div style={styles.protocolLabel}>{label}</div>
+    <div
+      style={{
+        ...styles.protocolValue,
+        color: color ?? THEME.text,
+        fontSize: big ? 22 : 16,
+      }}
+    >
+      {value}
+    </div>
+  </div>
+);
+
+// ---------------------------------------------------------------------------
+// Styles
+// ---------------------------------------------------------------------------
+
+const styles: Record<string, CSSProperties> = {
+  panel: {
+    display: "flex",
+    flexDirection: "column",
+    width: "100%",
+    minHeight: 560,
+    background: THEME.panel,
+    color: THEME.text,
+    border: `1px solid ${THEME.border}`,
+    borderRadius: 12,
+    fontFamily: MONO,
+    overflow: "hidden",
+  },
+  header: {
+    fontFamily: MONO,
+    fontSize: 11,
+    letterSpacing: 2,
+    color: THEME.accent,
+    padding: "16px 20px 14px",
+    borderBottom: `1px solid ${THEME.border}`,
+    textTransform: "uppercase",
+  },
+  tabs: {
+    display: "flex",
+    gap: 2,
+    padding: "0 20px",
+    borderBottom: `1px solid ${THEME.border}`,
+  },
+  tabButton: {
+    fontFamily: MONO,
+    fontSize: 11,
+    fontWeight: 600,
+    background: "transparent",
+    border: "none",
+    borderBottom: "2px solid transparent",
+    padding: "12px 14px",
+    cursor: "pointer",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  body: {
+    flex: 1,
+    padding: "16px 18px",
+    overflowY: "auto",
+  },
+  emptyHint: {
+    fontFamily: MONO,
+    fontSize: 12,
+    color: THEME.textMuted,
+    textAlign: "center",
+    padding: "40px 20px",
+    lineHeight: 1.6,
+  },
+
+  // Live stack
+  liveStack: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 16,
+  },
+  valueCaptureBanner: {
+    background: "var(--color-accent-bg-soft)",
+    border: `1px solid var(--color-accent-border)`,
+    borderRadius: 10,
+    padding: "18px 20px",
+    textAlign: "center",
+  },
+  valueCaptureLabel: {
+    fontSize: 10,
+    color: THEME.textMuted,
+    letterSpacing: 1.5,
+    textTransform: "uppercase",
+    marginBottom: 8,
+  },
+  valueCaptureValue: {
+    fontSize: 32,
+    fontWeight: 700,
+    fontVariantNumeric: "tabular-nums",
+    lineHeight: 1.1,
+  },
+  valueCaptureBreakdown: {
+    marginTop: 12,
+    display: "flex",
+    flexDirection: "column",
+    gap: 4,
+    alignItems: "center",
+  },
+  breakdownRow: {
+    display: "flex",
+    gap: 6,
+    fontSize: 11,
+    fontVariantNumeric: "tabular-nums",
+  },
+  breakdownKey: {
+    color: THEME.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  breakdownValue: {
+    fontWeight: 600,
+  },
+
+  // Charts
+  chartCard: {
+    background: THEME.panelElevated,
+    border: `1px solid ${THEME.border}`,
+    borderRadius: 8,
+    padding: "14px 12px 10px",
+  },
+  chartLabel: {
+    fontSize: 9,
+    color: THEME.accent,
+    letterSpacing: 1.5,
+    textTransform: "uppercase",
+    marginBottom: 10,
+    paddingLeft: 8,
+  },
+  chartWrapper: {
+    width: "100%",
+  },
+  yieldEmpty: {
+    fontSize: 11,
+    color: THEME.textMuted,
+    padding: "28px 16px",
+    textAlign: "center",
+  },
+
+  // Live timeline
+  timelineList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+  },
+  timelineItem: {
+    background: THEME.panel,
+    border: `1px solid ${THEME.border}`,
+    borderRadius: 6,
+    padding: "10px 12px",
+  },
+  timelineHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "baseline",
+    marginBottom: 4,
+  },
+  timelineTitle: {
+    fontSize: 12,
+    fontWeight: 600,
+    color: THEME.text,
+  },
+  timelineTime: {
+    fontSize: 10,
+    color: THEME.textMuted,
+    fontVariantNumeric: "tabular-nums",
+  },
+  timelineMetrics: {
+    display: "flex",
+    gap: 12,
+    fontSize: 10,
+    color: THEME.textMuted,
+    fontVariantNumeric: "tabular-nums",
+  },
+  timelineMetric: {
+    display: "inline-flex",
+    gap: 4,
+  },
+  timelineMetricLabel: {
+    color: THEME.textMuted,
+  },
+
+  // History
+  historyStack: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 10,
+  },
+  historyCard: {
+    background: THEME.panelElevated,
+    border: `1px solid ${THEME.border}`,
+    borderRadius: 8,
+    padding: "12px 14px",
+  },
+  historyCardHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 8,
+    marginBottom: 8,
+  },
+  historyCardTitle: {
+    background: "transparent",
+    border: "none",
+    padding: 0,
+    cursor: "pointer",
+    fontFamily: MONO,
+    color: THEME.text,
+    flex: 1,
+    textAlign: "left",
+    display: "flex",
+    flexDirection: "column",
+    gap: 2,
+  },
+  historyPair: {
+    fontSize: 13,
+    fontWeight: 600,
+  },
+  historyDate: {
+    fontSize: 10,
+    color: THEME.textMuted,
+  },
+  historyRow: {
+    fontSize: 11,
+    color: THEME.textMuted,
+    marginBottom: 6,
+    fontVariantNumeric: "tabular-nums",
+  },
+  historyValueRow: {
+    fontSize: 10,
+    color: THEME.textMuted,
+    fontVariantNumeric: "tabular-nums",
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 4,
+    alignItems: "baseline",
+  },
+  historyValueKey: {
+    color: THEME.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  historyDivider: {
+    color: THEME.border,
+    margin: "0 2px",
+  },
+  deleteBtn: {
+    background: "transparent",
+    border: `1px solid ${THEME.border}`,
+    borderRadius: 4,
+    color: THEME.textMuted,
+    cursor: "pointer",
+    fontSize: 14,
+    width: 22,
+    height: 22,
+    lineHeight: 1,
+    padding: 0,
+  },
+  confirmGroup: {
+    display: "flex",
+    gap: 6,
+    alignItems: "center",
+  },
+  confirmText: {
+    fontSize: 10,
+    color: THEME.amber,
+  },
+  confirmYes: {
+    fontFamily: MONO,
+    background: THEME.danger,
+    color: "var(--color-text-inverse)",
+    border: "none",
+    borderRadius: 4,
+    padding: "4px 8px",
+    fontSize: 10,
+    cursor: "pointer",
+    fontWeight: 600,
+  },
+  confirmNo: {
+    fontFamily: MONO,
+    background: "transparent",
+    color: THEME.textMuted,
+    border: `1px solid ${THEME.border}`,
+    borderRadius: 4,
+    padding: "4px 8px",
+    fontSize: 10,
+    cursor: "pointer",
+  },
+
+  // Modal
+  modalOverlay: {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(0, 0, 0, 0.72)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 9999,
+    padding: 20,
+  },
+  modalCard: {
+    background: THEME.panel,
+    border: `1px solid ${THEME.border}`,
+    borderRadius: 12,
+    padding: 22,
+    maxWidth: 640,
+    width: "100%",
+    maxHeight: "85vh",
+    overflowY: "auto",
+    fontFamily: MONO,
+  },
+  modalHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: 700,
+    color: THEME.text,
+  },
+  modalSubtitle: {
+    fontSize: 10,
+    color: THEME.textMuted,
+    marginTop: 2,
+  },
+  modalClose: {
+    background: "transparent",
+    border: `1px solid ${THEME.border}`,
+    borderRadius: 4,
+    color: THEME.textMuted,
+    cursor: "pointer",
+    fontSize: 18,
+    width: 28,
+    height: 28,
+    padding: 0,
+  },
+  modalSummaryGrid: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: 12,
+    marginBottom: 18,
+  },
+  summaryMetric: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 3,
+  },
+  summaryMetricLabel: {
+    fontSize: 9,
+    color: THEME.textMuted,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  summaryMetricValue: {
+    fontVariantNumeric: "tabular-nums",
+  },
+  modalSectionTitle: {
+    fontSize: 10,
+    color: THEME.accent,
+    letterSpacing: 1.5,
+    textTransform: "uppercase",
+    marginBottom: 10,
+    marginTop: 8,
+  },
+  tableWrap: {
+    overflowX: "auto",
+    marginBottom: 18,
+  },
+  table: {
+    width: "100%",
+    borderCollapse: "collapse",
+    fontSize: 11,
+  },
+  th: {
+    textAlign: "left",
+    padding: "6px 8px",
+    color: THEME.textMuted,
+    fontSize: 9,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+    borderBottom: `1px solid ${THEME.border}`,
+  },
+  td: {
+    padding: "6px 8px",
+    color: THEME.text,
+    fontVariantNumeric: "tabular-nums",
+    borderBottom: `1px solid ${THEME.border}`,
+  },
+  txLink: {
+    color: THEME.accent,
+    textDecoration: "none",
+  },
+  explorerList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 6,
+  },
+  explorerLink: {
+    fontSize: 11,
+    color: THEME.accent,
+    textDecoration: "none",
+    padding: "4px 0",
+    fontVariantNumeric: "tabular-nums",
+  },
+
+  // Protocol
+  protocolStack: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: 10,
+  },
+  protocolCard: {
+    background: THEME.panelElevated,
+    border: `1px solid ${THEME.border}`,
+    borderRadius: 8,
+    padding: "14px 16px",
+    display: "flex",
+    flexDirection: "column",
+    gap: 6,
+  },
+  protocolLabel: {
+    fontSize: 9,
+    color: THEME.textMuted,
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+  protocolValue: {
+    fontWeight: 700,
+    fontVariantNumeric: "tabular-nums",
+  },
+};
+
+export default AnalyticsPanel;
