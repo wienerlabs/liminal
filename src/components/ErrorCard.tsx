@@ -161,7 +161,7 @@ export const ErrorCard: FC<ErrorCardProps> = ({ error, onRetry, onReset }) => {
 const styles: Record<string, CSSProperties> = {
   card: {
     fontFamily: MONO,
-    borderRadius: 8,
+    borderRadius: "var(--radius-md)",
     padding: "14px 16px",
     border: "1px solid",
     display: "flex",

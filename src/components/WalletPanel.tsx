@@ -205,8 +205,28 @@ export const WalletPanel: FC = () => {
       <aside style={styles.panel} aria-label="Wallet panel">
         <header style={styles.header}>WALLET</header>
         <div style={styles.emptyBody}>
+          <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+            <rect x="4" y="12" width="40" height="28" rx="4" stroke="var(--color-5)" strokeWidth="2" fill="none" />
+            <path d="M4 20h40" stroke="var(--color-5)" strokeWidth="2" />
+            <circle cx="36" cy="28" r="3" stroke="var(--color-5)" strokeWidth="2" fill="none" />
+            <path d="M12 8h24" stroke="var(--color-5)" strokeWidth="1.5" strokeLinecap="round" opacity="0.5" />
+          </svg>
           <div style={styles.emptyHint}>
             Connect your Solflare wallet to start using LIMINAL.
+          </div>
+          <div style={styles.featureBullets}>
+            <div style={styles.bulletItem}>
+              <span style={styles.bulletDot} />
+              View SOL and SPL balances
+            </div>
+            <div style={styles.bulletItem}>
+              <span style={styles.bulletDot} />
+              Track execution history
+            </div>
+            <div style={styles.bulletItem}>
+              <span style={styles.bulletDot} />
+              One-click Solflare connection
+            </div>
           </div>
           <Button
             variant="primary"
@@ -235,9 +255,7 @@ export const WalletPanel: FC = () => {
 
       <section style={styles.section}>
         <div style={styles.sectionLabel}>ADDRESS</div>
-        <div style={styles.addressValue}>
-          {wallet.address ? shortAddress(wallet.address) : "—"}
-        </div>
+        <CopyableAddress address={wallet.address} />
       </section>
 
       <div style={styles.divider} />
@@ -335,6 +353,7 @@ export const WalletPanel: FC = () => {
 const HistoryRowCompact: FC<{ execution: HistoricalExecution }> = ({
   execution,
 }) => {
+  const [hovered, setHovered] = useState(false);
   const total = execution.summary.totalValueCaptureUsd;
   const positive = total >= 0;
   const dateStr = execution.createdAt.toLocaleDateString("en-US", {
@@ -345,7 +364,14 @@ const HistoryRowCompact: FC<{ execution: HistoricalExecution }> = ({
     <button
       type="button"
       onClick={() => requestAnalyticsTab("history")}
-      style={styles.historyRow}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        ...styles.historyRow,
+        borderColor: hovered ? "var(--color-stroke-hover)" : THEME.border,
+        background: hovered ? "var(--surface-raised)" : THEME.panelElevated,
+        transition: "border-color 150ms ease, background 150ms ease",
+      }}
     >
       <div style={styles.historyRowTop}>
         <span style={styles.historyRowPair}>
@@ -372,6 +398,32 @@ const HistoryRowCompact: FC<{ execution: HistoricalExecution }> = ({
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
+
+const CopyableAddress: FC<{ address: string | null }> = ({ address }) => {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = useCallback(() => {
+    if (!address) return;
+    void navigator.clipboard.writeText(address).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  }, [address]);
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      style={styles.addressButton}
+      title="Click to copy full address"
+    >
+      <span style={styles.addressValue}>
+        {address ? shortAddress(address) : "—"}
+      </span>
+      <span style={styles.copiedText}>
+        {copied ? "Copied!" : ""}
+      </span>
+    </button>
+  );
+};
 
 const BalanceRow: FC<{
   symbol: string;
@@ -410,9 +462,10 @@ const styles: Record<string, CSSProperties> = {
     background: THEME.panel,
     color: THEME.text,
     border: `1px solid ${THEME.border}`,
-    borderRadius: 12,
+    borderRadius: "var(--radius-lg)",
     fontFamily: MONO,
     overflow: "hidden",
+    boxShadow: "var(--shadow-component)",
   },
   header: {
     fontFamily: MONO,
@@ -439,6 +492,28 @@ const styles: Record<string, CSSProperties> = {
     textAlign: "center",
     maxWidth: 240,
     lineHeight: 1.6,
+  },
+  featureBullets: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+    alignSelf: "stretch",
+  },
+  bulletItem: {
+    fontFamily: MONO,
+    fontSize: 11,
+    color: THEME.textMuted,
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    lineHeight: 1.4,
+  },
+  bulletDot: {
+    width: 5,
+    height: 5,
+    borderRadius: "50%",
+    background: "var(--color-5)",
+    flexShrink: 0,
   },
   primaryButton: {
     fontFamily: MONO,
@@ -477,12 +552,29 @@ const styles: Record<string, CSSProperties> = {
     marginBottom: 8,
     textTransform: "uppercase",
   },
+  addressButton: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    background: "transparent",
+    border: "none",
+    padding: 0,
+    cursor: "pointer",
+    fontFamily: MONO,
+  },
   addressValue: {
     fontFamily: MONO,
     fontSize: 14,
     color: THEME.text,
     letterSpacing: 0.5,
     fontVariantNumeric: "tabular-nums",
+  },
+  copiedText: {
+    fontFamily: MONO,
+    fontSize: 10,
+    color: THEME.accent,
+    fontWeight: 600,
+    minWidth: 44,
   },
   divider: {
     height: 1,

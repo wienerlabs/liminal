@@ -132,23 +132,33 @@ export const App: FC = () => {
         <ToastContainer />
 
         {inFlight && (
-          <button
-            type="button"
-            onClick={() => setMobileTab("execute")}
-            style={styles.activeExecBar}
-          >
-            <span style={styles.pulseDot} />
-            <span style={styles.activeExecText}>
-              Execution active: Slice {sliceN}/{sliceM}
-            </span>
-            <span style={styles.activeExecUsd}>
-              $
-              {state.totalPriceImprovementUsd.toLocaleString("en-US", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
-            </span>
-          </button>
+          <div style={{ position: "relative" }}>
+            <button
+              type="button"
+              onClick={() => setMobileTab("execute")}
+              style={styles.activeExecBar}
+            >
+              <span style={styles.pulseDot} />
+              <span style={styles.activeExecText}>
+                Execution active: Slice {sliceN}/{sliceM}
+              </span>
+              <span style={styles.activeExecUsd}>
+                $
+                {state.totalPriceImprovementUsd.toLocaleString("en-US", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </span>
+            </button>
+            <div style={styles.progressTrack}>
+              <div
+                style={{
+                  ...styles.progressFill,
+                  width: sliceM > 0 ? `${(sliceN / sliceM) * 100}%` : "0%",
+                }}
+              />
+            </div>
+          </div>
         )}
 
         <main style={styles.mobileBody}>
@@ -221,6 +231,9 @@ export const App: FC = () => {
       </div>
       {!wallet.connected && !device.isSolflareInAppBrowser && (
         <div style={styles.desktopFooterHint}>
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ flexShrink: 0 }}>
+            <path d="M9 3L5 7l4 4" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
           Connect your Solflare wallet from the left panel to get started.
         </div>
       )}
@@ -249,28 +262,58 @@ const SolflareBanner: FC = () => (
   </div>
 );
 
+const tabIcons: Record<string, (color: string) => JSX.Element> = {
+  Wallet: (color: string) => (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <rect x="1" y="4" width="14" height="10" rx="2" stroke={color} strokeWidth="1.5" />
+      <path d="M1 7h14" stroke={color} strokeWidth="1.5" />
+      <circle cx="12" cy="10" r="1" fill={color} />
+    </svg>
+  ),
+  Execute: (color: string) => (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <polygon points="5,2 13,8 5,14" fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" />
+    </svg>
+  ),
+  Analytics: (color: string) => (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <polyline points="1,12 5,6 9,9 15,3" fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+};
+
 const MobileTabButton: FC<{
   label: string;
   active: boolean;
   onClick: () => void;
   badge?: string;
-}> = ({ label, active, onClick, badge }) => (
-  <button
-    type="button"
-    onClick={onClick}
-    style={{
-      ...styles.mobileTabButton,
-      color: active ? THEME.accent : THEME.textMuted,
-      borderTopColor: active ? THEME.accent : "transparent",
-      position: "relative",
-    }}
-  >
-    {label}
-    {badge && (
-      <span style={styles.tabBadge}>{badge}</span>
-    )}
-  </button>
-);
+}> = ({ label, active, onClick, badge }) => {
+  const color = active ? THEME.accent : THEME.textMuted;
+  const renderIcon = tabIcons[label];
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        ...styles.mobileTabButton,
+        color,
+        borderTopColor: active ? THEME.accent : "transparent",
+        position: "relative",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 3,
+      }}
+    >
+      {renderIcon && renderIcon(color)}
+      <span>{label}</span>
+      {badge && (
+        <span style={styles.tabBadge}>{badge}</span>
+      )}
+    </button>
+  );
+};
 
 // ---------------------------------------------------------------------------
 // Styles
@@ -329,6 +372,11 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 11,
     color: THEME.textMuted,
     borderTop: `1px solid ${THEME.border}`,
+    animation: "liminal-panel-enter 500ms ease-out",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
   },
 
   // Tablet
@@ -434,6 +482,16 @@ const styles: Record<string, CSSProperties> = {
     flex: 1,
     color: THEME.text,
     fontWeight: 600,
+  },
+  progressTrack: {
+    height: 2,
+    background: "var(--color-stroke)",
+    width: "100%",
+  },
+  progressFill: {
+    height: 2,
+    background: "var(--color-5)",
+    transition: "width 300ms ease",
   },
   activeExecUsd: {
     color: THEME.accent,

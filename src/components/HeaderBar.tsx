@@ -5,7 +5,7 @@
  * Partner logos as subtle "Powered by" text strip.
  */
 
-import { useEffect, useState, type CSSProperties, type FC } from "react";
+import { useCallback, useEffect, useState, type CSSProperties, type FC } from "react";
 import {
   getWalletState,
   subscribeWallet,
@@ -35,6 +35,15 @@ export const HeaderBar: FC<HeaderBarProps> = ({ networkStatus }) => {
     ? `${wallet.address.slice(0, 4)}...${wallet.address.slice(-4)}`
     : null;
 
+  const [copiedAddr, setCopiedAddr] = useState(false);
+  const handleCopyAddr = useCallback(() => {
+    if (!wallet.address) return;
+    void navigator.clipboard.writeText(wallet.address).then(() => {
+      setCopiedAddr(true);
+      setTimeout(() => setCopiedAddr(false), 1500);
+    });
+  }, [wallet.address]);
+
   const netDotColor =
     networkStatus?.status === "connected"
       ? "var(--color-success)"
@@ -62,9 +71,11 @@ export const HeaderBar: FC<HeaderBarProps> = ({ networkStatus }) => {
 
       {/* Partner logos */}
       <div style={styles.partners}>
-        {["DFlow", "Kamino", "Quicknode", "Solflare"].map((name) => (
-          <span key={name} style={styles.partnerName}>
-            {name}
+        <span style={styles.poweredBy}>Powered by</span>
+        {["DFlow", "Kamino", "Quicknode", "Solflare"].map((name, i) => (
+          <span key={name} style={{ display: "flex", alignItems: "center", gap: 0 }}>
+            {i > 0 && <span style={styles.partnerDot}>·</span>}
+            <span style={styles.partnerName}>{name}</span>
           </span>
         ))}
       </div>
@@ -94,9 +105,21 @@ export const HeaderBar: FC<HeaderBarProps> = ({ networkStatus }) => {
         </div>
 
         {/* Wallet badge */}
-        <div style={styles.walletBadge}>
-          {wallet.connected && shortAddr ? shortAddr : "Not connected"}
-        </div>
+        <button
+          type="button"
+          onClick={wallet.connected ? handleCopyAddr : undefined}
+          style={{
+            ...styles.walletBadge,
+            cursor: wallet.connected ? "pointer" : "default",
+          }}
+          title={wallet.connected ? "Click to copy address" : undefined}
+        >
+          {copiedAddr
+            ? "Copied!"
+            : wallet.connected && shortAddr
+              ? shortAddr
+              : "Not connected"}
+        </button>
       </div>
     </header>
   );
@@ -136,10 +159,18 @@ const styles: Record<string, CSSProperties> = {
   partners: {
     display: "flex",
     alignItems: "center",
-    gap: 12,
+    gap: 6,
     flex: 1,
     justifyContent: "center",
     overflow: "hidden",
+  },
+  poweredBy: {
+    fontFamily: MONO,
+    fontSize: 8,
+    letterSpacing: 0.5,
+    color: "var(--color-stroke-hover)",
+    whiteSpace: "nowrap" as const,
+    textTransform: "uppercase" as const,
   },
   partnerName: {
     fontFamily: MONO,
@@ -148,6 +179,13 @@ const styles: Record<string, CSSProperties> = {
     textTransform: "uppercase" as const,
     color: "var(--color-text-muted)",
     whiteSpace: "nowrap" as const,
+    transition: "color 150ms ease",
+  },
+  partnerDot: {
+    fontFamily: MONO,
+    fontSize: 10,
+    color: "var(--color-stroke-hover)",
+    margin: "0 6px",
   },
   right: {
     display: "flex",
@@ -177,6 +215,7 @@ const styles: Record<string, CSSProperties> = {
     padding: "3px 10px",
     borderRadius: "var(--radius-sm)",
     border: "1px solid var(--color-stroke)",
+    background: "transparent",
     fontSize: 10,
     fontFamily: MONO,
     color: "var(--color-text-muted)",

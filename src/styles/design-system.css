@@ -215,6 +215,17 @@ button:focus-visible {
   }
 }
 
+@keyframes liminal-slide-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
 @keyframes liminal-scale-in {
   from {
     transform: scale(0.8);
@@ -224,6 +235,71 @@ button:focus-visible {
     transform: scale(1);
     opacity: 1;
   }
+}
+
+/* ===================================================================== */
+/* Range slider cross-browser (Item 5 Round 2)                            */
+/* ===================================================================== */
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  background: var(--color-stroke);
+  border-radius: var(--radius-sm);
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--color-5);
+  border: none;
+  margin-top: -6px;
+}
+
+input[type="range"]::-moz-range-track {
+  height: 4px;
+  background: var(--color-stroke);
+  border-radius: var(--radius-sm);
+  border: none;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--color-5);
+  border: none;
+}
+
+/* ===================================================================== */
+/* Custom scrollbar (Item 18 Round 2)                                     */
+/* ===================================================================== */
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-4);
+  border-radius: var(--radius-sm);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-4) transparent;
 }
 
 /* ===================================================================== */

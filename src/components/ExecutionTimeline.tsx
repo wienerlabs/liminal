@@ -26,6 +26,7 @@ import type { TWAPSlice } from "../services/dflow";
 import ErrorCard from "./ErrorCard";
 import ProgressRing from "./ProgressRing";
 import Button from "./Button";
+import CountdownTimer from "./CountdownTimer";
 
 // ---------------------------------------------------------------------------
 // Theme — CLAUDE.md BLOK 7 palet
@@ -236,11 +237,7 @@ export const ExecutionTimeline: FC<ExecutionTimelineProps> = ({
 
         <div style={styles.summaryCell}>
           <div style={styles.summaryLabel}>REMAINING</div>
-          <div style={styles.summaryValue}>
-            {state.estimatedCompletionAt && remainingMs > 0
-              ? formatDuration(remainingMs)
-              : "—"}
-          </div>
+          <CountdownTimer remainingMs={remainingMs} />
         </div>
       </header>
 
@@ -471,7 +468,7 @@ const styles: Record<string, CSSProperties> = {
     fontFamily: MONO,
     background: THEME.panel,
     border: `1px solid ${THEME.border}`,
-    borderRadius: 10,
+    borderRadius: "var(--radius-lg)",
     padding: "16px 18px",
     display: "flex",
     flexDirection: "column",

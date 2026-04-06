@@ -42,6 +42,7 @@ import ExecutionSummaryCard from "./ExecutionSummaryCard";
 import StepIndicator from "./StepIndicator";
 import Sparkline from "./Sparkline";
 import Button from "./Button";
+import Tooltip from "./Tooltip";
 
 // ---------------------------------------------------------------------------
 // Theme
@@ -325,6 +326,23 @@ export const ExecutionPanel: FC = () => {
     !!optimalVault &&
     isIdleOrConfigured;
 
+  // --- Keyboard shortcut: Cmd/Ctrl + Enter to start ----------------------
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+        if (canConfigure) {
+          e.preventDefault();
+          handleConfigureAndStartRef.current?.();
+        }
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canConfigure]);
+
+  const handleConfigureAndStartRef = useRef<(() => void) | null>(null);
+
   // --- Actions ------------------------------------------------------------
   const handleConfigureAndStart = useCallback(() => {
     if (!canConfigure || !optimalVault) return;
@@ -359,6 +377,8 @@ export const ExecutionPanel: FC = () => {
     windowMs,
     slippageBps,
   ]);
+
+  handleConfigureAndStartRef.current = handleConfigureAndStart;
 
   const handleWindowPreset = useCallback((ms: number, suggested: number) => {
     if (isInFlight) return;
@@ -473,6 +493,7 @@ export const ExecutionPanel: FC = () => {
                 style={{
                   ...styles.row,
                   flexDirection: isMobile ? "column" : "row",
+                  alignItems: "flex-end",
                 }}
               >
                 <TokenSelect
@@ -483,6 +504,28 @@ export const ExecutionPanel: FC = () => {
                   disabled={isInFlight}
                   lockedTooltip={lockedTooltip}
                 />
+                <button
+                  type="button"
+                  disabled={isInFlight || !fromMint || !toMint}
+                  onClick={() => {
+                    if (isInFlight) return;
+                    const tmp = fromMint;
+                    setFromMint(toMint);
+                    setToMint(tmp);
+                  }}
+                  style={{
+                    ...styles.swapButton,
+                    opacity: isInFlight || !fromMint || !toMint ? 0.3 : 1,
+                    cursor: isInFlight || !fromMint || !toMint ? "not-allowed" : "pointer",
+                  }}
+                  title="Swap tokens"
+                  aria-label="Swap from and to tokens"
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path d="M5 3v10M5 3L2 6M5 3l3 3" stroke="var(--color-5)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M11 13V3M11 13l3-3M11 13l-3-3" stroke="var(--color-5)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
                 <TokenSelect
                   label="To"
                   value={toMint}
@@ -526,23 +569,34 @@ export const ExecutionPanel: FC = () => {
           {/* Miktar */}
           <div style={styles.section}>
             <div style={styles.sectionLabel}>AMOUNT</div>
-            <input
-              type="text"
-              inputMode="decimal"
-              placeholder="0.00"
-              value={amountStr}
-              onChange={(e) => !isInFlight && setAmountStr(e.target.value)}
-              disabled={isInFlight}
-              title={isInFlight ? lockedTooltip : undefined}
-              style={{
-                ...styles.numericInput,
-                borderColor: amountExceedsBalance
-                  ? THEME.danger
-                  : THEME.border,
-                opacity: isInFlight ? 0.5 : 1,
-                cursor: isInFlight ? "not-allowed" : "text",
-              }}
-            />
+            <div style={styles.amountInputWrap}>
+              <input
+                type="text"
+                inputMode="decimal"
+                placeholder="0.00"
+                value={amountStr}
+                onChange={(e) => !isInFlight && setAmountStr(e.target.value)}
+                disabled={isInFlight}
+                title={isInFlight ? lockedTooltip : undefined}
+                style={{
+                  ...styles.numericInput,
+                  borderColor: amountExceedsBalance
+                    ? THEME.danger
+                    : THEME.border,
+                  opacity: isInFlight ? 0.5 : 1,
+                  cursor: isInFlight ? "not-allowed" : "text",
+                }}
+              />
+              {fromToken && !isInFlight && (
+                <button
+                  type="button"
+                  onClick={() => setAmountStr(fromBalance.toString())}
+                  style={styles.maxButton}
+                >
+                  MAX
+                </button>
+              )}
+            </div>
             {fromToken && (
               <div style={styles.amountHint}>
                 Balance: {fromBalance.toLocaleString("en-US", {
@@ -749,6 +803,11 @@ export const ExecutionPanel: FC = () => {
             >
               START EXECUTION
             </Button>
+            {!isMobile && (
+              <div style={styles.shortcutHint}>
+                {navigator.platform?.includes("Mac") ? "\u2318" : "Ctrl"}+Enter to start
+              </div>
+            )}
           </div>
         </>
       )}
@@ -976,9 +1035,10 @@ const styles: Record<string, CSSProperties> = {
     background: THEME.panel,
     color: THEME.text,
     border: `1px solid ${THEME.border}`,
-    borderRadius: 12,
+    borderRadius: "var(--radius-lg)",
     fontFamily: MONO,
     overflow: "hidden",
+    boxShadow: "var(--shadow-component)",
   },
   header: {
     fontFamily: MONO,
@@ -1045,13 +1105,29 @@ const styles: Record<string, CSSProperties> = {
     color: THEME.text,
     background: THEME.panelElevated,
     border: `1px solid ${THEME.border}`,
-    borderRadius: 6,
-    padding: "10px 12px",
+    borderRadius: "var(--radius-sm)",
+    padding: "10px 32px 10px 12px",
     width: "100%",
     outline: "none",
     appearance: "none",
     WebkitAppearance: "none",
     MozAppearance: "none",
+    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 5l3 3 3-3' fill='none' stroke='%233a3a4a' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
+    backgroundRepeat: "no-repeat",
+    backgroundPosition: "right 12px center",
+  },
+  swapButton: {
+    width: 32,
+    height: 32,
+    borderRadius: "50%",
+    border: "1px solid var(--color-stroke)",
+    background: "var(--surface-raised)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+    marginBottom: 2,
+    transition: "background 150ms ease",
   },
   numericInput: {
     fontFamily: MONO,
@@ -1064,6 +1140,26 @@ const styles: Record<string, CSSProperties> = {
     width: "100%",
     outline: "none",
     fontVariantNumeric: "tabular-nums",
+  },
+  amountInputWrap: {
+    position: "relative",
+    display: "flex",
+    alignItems: "center",
+  },
+  maxButton: {
+    position: "absolute",
+    right: 8,
+    fontFamily: MONO,
+    fontSize: 9,
+    fontWeight: 700,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+    color: "var(--color-5)",
+    background: "transparent",
+    border: "1px solid var(--color-stroke)",
+    borderRadius: "var(--radius-sm)",
+    padding: "3px 8px",
+    cursor: "pointer",
   },
   amountHint: {
     fontFamily: MONO,
@@ -1165,7 +1261,6 @@ const styles: Record<string, CSSProperties> = {
   },
   slider: {
     flex: 1,
-    accentColor: THEME.accent,
   },
   sliderLabel: {
     fontFamily: MONO,
@@ -1191,6 +1286,14 @@ const styles: Record<string, CSSProperties> = {
   footer: {
     padding: "16px 20px",
     borderTop: `1px solid ${THEME.border}`,
+  },
+  shortcutHint: {
+    fontFamily: MONO,
+    fontSize: 9,
+    color: "var(--color-text-muted)",
+    textAlign: "center",
+    marginTop: 6,
+    letterSpacing: 0.5,
   },
   primaryButton: {
     fontFamily: MONO,

@@ -260,7 +260,7 @@ const styles: Record<string, CSSProperties> = {
     gap: 10,
     background: "var(--color-accent-bg-soft)",
     border: `1px solid var(--color-accent-border)`,
-    borderRadius: 12,
+    borderRadius: "var(--radius-lg)",
     margin: "16px 20px",
     fontFamily: MONO,
   },

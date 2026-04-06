@@ -280,8 +280,45 @@ const LiveTab: FC<{
 
   if (!hasData) {
     return (
-      <div style={styles.emptyHint}>
-        Real-time analytics will appear here when an execution starts.
+      <div style={styles.skeletonEmpty}>
+        {/* Skeleton bar chart */}
+        <div style={styles.skeletonChartCard}>
+          <div style={styles.skeletonChartLabel}>DFLOW PRICE IMPROVEMENT</div>
+          <div style={styles.skeletonBarRow}>
+            {[60, 85, 45, 70, 55].map((h, i) => (
+              <div
+                key={i}
+                style={{
+                  width: 20,
+                  height: h,
+                  borderRadius: "var(--radius-sm)",
+                  background: "var(--color-stroke)",
+                  opacity: 0.5,
+                }}
+              />
+            ))}
+          </div>
+        </div>
+        {/* Skeleton area chart */}
+        <div style={styles.skeletonChartCard}>
+          <div style={styles.skeletonChartLabel}>KAMINO YIELD</div>
+          <svg width="100%" height="60" viewBox="0 0 200 60" preserveAspectRatio="none" style={{ opacity: 0.4 }}>
+            <path
+              d="M0,50 C20,45 40,35 60,38 C80,41 100,25 120,20 C140,15 160,22 180,18 L200,12 L200,60 L0,60 Z"
+              fill="var(--color-stroke)"
+            />
+            <path
+              d="M0,50 C20,45 40,35 60,38 C80,41 100,25 120,20 C140,15 160,22 180,18 L200,12"
+              fill="none"
+              stroke="var(--color-5)"
+              strokeWidth="2"
+              opacity="0.5"
+            />
+          </svg>
+        </div>
+        <div style={styles.skeletonHintText}>
+          Real-time analytics will appear here when an execution starts.
+        </div>
       </div>
     );
   }
@@ -734,7 +771,15 @@ const HistoryTab: FC<{ isMobile: boolean }> = ({ isMobile }) => {
 
   if (history.length === 0) {
     return (
-      <div style={styles.emptyHint}>No completed executions yet.</div>
+      <div style={styles.historyEmptyCard}>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="10" stroke="var(--color-text-muted)" strokeWidth="1.5" />
+          <path d="M12 6v6l4 2" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeLinecap="round" />
+        </svg>
+        <div style={styles.historyEmptyText}>
+          Completed executions will appear here.
+        </div>
+      </div>
     );
   }
 
@@ -875,6 +920,16 @@ const HistoryDetailModal: FC<{
   onClose: () => void;
 }> = ({ execution, onClose }) => {
   const { summary, slices, inputSymbol, outputSymbol } = execution;
+
+  // Escape key closes modal
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
+
   return (
     <div style={styles.modalOverlay} onClick={onClose} role="dialog">
       <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
@@ -1131,8 +1186,22 @@ const ProtocolTab: FC<{ isMobile: boolean }> = ({ isMobile }) => {
 
   if (!stats) {
     return (
-      <div style={styles.emptyHint}>
-        Protocol statistics will appear here as executions complete.
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <div
+          style={{
+            ...styles.protocolStack,
+            gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+          }}
+        >
+          <ProtocolMetric label="Total executions" value="0" />
+          <ProtocolMetric label="Total volume" value="$0.00" />
+          <ProtocolMetric label="Total DFlow gain" value="$0.00" />
+          <ProtocolMetric label="Total Kamino yield" value="$0.00" />
+          <ProtocolMetric label="Total value capture" value="$0.00" big />
+          <ProtocolMetric label="Average execution duration" value="—" />
+          <ProtocolMetric label="Most used pair" value="—" />
+          <ProtocolMetric label="Best single execution" value="—" />
+        </div>
       </div>
     );
   }
@@ -1277,9 +1346,10 @@ const styles: Record<string, CSSProperties> = {
     background: THEME.panel,
     color: THEME.text,
     border: `1px solid ${THEME.border}`,
-    borderRadius: 12,
+    borderRadius: "var(--radius-lg)",
     fontFamily: MONO,
     overflow: "hidden",
+    boxShadow: "var(--shadow-component)",
   },
   header: {
     fontFamily: MONO,
@@ -1319,6 +1389,44 @@ const styles: Record<string, CSSProperties> = {
     color: THEME.textMuted,
     textAlign: "center",
     padding: "40px 20px",
+    lineHeight: 1.6,
+  },
+
+  // Skeleton empty state
+  skeletonEmpty: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 16,
+    padding: "20px 0",
+  },
+  skeletonChartCard: {
+    background: THEME.panelElevated,
+    border: `1px solid ${THEME.border}`,
+    borderRadius: "var(--radius-md)",
+    padding: "14px 12px 10px",
+  },
+  skeletonChartLabel: {
+    fontSize: 9,
+    color: THEME.textMuted,
+    letterSpacing: 1.5,
+    textTransform: "uppercase",
+    marginBottom: 12,
+    paddingLeft: 8,
+    opacity: 0.6,
+  },
+  skeletonBarRow: {
+    display: "flex",
+    alignItems: "flex-end",
+    justifyContent: "center",
+    gap: 12,
+    height: 90,
+    padding: "0 16px",
+  },
+  skeletonHintText: {
+    fontSize: 11,
+    color: THEME.textMuted,
+    textAlign: "center",
+    padding: "8px 20px",
     lineHeight: 1.6,
   },
 
@@ -1436,6 +1544,23 @@ const styles: Record<string, CSSProperties> = {
   },
   timelineMetricLabel: {
     color: THEME.textMuted,
+  },
+
+  // History empty
+  historyEmptyCard: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: 12,
+    padding: "36px 20px",
+    border: "2px dashed var(--color-stroke)",
+    borderRadius: "var(--radius-md)",
+    textAlign: "center",
+  },
+  historyEmptyText: {
+    fontSize: 12,
+    color: THEME.textMuted,
+    lineHeight: 1.5,
   },
 
   // History

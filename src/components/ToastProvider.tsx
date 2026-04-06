@@ -7,6 +7,7 @@
  */
 
 import {
+  useCallback,
   useEffect,
   useState,
   type CSSProperties,
@@ -40,6 +41,11 @@ function notify(): void {
   }
 }
 
+function removeToast(id: number): void {
+  _toasts = _toasts.filter((t) => t.id !== id);
+  notify();
+}
+
 export function showToast(message: string, type: ToastType = "info"): void {
   const toast: Toast = {
     id: _nextId++,
@@ -52,8 +58,7 @@ export function showToast(message: string, type: ToastType = "info"): void {
 
   // Auto-dismiss after 4s
   setTimeout(() => {
-    _toasts = _toasts.filter((t) => t.id !== toast.id);
-    notify();
+    removeToast(toast.id);
   }, 4000);
 }
 
@@ -70,29 +75,56 @@ function subscribe(fn: (toasts: Toast[]) => void): () => void {
 
 export const ToastContainer: FC = () => {
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [exitingIds, setExitingIds] = useState<Set<number>>(new Set());
 
   useEffect(() => subscribe(setToasts), []);
+
+  const handleDismiss = useCallback((id: number) => {
+    setExitingIds((prev) => new Set(prev).add(id));
+    setTimeout(() => {
+      removeToast(id);
+      setExitingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }, 200);
+  }, []);
 
   if (toasts.length === 0) return null;
 
   return (
     <div style={styles.container}>
-      {toasts.map((t) => (
-        <div
-          key={t.id}
-          style={{
-            ...styles.toast,
-            borderColor:
-              t.type === "success"
-                ? "var(--color-5)"
-                : t.type === "warning"
-                  ? "var(--color-warn)"
-                  : "var(--color-stroke)",
-          }}
-        >
-          <span style={styles.message}>{t.message}</span>
-        </div>
-      ))}
+      {toasts.map((t) => {
+        const isExiting = exitingIds.has(t.id);
+        return (
+          <div
+            key={t.id}
+            style={{
+              ...styles.toast,
+              borderColor:
+                t.type === "success"
+                  ? "var(--color-5)"
+                  : t.type === "warning"
+                    ? "var(--color-warn)"
+                    : "var(--color-stroke)",
+              animation: isExiting
+                ? "liminal-slide-out 200ms ease-out forwards"
+                : "liminal-slide-in 300ms ease-out",
+            }}
+          >
+            <span style={styles.message}>{t.message}</span>
+            <button
+              type="button"
+              onClick={() => handleDismiss(t.id)}
+              style={styles.dismissBtn}
+              aria-label="Dismiss"
+            >
+              &times;
+            </button>
+          </div>
+        );
+      })}
     </div>
   );
 };
@@ -110,7 +142,7 @@ const styles: Record<string, CSSProperties> = {
     flexDirection: "column",
     gap: 8,
     zIndex: 9999,
-    pointerEvents: "none",
+    pointerEvents: "auto",
     maxWidth: 340,
   },
   toast: {
@@ -125,10 +157,29 @@ const styles: Record<string, CSSProperties> = {
     borderRadius: "var(--radius-md)",
     padding: "10px 16px",
     boxShadow: "var(--shadow-raised)",
-    animation: "liminal-slide-in 300ms ease-out",
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
   },
   message: {
     lineHeight: 1.5,
+    flex: 1,
+  },
+  dismissBtn: {
+    background: "transparent",
+    border: "none",
+    color: "var(--color-text-muted)",
+    cursor: "pointer",
+    fontSize: 16,
+    fontWeight: 700,
+    padding: 0,
+    lineHeight: 1,
+    flexShrink: 0,
+    width: 20,
+    height: 20,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
   },
 };
 
