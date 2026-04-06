@@ -33,8 +33,8 @@ const THEME = {
   text: "var(--color-text)",
   textMuted: "var(--color-text-muted)",
   accent: "var(--color-5)",
-  success: "var(--color-5)", // palette bazlı accent — başarılı APY
-  amber: "var(--color-warn)", // tek paletten-dışı uyarı rengi
+  success: "var(--color-success)",
+  amber: "var(--color-warn)",
   shadow: "var(--shadow-component)",
 } as const;
 
@@ -42,29 +42,6 @@ const MONO = "var(--font-mono)";
 const SANS = "var(--font-sans)";
 
 const SECONDS_PER_YEAR = 31_536_000;
-
-// ---------------------------------------------------------------------------
-// Shimmer keyframes — idempotent injection (WalletPanel/ExecutionPanel ile
-// aynı keyframe adını paylaşır, tek tanım yeterli).
-// ---------------------------------------------------------------------------
-
-const SHIMMER_STYLE_ID = "liminal-vault-preview-shimmer";
-if (
-  typeof document !== "undefined" &&
-  !document.getElementById(SHIMMER_STYLE_ID) &&
-  !document.getElementById("liminal-wallet-panel-shimmer") &&
-  !document.getElementById("liminal-execution-panel-shimmer")
-) {
-  const style = document.createElement("style");
-  style.id = SHIMMER_STYLE_ID;
-  style.textContent = `
-    @keyframes liminal-shimmer {
-      0% { background-position: 200% 0; }
-      100% { background-position: -200% 0; }
-    }
-  `;
-  document.head.appendChild(style);
-}
 
 // ---------------------------------------------------------------------------
 // Helpers

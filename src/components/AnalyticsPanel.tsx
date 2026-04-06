@@ -58,6 +58,7 @@ import {
   subscribeAnalyticsTab,
   type AnalyticsTab,
 } from "../state/analyticsNav";
+import AnimatedNumber from "./AnimatedNumber";
 
 // ---------------------------------------------------------------------------
 // Theme (CLAUDE.md BLOK 7 palet)
@@ -72,9 +73,9 @@ const THEME = {
   textMuted: "var(--color-text-muted)",
   accent: "var(--color-5)",
   accentSoft: "var(--color-accent-bg-strong)",
-  success: "var(--color-5)",
+  success: "var(--color-success)",
   amber: "var(--color-warn)",
-  danger: "var(--color-warn)",
+  danger: "var(--color-danger)",
   shadow: "var(--shadow-component)",
 } as const;
 
@@ -151,23 +152,6 @@ function formatTime(d: Date): string {
     minute: "2-digit",
     second: "2-digit",
   });
-}
-
-// ---------------------------------------------------------------------------
-// Keyframes injection
-// ---------------------------------------------------------------------------
-
-const STYLE_ID = "liminal-analytics-panel";
-if (typeof document !== "undefined" && !document.getElementById(STYLE_ID)) {
-  const style = document.createElement("style");
-  style.id = STYLE_ID;
-  style.textContent = `
-    @keyframes liminal-slide-in {
-      from { opacity: 0; transform: translateY(-6px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-  `;
-  document.head.appendChild(style);
 }
 
 // ---------------------------------------------------------------------------
@@ -336,11 +320,15 @@ const ValueCaptureBanner: FC<{
         style={{
           ...styles.valueCaptureValue,
           color: totalValueUsd >= 0 ? THEME.success : THEME.amber,
-          // Desktop 3rem (~48px), mobil 2rem (~32px) — user spec
           fontSize: isMobile ? "2rem" : "3rem",
         }}
       >
-        {formatUSD(totalValueUsd)}
+        <AnimatedNumber
+          value={totalValueUsd}
+          prefix="$"
+          decimals={2}
+          duration={600}
+        />
       </div>
       <div style={styles.valueCaptureBreakdown}>
         <div style={styles.breakdownRow}>
@@ -1122,6 +1110,25 @@ const ProtocolTab: FC<{ isMobile: boolean }> = ({ isMobile }) => {
     };
   }, [history]);
 
+  // Cumulative value capture chart data (Item 15)
+  const cumulativeData = useMemo(() => {
+    if (history.length < 2) return [];
+    const sorted = [...history].sort(
+      (a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
+    );
+    let runningSum = 0;
+    return sorted.map((h) => {
+      runningSum += h.summary.totalValueCaptureUsd;
+      return {
+        date: h.createdAt.toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+        }),
+        usd: runningSum,
+      };
+    });
+  }, [history]);
+
   if (!stats) {
     return (
       <div style={styles.emptyHint}>
@@ -1131,49 +1138,108 @@ const ProtocolTab: FC<{ isMobile: boolean }> = ({ isMobile }) => {
   }
 
   return (
-    <div
-      style={{
-        ...styles.protocolStack,
-        gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
-      }}
-    >
-      <ProtocolMetric
-        label="Total executions"
-        value={stats.totalExecutions.toLocaleString("en-US")}
-      />
-      <ProtocolMetric
-        label="Total volume"
-        value={formatUSD(stats.totalVolumeUsd)}
-      />
-      <ProtocolMetric
-        label="Total DFlow gain"
-        value={formatUSD(stats.totalDFlowUsd)}
-        color={THEME.success}
-      />
-      <ProtocolMetric
-        label="Total Kamino yield"
-        value={formatUSD(stats.totalKaminoUsd)}
-        color={THEME.success}
-      />
-      <ProtocolMetric
-        label="Total value capture"
-        value={formatUSD(stats.totalValueCapture)}
-        color={THEME.success}
-        big
-      />
-      <ProtocolMetric
-        label="Average execution duration"
-        value={formatDuration(stats.avgDurationMs)}
-      />
-      <ProtocolMetric
-        label="Most used pair"
-        value={`${stats.topPair} (${stats.topCount}×)`}
-      />
-      <ProtocolMetric
-        label="Best single execution"
-        value={formatUSD(stats.maxCapture)}
-        color={THEME.success}
-      />
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div
+        style={{
+          ...styles.protocolStack,
+          gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+        }}
+      >
+        <ProtocolMetric
+          label="Total executions"
+          value={stats.totalExecutions.toLocaleString("en-US")}
+        />
+        <ProtocolMetric
+          label="Total volume"
+          value={formatUSD(stats.totalVolumeUsd)}
+        />
+        <ProtocolMetric
+          label="Total DFlow gain"
+          value={formatUSD(stats.totalDFlowUsd)}
+          color={THEME.success}
+        />
+        <ProtocolMetric
+          label="Total Kamino yield"
+          value={formatUSD(stats.totalKaminoUsd)}
+          color={THEME.success}
+        />
+        <ProtocolMetric
+          label="Total value capture"
+          value={formatUSD(stats.totalValueCapture)}
+          color={THEME.success}
+          big
+        />
+        <ProtocolMetric
+          label="Average execution duration"
+          value={formatDuration(stats.avgDurationMs)}
+        />
+        <ProtocolMetric
+          label="Most used pair"
+          value={`${stats.topPair} (${stats.topCount}×)`}
+        />
+        <ProtocolMetric
+          label="Best single execution"
+          value={formatUSD(stats.maxCapture)}
+          color={THEME.success}
+        />
+      </div>
+
+      {/* Cumulative value capture area chart (Item 15) */}
+      {cumulativeData.length >= 2 && (
+        <div style={styles.chartCard}>
+          <div style={styles.chartLabel}>CUMULATIVE VALUE CAPTURE</div>
+          <div style={styles.chartWrapper}>
+            <ResponsiveContainer width="100%" height={180}>
+              <AreaChart
+                data={cumulativeData}
+                margin={{ top: 8, right: 8, bottom: 0, left: -16 }}
+              >
+                <defs>
+                  <linearGradient id="liminal-cumulative-gradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={THEME.accent} stopOpacity={0.5} />
+                    <stop offset="100%" stopColor={THEME.accent} stopOpacity={0.02} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid stroke={THEME.border} strokeDasharray="2 4" vertical={false} />
+                <XAxis
+                  dataKey="date"
+                  stroke={THEME.textMuted}
+                  tick={{ fontSize: 9, fontFamily: MONO }}
+                  tickLine={false}
+                  axisLine={{ stroke: THEME.border }}
+                />
+                <YAxis
+                  stroke={THEME.textMuted}
+                  tick={{ fontSize: 9, fontFamily: MONO }}
+                  tickLine={false}
+                  axisLine={{ stroke: THEME.border }}
+                  width={44}
+                  tickFormatter={(v: number) => `$${v.toFixed(0)}`}
+                />
+                <Tooltip
+                  contentStyle={{
+                    background: THEME.panelElevated,
+                    border: `1px solid ${THEME.border}`,
+                    borderRadius: 6,
+                    fontFamily: MONO,
+                    fontSize: 11,
+                  }}
+                  labelStyle={{ color: THEME.textMuted }}
+                  formatter={(v: number) => [formatUSD(v), "cumulative"]}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="usd"
+                  stroke={THEME.accent}
+                  strokeWidth={2}
+                  fill="url(#liminal-cumulative-gradient)"
+                  isAnimationActive
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

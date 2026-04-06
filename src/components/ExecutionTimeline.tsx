@@ -24,6 +24,8 @@ import {
 } from "../state/executionMachine";
 import type { TWAPSlice } from "../services/dflow";
 import ErrorCard from "./ErrorCard";
+import ProgressRing from "./ProgressRing";
+import Button from "./Button";
 
 // ---------------------------------------------------------------------------
 // Theme — CLAUDE.md BLOK 7 palet
@@ -37,34 +39,14 @@ const THEME = {
   text: "var(--color-text)",
   textMuted: "var(--color-text-muted)",
   accent: "var(--color-5)",
-  success: "var(--color-5)",
+  success: "var(--color-success)",
   amber: "var(--color-warn)",
-  danger: "var(--color-warn)",
+  danger: "var(--color-danger)",
   shadow: "var(--shadow-component)",
 } as const;
 
 const MONO = "var(--font-mono)";
 const SANS = "var(--font-sans)";
-
-// ---------------------------------------------------------------------------
-// Pulse keyframes — idempotent injection
-// ---------------------------------------------------------------------------
-
-const PULSE_STYLE_ID = "liminal-execution-timeline-pulse";
-if (
-  typeof document !== "undefined" &&
-  !document.getElementById(PULSE_STYLE_ID)
-) {
-  const style = document.createElement("style");
-  style.id = PULSE_STYLE_ID;
-  style.textContent = `
-    @keyframes liminal-pulse {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.55; transform: scale(0.98); }
-    }
-  `;
-  document.head.appendChild(style);
-}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -204,11 +186,14 @@ export const ExecutionTimeline: FC<ExecutionTimelineProps> = ({
           </div>
         </div>
 
-        <div style={styles.summaryCell}>
+        <div style={{ ...styles.summaryCell, alignItems: "center" }}>
           <div style={styles.summaryLabel}>SLICES</div>
-          <div style={styles.summaryValue}>
-            {completedCount}/{totalCount || "—"}
-          </div>
+          <ProgressRing
+            completed={completedCount}
+            total={totalCount}
+            size={36}
+            strokeWidth={3}
+          />
         </div>
 
         <div style={styles.summaryCell}>
@@ -267,21 +252,40 @@ export const ExecutionTimeline: FC<ExecutionTimelineProps> = ({
         </div>
       )}
 
-      {/* Dilim listesi */}
+      {/* Dilim listesi with vertical connector line */}
       {state.slices.length > 0 && (
         <div style={styles.slicesList}>
-          {state.slices.map((slice) => (
-            <SliceRow
-              key={slice.sliceIndex}
-              slice={slice}
-              isActive={
-                slice.sliceIndex === state.currentSliceIndex &&
-                (state.status === ExecutionStatus.SLICE_WITHDRAWING ||
-                  state.status === ExecutionStatus.SLICE_EXECUTING ||
-                  state.status === ExecutionStatus.ACTIVE)
-              }
-              now={now}
-            />
+          {state.slices.map((slice, idx) => (
+            <div key={slice.sliceIndex} style={{ position: "relative" }}>
+              {/* Vertical connector line */}
+              {idx < state.slices.length - 1 && (
+                <div
+                  style={{
+                    position: "absolute",
+                    left: 22,
+                    top: "100%",
+                    width: 0,
+                    height: 8,
+                    borderLeft: `2px ${slice.status === "completed" ? "solid" : "dashed"}`,
+                    borderLeftColor:
+                      slice.status === "completed"
+                        ? "var(--color-5)"
+                        : "var(--color-stroke)",
+                    zIndex: 0,
+                  }}
+                />
+              )}
+              <SliceRow
+                slice={slice}
+                isActive={
+                  slice.sliceIndex === state.currentSliceIndex &&
+                  (state.status === ExecutionStatus.SLICE_WITHDRAWING ||
+                    state.status === ExecutionStatus.SLICE_EXECUTING ||
+                    state.status === ExecutionStatus.ACTIVE)
+                }
+                now={now}
+              />
+            </div>
           ))}
         </div>
       )}
@@ -336,13 +340,9 @@ export const ExecutionTimeline: FC<ExecutionTimelineProps> = ({
               color={THEME.text}
             />
           </div>
-          <button
-            type="button"
-            onClick={onReset}
-            style={styles.doneResetButton}
-          >
+          <Button variant="primary" onClick={onReset}>
             NEW EXECUTION
-          </button>
+          </Button>
         </div>
       )}
     </section>

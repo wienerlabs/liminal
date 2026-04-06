@@ -1,25 +1,24 @@
 /**
  * LIMINAL — Root Layout
  *
- * CLAUDE.md BLOK 7 "Ekran Yapısı: Üç Panel" + BLOK 6 "In-App Browser
- * Uyumluluğu" + mobil tab navigation. Üç breakpoint:
- *   - Desktop (≥1024): sol (280) + orta (flex) + sağ (320)
- *   - Tablet (768-1023): sol gizli, orta + sağ 50/50
- *   - Mobile (<768): tek sütun + alt tab bar + üst active execution bar
+ * CLAUDE.md BLOK 7 "Ekran Yapisi: Uc Panel" + BLOK 6 "In-App Browser
+ * Uyumlulugu" + mobil tab navigation. Uc breakpoint:
+ *   - Desktop (>=1024): sol (280) + orta (flex) + sag (320)
+ *   - Tablet (768-1023): sol gizli, orta + sag 50/50
+ *   - Mobile (<768): tek sutun + alt tab bar + ust active execution bar
  *
- * Solflare in-app browser: mount'ta otomatik bağlantı, üstte "Solflare
- * üzerinden açıldı" yeşil banner. Kullanıcı hiçbir zaman manuel connect
- * butonuna basmaz.
+ * Solflare in-app browser: mount'ta otomatik baglanti, ustte "Solflare
+ * uzerinden acildi" yesil banner.
  *
- * Viewport height: 100vh yerine 100dvh (dynamic viewport height) kullanılır,
- * mobil tarayıcıların address bar davranışıyla uyumlu. Fallback zinciri
- * dvh → svh → vh.
+ * Includes: HeaderBar, ToastContainer, panel entrance animations,
+ * network status, mobile tab badge.
  */
 
 import { useEffect, useState, type CSSProperties, type FC } from "react";
 import "./styles/design-system.css";
 import { useDeviceDetection } from "./hooks/useDeviceDetection";
 import { useExecutionMachine } from "./hooks/useExecutionMachine";
+import { useNetworkStatus } from "./hooks/useNetworkStatus";
 import {
   IN_FLIGHT_STATUSES,
 } from "./state/executionMachine";
@@ -33,11 +32,11 @@ import {
 import WalletPanel from "./components/WalletPanel";
 import ExecutionPanel from "./components/ExecutionPanel";
 import AnalyticsPanel from "./components/AnalyticsPanel";
+import HeaderBar from "./components/HeaderBar";
+import { ToastContainer } from "./components/ToastProvider";
 
 // ---------------------------------------------------------------------------
-// Theme — tüm değerler design-system.css CSS variable'larından okunur.
-// Bu dosya yalnızca referans isimlerini JS-friendly bir objede topluyor;
-// hardcoded hex değer yok.
+// Theme
 // ---------------------------------------------------------------------------
 
 const THEME = {
@@ -55,9 +54,7 @@ const THEME = {
 const SANS = "var(--font-sans)";
 
 // ---------------------------------------------------------------------------
-// Google Fonts preconnect + stylesheet — head'e inject edilir.
-// design-system.css içindeki @import fallback; burada preconnect eklemek
-// font load latency'sini düşürür.
+// Google Fonts preconnect
 // ---------------------------------------------------------------------------
 
 const FONT_LINKS_ID = "liminal-google-fonts";
@@ -93,22 +90,19 @@ type MobileTab = "wallet" | "execute" | "analytics";
 export const App: FC = () => {
   const device = useDeviceDetection();
   const { state } = useExecutionMachine();
+  const networkStatus = useNetworkStatus();
 
   const [wallet, setWallet] = useState<WalletState>(() => getWalletState());
   useEffect(() => subscribeWallet(setWallet), []);
 
   const [mobileTab, setMobileTab] = useState<MobileTab>("execute");
 
-  // Solflare in-app browser: mount'ta otomatik bağlantı.
-  // `isSolflareInAppBrowser` true ise kullanıcıya prompt göstermeden
-  // doğrudan connect() çağrılır. Zaten trusted session'da olduğu için
-  // Solflare reddetmez, silent reconnect.
+  // Solflare in-app browser: auto-connect on mount.
   useEffect(() => {
     if (!device.isSolflareInAppBrowser) return;
     void (async () => {
       try {
         await initSolflare();
-        // Eğer onlyIfTrusted ile bağlanılmadıysa açık connect dene.
         if (!getWalletState().connected) {
           await connectWallet();
         }
@@ -124,13 +118,18 @@ export const App: FC = () => {
   const sliceN = state.currentSliceIndex + 1;
   const sliceM = state.slices.length;
 
+  // Mobile tab badge: show slice count on Execute tab during active execution
+  const executeBadge = inFlight && sliceM > 0 ? `${sliceN}/${sliceM}` : undefined;
+
   // ------------------------------------------------------------------
   // Mobile layout
   // ------------------------------------------------------------------
   if (device.isMobile) {
     return (
       <div className="liminal-root" style={styles.mobileRoot}>
+        <HeaderBar networkStatus={networkStatus} />
         {device.isSolflareInAppBrowser && <SolflareBanner />}
+        <ToastContainer />
 
         {inFlight && (
           <button
@@ -168,6 +167,7 @@ export const App: FC = () => {
             label="Execute"
             active={mobileTab === "execute"}
             onClick={() => setMobileTab("execute")}
+            badge={executeBadge}
           />
           <MobileTabButton
             label="Analytics"
@@ -185,12 +185,14 @@ export const App: FC = () => {
   if (device.isTablet) {
     return (
       <div className="liminal-root" style={styles.appRoot}>
+        <HeaderBar networkStatus={networkStatus} />
         {device.isSolflareInAppBrowser && <SolflareBanner />}
+        <ToastContainer />
         <div style={styles.tabletLayout}>
-          <div style={styles.tabletPane}>
+          <div style={{ ...styles.tabletPane, ...panelEntranceStyle(0) }}>
             <ExecutionPanel />
           </div>
-          <div style={styles.tabletPane}>
+          <div style={{ ...styles.tabletPane, ...panelEntranceStyle(1) }}>
             <AnalyticsPanel />
           </div>
         </div>
@@ -203,20 +205,21 @@ export const App: FC = () => {
   // ------------------------------------------------------------------
   return (
     <div className="liminal-root" style={styles.appRoot}>
+      <HeaderBar networkStatus={networkStatus} />
       {device.isSolflareInAppBrowser && <SolflareBanner />}
+      <ToastContainer />
       <div style={styles.desktopLayout}>
-        <aside style={styles.leftCol}>
+        <aside style={{ ...styles.leftCol, ...panelEntranceStyle(0) }}>
           <WalletPanel />
         </aside>
-        <main style={styles.middleCol}>
+        <main style={{ ...styles.middleCol, ...panelEntranceStyle(1) }}>
           <ExecutionPanel />
         </main>
-        <aside style={styles.rightCol}>
+        <aside style={{ ...styles.rightCol, ...panelEntranceStyle(2) }}>
           <AnalyticsPanel />
         </aside>
       </div>
       {!wallet.connected && !device.isSolflareInAppBrowser && (
-        // Empty-state hint — steers user to the left panel.
         <div style={styles.desktopFooterHint}>
           Connect your Solflare wallet from the left panel to get started.
         </div>
@@ -224,6 +227,16 @@ export const App: FC = () => {
     </div>
   );
 };
+
+// ---------------------------------------------------------------------------
+// Panel entrance animation helper (Item 10)
+// ---------------------------------------------------------------------------
+
+function panelEntranceStyle(index: number): CSSProperties {
+  return {
+    animation: `liminal-panel-enter 500ms ease-out ${index * 120}ms both`,
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Sub-components
@@ -240,7 +253,8 @@ const MobileTabButton: FC<{
   label: string;
   active: boolean;
   onClick: () => void;
-}> = ({ label, active, onClick }) => (
+  badge?: string;
+}> = ({ label, active, onClick, badge }) => (
   <button
     type="button"
     onClick={onClick}
@@ -248,9 +262,13 @@ const MobileTabButton: FC<{
       ...styles.mobileTabButton,
       color: active ? THEME.accent : THEME.textMuted,
       borderTopColor: active ? THEME.accent : "transparent",
+      position: "relative",
     }}
   >
     {label}
+    {badge && (
+      <span style={styles.tabBadge}>{badge}</span>
+    )}
   </button>
 );
 
@@ -338,7 +356,7 @@ const styles: Record<string, CSSProperties> = {
   },
   mobileBody: {
     flex: 1,
-    padding: "10px 10px 76px", // bottom padding tab bar için
+    padding: "10px 10px 76px",
     overflowY: "auto",
     minHeight: 0,
   },
@@ -353,7 +371,6 @@ const styles: Record<string, CSSProperties> = {
     background: THEME.panelBg,
     borderTop: `1px solid ${THEME.border}`,
     zIndex: 100,
-    // Safe area (iOS notch)
     paddingBottom: "env(safe-area-inset-bottom, 0)",
   },
   mobileTabButton: {
@@ -367,6 +384,24 @@ const styles: Record<string, CSSProperties> = {
     letterSpacing: 1,
     textTransform: "uppercase",
     padding: "10px 4px",
+  },
+  tabBadge: {
+    position: "absolute",
+    top: 4,
+    right: "calc(50% - 24px)",
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    background: "var(--color-5)",
+    color: "var(--color-text-inverse)",
+    fontSize: 9,
+    fontWeight: 700,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "0 4px",
+    lineHeight: 1,
+    fontFamily: "var(--font-mono)",
   },
 
   // Active execution bar (mobile)

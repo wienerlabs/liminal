@@ -1,0 +1,214 @@
+/**
+ * LIMINAL — HeaderBar
+ *
+ * 44px height, full width. Left: logo + wordmark. Right: network pill + wallet badge.
+ * Partner logos as subtle "Powered by" text strip.
+ */
+
+import { useEffect, useState, type CSSProperties, type FC } from "react";
+import {
+  getWalletState,
+  subscribeWallet,
+  type WalletState,
+} from "../services/solflare";
+
+// ---------------------------------------------------------------------------
+// Theme
+// ---------------------------------------------------------------------------
+
+const MONO = "var(--font-mono)";
+const SANS = "var(--font-sans)";
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
+export type HeaderBarProps = {
+  networkStatus?: { status: "connected" | "slow" | "offline"; slot: number | null };
+};
+
+export const HeaderBar: FC<HeaderBarProps> = ({ networkStatus }) => {
+  const [wallet, setWallet] = useState<WalletState>(() => getWalletState());
+  useEffect(() => subscribeWallet(setWallet), []);
+
+  const shortAddr = wallet.address
+    ? `${wallet.address.slice(0, 4)}...${wallet.address.slice(-4)}`
+    : null;
+
+  const netDotColor =
+    networkStatus?.status === "connected"
+      ? "var(--color-success)"
+      : networkStatus?.status === "slow"
+        ? "var(--color-warn)"
+        : "var(--color-danger)";
+
+  const netLabel =
+    networkStatus?.status === "connected"
+      ? "Connected"
+      : networkStatus?.status === "slow"
+        ? "Slow"
+        : "Offline";
+
+  return (
+    <header style={styles.header}>
+      <div style={styles.left}>
+        {/* Inline SVG logo mark */}
+        <svg width="20" height="20" viewBox="0 0 32 32" style={{ flexShrink: 0 }}>
+          <rect width="32" height="32" rx="6" fill="var(--color-5)" />
+          <path d="M8 24V8h4v12h8v4H8z" fill="var(--color-text-inverse)" />
+        </svg>
+        <span style={styles.wordmark}>LIMINAL</span>
+      </div>
+
+      {/* Partner logos */}
+      <div style={styles.partners}>
+        {["DFlow", "Kamino", "Quicknode", "Solflare"].map((name) => (
+          <span key={name} style={styles.partnerName}>
+            {name}
+          </span>
+        ))}
+      </div>
+
+      <div style={styles.right}>
+        {/* Network status pill (Item 16) */}
+        {networkStatus && (
+          <div style={styles.networkPill}>
+            <span
+              style={{
+                ...styles.netDot,
+                background: netDotColor,
+                boxShadow: `0 0 6px ${netDotColor}`,
+              }}
+            />
+            <span style={styles.netLabel}>{netLabel}</span>
+            {networkStatus.slot !== null && (
+              <span style={styles.netSlot}>#{networkStatus.slot}</span>
+            )}
+          </div>
+        )}
+
+        {/* Solana mainnet pill */}
+        <div style={styles.mainnetPill}>
+          <span style={styles.greenDot} />
+          <span>Solana Mainnet</span>
+        </div>
+
+        {/* Wallet badge */}
+        <div style={styles.walletBadge}>
+          {wallet.connected && shortAddr ? shortAddr : "Not connected"}
+        </div>
+      </div>
+    </header>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Styles
+// ---------------------------------------------------------------------------
+
+const styles: Record<string, CSSProperties> = {
+  header: {
+    height: 44,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: "0 16px",
+    background: "var(--surface-raised)",
+    borderBottom: "1px solid var(--color-stroke)",
+    fontFamily: SANS,
+    fontSize: 11,
+    gap: 12,
+    flexShrink: 0,
+  },
+  left: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    flexShrink: 0,
+  },
+  wordmark: {
+    fontFamily: SANS,
+    fontWeight: 800,
+    fontSize: 15,
+    letterSpacing: 2,
+    color: "var(--color-text)",
+  },
+  partners: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    flex: 1,
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  partnerName: {
+    fontFamily: MONO,
+    fontSize: 9,
+    letterSpacing: 1,
+    textTransform: "uppercase" as const,
+    color: "var(--color-text-muted)",
+    whiteSpace: "nowrap" as const,
+  },
+  right: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    flexShrink: 0,
+  },
+  mainnetPill: {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    padding: "3px 10px",
+    borderRadius: "var(--radius-sm)",
+    border: "1px solid var(--color-stroke)",
+    fontSize: 10,
+    color: "var(--color-text-muted)",
+    whiteSpace: "nowrap" as const,
+  },
+  greenDot: {
+    width: 6,
+    height: 6,
+    borderRadius: "50%",
+    background: "var(--color-success)",
+    animation: "liminal-pulse 2s ease-in-out infinite",
+  },
+  walletBadge: {
+    padding: "3px 10px",
+    borderRadius: "var(--radius-sm)",
+    border: "1px solid var(--color-stroke)",
+    fontSize: 10,
+    fontFamily: MONO,
+    color: "var(--color-text-muted)",
+    whiteSpace: "nowrap" as const,
+  },
+  networkPill: {
+    display: "flex",
+    alignItems: "center",
+    gap: 5,
+    padding: "3px 8px",
+    borderRadius: "var(--radius-sm)",
+    border: "1px solid var(--color-stroke)",
+    fontSize: 9,
+    color: "var(--color-text-muted)",
+    whiteSpace: "nowrap" as const,
+  },
+  netDot: {
+    width: 6,
+    height: 6,
+    borderRadius: "50%",
+    flexShrink: 0,
+  },
+  netLabel: {
+    fontSize: 9,
+  },
+  netSlot: {
+    fontSize: 8,
+    color: "var(--color-text-muted)",
+    opacity: 0.7,
+    fontFamily: MONO,
+    fontVariantNumeric: "tabular-nums",
+  },
+};
+
+export default HeaderBar;

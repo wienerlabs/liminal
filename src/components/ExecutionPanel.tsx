@@ -18,11 +18,13 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type CSSProperties,
   type FC,
 } from "react";
 import {
+  connectWallet,
   getSOLBalance,
   getSPLTokenBalances,
   subscribeWallet,
@@ -37,6 +39,9 @@ import VaultPreview from "./VaultPreview";
 import QuoteComparison from "./QuoteComparison";
 import ExecutionTimeline from "./ExecutionTimeline";
 import ExecutionSummaryCard from "./ExecutionSummaryCard";
+import StepIndicator from "./StepIndicator";
+import Sparkline from "./Sparkline";
+import Button from "./Button";
 
 // ---------------------------------------------------------------------------
 // Theme
@@ -76,27 +81,6 @@ const WINDOW_PRESETS: Array<{
 const DEFAULT_SLIPPAGE_BPS = 50;
 const MIN_SLIPPAGE_BPS = 10;
 const MAX_SLIPPAGE_BPS = 300;
-
-// ---------------------------------------------------------------------------
-// Shimmer keyframes — idempotent
-// ---------------------------------------------------------------------------
-
-const SHIMMER_STYLE_ID = "liminal-execution-panel-shimmer";
-if (
-  typeof document !== "undefined" &&
-  !document.getElementById(SHIMMER_STYLE_ID) &&
-  !document.getElementById("liminal-wallet-panel-shimmer")
-) {
-  const style = document.createElement("style");
-  style.id = SHIMMER_STYLE_ID;
-  style.textContent = `
-    @keyframes liminal-shimmer {
-      0% { background-position: 200% 0; }
-      100% { background-position: -200% 0; }
-    }
-  `;
-  document.head.appendChild(style);
-}
 
 // ---------------------------------------------------------------------------
 // Formatting helpers
@@ -430,9 +414,37 @@ export const ExecutionPanel: FC = () => {
 
       {!wallet.connected ? (
         <div style={styles.emptyBody}>
-          <div style={styles.emptyHint}>
-            Connect your Solflare wallet from the left panel to select a
-            token pair and configure an execution.
+          <div style={styles.welcomeSection}>
+            <div style={styles.welcomeTagline}>Intelligent Execution Terminal</div>
+            <div style={styles.welcomeFeatures}>
+              <WelcomeFeature
+                icon={<TwapIcon />}
+                title="TWAP Execution"
+                desc="Split large swaps into optimal slices"
+              />
+              <WelcomeFeature
+                icon={<YieldIcon />}
+                title="Kamino Yield"
+                desc="Earn yield on idle capital while you wait"
+              />
+              <WelcomeFeature
+                icon={<ShieldIcon />}
+                title="DFlow MEV Protection"
+                desc="Every slice routed through MEV-protected paths"
+              />
+              <WelcomeFeature
+                icon={<ChartIcon />}
+                title="Live Analytics"
+                desc="Real-time price improvement and yield tracking"
+              />
+            </div>
+            <Button
+              variant="primary"
+              onClick={() => void connectWallet()}
+              style={{ width: "100%", marginTop: 8, padding: "14px 28px" }}
+            >
+              CONNECT SOLFLARE
+            </Button>
           </div>
         </div>
       ) : state.status === ExecutionStatus.DONE ? (
@@ -692,7 +704,12 @@ export const ExecutionPanel: FC = () => {
             </div>
           )}
 
-          {/* Timeline (her durumda ama boş slices ile idle gösterir) */}
+          {/* Step Indicator (Item 7) */}
+          <div style={styles.section}>
+            <StepIndicator currentStep={deriveStep(state.status)} />
+          </div>
+
+          {/* Timeline (her durumda ama bos slices ile idle gosterir) */}
           {state.slices.length > 0 && (
             <div style={styles.section}>
               <ExecutionTimeline
@@ -719,19 +736,19 @@ export const ExecutionPanel: FC = () => {
 
           {/* Start button */}
           <div style={styles.footer}>
-            <button
-              type="button"
+            <Button
+              variant="primary"
               onClick={handleConfigureAndStart}
               disabled={!canConfigure}
               style={{
-                ...styles.primaryButton,
-                opacity: canConfigure ? 1 : 0.35,
-                cursor: canConfigure ? "pointer" : "not-allowed",
+                width: "100%",
+                padding: "14px 28px",
                 minHeight: isMobile ? 56 : undefined,
+                boxShadow: canConfigure ? `0 0 28px ${THEME.accentGlow}` : undefined,
               }}
             >
               START EXECUTION
-            </button>
+            </Button>
           </div>
         </>
       )}
@@ -783,6 +800,21 @@ const PriceDisplay: FC<{
   lastUpdated: Date | null;
   now: Date;
 }> = ({ mints, tokens, prices, isLoading, error, lastUpdated, now }) => {
+  // Track last 30 price points per mint for sparkline (Item 14)
+  const historyRef = useRef<Record<string, number[]>>({});
+  useEffect(() => {
+    for (const mint of mints) {
+      const price = prices[mint];
+      if (price == null) continue;
+      if (!historyRef.current[mint]) historyRef.current[mint] = [];
+      const arr = historyRef.current[mint];
+      if (arr.length === 0 || arr[arr.length - 1] !== price) {
+        arr.push(price);
+        if (arr.length > 30) arr.shift();
+      }
+    }
+  }, [mints, prices]);
+
   if (mints.length === 0) {
     return (
       <div style={styles.hintText}>
@@ -814,6 +846,7 @@ const PriceDisplay: FC<{
         const token = tokens.find((t) => t.mint === mint);
         const symbol = token?.symbol ?? mint.slice(0, 4);
         const price = prices[mint];
+        const sparkData = historyRef.current[mint] ?? [];
         return (
           <div key={mint} style={styles.priceRow}>
             <span style={styles.priceText}>
@@ -822,6 +855,9 @@ const PriceDisplay: FC<{
                 {price != null ? formatUSD(price) : "— $"}
               </span>
             </span>
+            {sparkData.length >= 2 && (
+              <Sparkline data={sparkData} width={60} height={20} />
+            )}
           </div>
         );
       })}
@@ -849,6 +885,82 @@ const SkeletonBox: FC<{ width: string | number; height: number }> = ({
       animation: "liminal-shimmer 1.4s ease-in-out infinite",
     }}
   />
+);
+
+// ---------------------------------------------------------------------------
+// Step derivation helper (Item 7)
+// ---------------------------------------------------------------------------
+
+function deriveStep(status: ExecutionStatus): number {
+  switch (status) {
+    case ExecutionStatus.IDLE:
+    case ExecutionStatus.CONFIGURED:
+      return 0;
+    case ExecutionStatus.DEPOSITING:
+      return 0;
+    case ExecutionStatus.ACTIVE:
+      return 1;
+    case ExecutionStatus.SLICE_WITHDRAWING:
+      return 2;
+    case ExecutionStatus.SLICE_EXECUTING:
+      return 2;
+    case ExecutionStatus.COMPLETING:
+      return 4;
+    case ExecutionStatus.DONE:
+      return 5; // all complete
+    case ExecutionStatus.ERROR:
+      return 2;
+    default:
+      return 0;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Welcome feature icons and component (Item 4)
+// ---------------------------------------------------------------------------
+
+const TwapIcon: FC = () => (
+  <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+    <rect x="2" y="12" width="3" height="6" rx="1" fill="var(--color-5)" />
+    <rect x="7" y="8" width="3" height="10" rx="1" fill="var(--color-4)" />
+    <rect x="12" y="4" width="3" height="14" rx="1" fill="var(--color-3)" />
+    <rect x="17" y="2" width="1" height="16" rx="0.5" fill="var(--color-stroke)" />
+  </svg>
+);
+
+const YieldIcon: FC = () => (
+  <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+    <circle cx="10" cy="10" r="8" stroke="var(--color-5)" strokeWidth="1.5" />
+    <path d="M10 5v5l3 3" stroke="var(--color-5)" strokeWidth="1.5" strokeLinecap="round" />
+  </svg>
+);
+
+const ShieldIcon: FC = () => (
+  <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+    <path d="M10 2L3 6v5c0 4 3.5 6.5 7 8 3.5-1.5 7-4 7-8V6L10 2z" stroke="var(--color-5)" strokeWidth="1.5" fill="none" />
+    <path d="M7.5 10L9.5 12L13 8" stroke="var(--color-5)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const ChartIcon: FC = () => (
+  <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+    <polyline points="2,16 6,10 10,13 14,6 18,4" stroke="var(--color-5)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    <circle cx="18" cy="4" r="1.5" fill="var(--color-5)" />
+  </svg>
+);
+
+const WelcomeFeature: FC<{
+  icon: React.ReactNode;
+  title: string;
+  desc: string;
+}> = ({ icon, title, desc }) => (
+  <div style={styles.welcomeFeature}>
+    <div style={styles.welcomeFeatureIcon}>{icon}</div>
+    <div style={styles.welcomeFeatureText}>
+      <div style={styles.welcomeFeatureTitle}>{title}</div>
+      <div style={styles.welcomeFeatureDesc}>{desc}</div>
+    </div>
+  </div>
 );
 
 // ---------------------------------------------------------------------------
@@ -973,8 +1085,10 @@ const styles: Record<string, CSSProperties> = {
   },
   priceRow: {
     display: "flex",
-    alignItems: "baseline",
+    alignItems: "center",
+    justifyContent: "space-between",
     padding: "6px 0",
+    gap: 8,
   },
   priceText: {
     fontFamily: MONO,
@@ -1147,6 +1261,62 @@ const styles: Record<string, CSSProperties> = {
     padding: "8px 16px",
     cursor: "pointer",
     letterSpacing: 1,
+  },
+
+  // Welcome/Onboarding (Item 4)
+  welcomeSection: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 16,
+    maxWidth: 340,
+    width: "100%",
+    padding: "24px 0",
+  },
+  welcomeTagline: {
+    fontFamily: SANS,
+    fontSize: 18,
+    fontWeight: 700,
+    color: "var(--color-text)",
+    textAlign: "center",
+    letterSpacing: 0.5,
+  },
+  welcomeFeatures: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 12,
+  },
+  welcomeFeature: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: 12,
+    padding: "8px 12px",
+    background: "var(--surface-raised)",
+    border: "1px solid var(--color-stroke)",
+    borderRadius: "var(--radius-md)",
+  },
+  welcomeFeatureIcon: {
+    flexShrink: 0,
+    width: 20,
+    height: 20,
+    marginTop: 2,
+  },
+  welcomeFeatureText: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 2,
+  },
+  welcomeFeatureTitle: {
+    fontFamily: MONO,
+    fontSize: 11,
+    fontWeight: 700,
+    color: "var(--color-text)",
+    letterSpacing: 0.5,
+  },
+  welcomeFeatureDesc: {
+    fontFamily: MONO,
+    fontSize: 10,
+    color: "var(--color-text-muted)",
+    lineHeight: 1.4,
   },
 };
 

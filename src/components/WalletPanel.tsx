@@ -39,6 +39,7 @@ import {
   type HistoricalExecution,
 } from "../services/analyticsStore";
 import { requestAnalyticsTab } from "../state/analyticsNav";
+import Button from "./Button";
 
 const SOL_MINT = "So11111111111111111111111111111111111111112";
 
@@ -57,8 +58,8 @@ const THEME = {
   textMuted: "var(--color-text-muted)",
   accent: "var(--color-5)",
   accentGlow: "var(--shadow-accent-glow)",
-  danger: "var(--color-warn)",
-  success: "var(--color-5)",
+  danger: "var(--color-danger)",
+  success: "var(--color-success)",
   shadow: "var(--shadow-component)",
 } as const;
 
@@ -66,26 +67,6 @@ const THEME = {
 // Wallet adresleri / signature gibi tek-kolon okuma gereken yerlerde MONO.
 const MONO = "var(--font-mono)";
 const SANS = "var(--font-sans)";
-
-// ---------------------------------------------------------------------------
-// One-time shimmer keyframes injection (self-contained, SSR-safe)
-// ---------------------------------------------------------------------------
-
-const SHIMMER_STYLE_ID = "liminal-wallet-panel-shimmer";
-if (
-  typeof document !== "undefined" &&
-  !document.getElementById(SHIMMER_STYLE_ID)
-) {
-  const style = document.createElement("style");
-  style.id = SHIMMER_STYLE_ID;
-  style.textContent = `
-    @keyframes liminal-shimmer {
-      0% { background-position: 200% 0; }
-      100% { background-position: -200% 0; }
-    }
-  `;
-  document.head.appendChild(style);
-}
 
 // ---------------------------------------------------------------------------
 // Formatting helpers
@@ -227,18 +208,14 @@ export const WalletPanel: FC = () => {
           <div style={styles.emptyHint}>
             Connect your Solflare wallet to start using LIMINAL.
           </div>
-          <button
-            type="button"
+          <Button
+            variant="primary"
             onClick={handleConnect}
             disabled={wallet.connecting}
-            style={{
-              ...styles.primaryButton,
-              opacity: wallet.connecting ? 0.6 : 1,
-              cursor: wallet.connecting ? "wait" : "pointer",
-            }}
+            style={{ padding: "14px 28px" }}
           >
             {wallet.connecting ? "CONNECTING..." : "CONNECT SOLFLARE"}
-          </button>
+          </Button>
           {connectError && (
             <div role="alert" style={styles.errorText}>
               {connectError}

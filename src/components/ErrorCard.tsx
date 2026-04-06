@@ -16,6 +16,7 @@ import {
   ErrorCode,
   type ExecutionError,
 } from "../state/executionMachine";
+import Button from "./Button";
 
 // ---------------------------------------------------------------------------
 // Theme
@@ -26,9 +27,9 @@ const THEME = {
   textMuted: "var(--color-text-muted)",
   border: "var(--color-stroke)",
   accent: "var(--color-5)",
-  success: "var(--color-5)",
+  success: "var(--color-success)",
   amber: "var(--color-warn)",
-  danger: "var(--color-warn)", // palette'te kırmızı yok — amber severity
+  danger: "var(--color-danger)",
 } as const;
 
 const MONO = "var(--font-mono)";
@@ -140,21 +141,13 @@ export const ErrorCard: FC<ErrorCardProps> = ({ error, onRetry, onReset }) => {
 
       <div style={styles.actions}>
         {error.retryable ? (
-          <button
-            type="button"
-            onClick={onRetry}
-            style={styles.retryButton}
-          >
+          <Button variant="primary" onClick={onRetry}>
             RETRY
-          </button>
+          </Button>
         ) : (
-          <button
-            type="button"
-            onClick={onReset}
-            style={styles.resetButton}
-          >
+          <Button variant="primary" onClick={onReset} style={{ background: THEME.danger }}>
             RESET EXECUTION
-          </button>
+          </Button>
         )}
       </div>
     </div>

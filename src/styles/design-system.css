@@ -56,6 +56,14 @@
   --surface-raised: rgba(255, 255, 255, 0.55);
   --surface-raised-strong: rgba(255, 255, 255, 0.8);
 
+  /* ----- Semantic success / danger ------------------------------------- */
+  --color-success: #2d8a4e;
+  --color-danger: #dc2626;
+  --color-success-bg: rgba(45, 138, 78, 0.1);
+  --color-success-border: rgba(45, 138, 78, 0.3);
+  --color-danger-bg: rgba(220, 38, 38, 0.08);
+  --color-danger-border: rgba(220, 38, 38, 0.3);
+
   /* ----- Overlay ------------------------------------------------------ */
   --color-overlay: rgba(10, 10, 15, 0.6);
 
@@ -133,6 +141,12 @@ textarea:focus {
   outline-offset: 2px;
 }
 
+/* Focus-visible for keyboard nav (Item 17) */
+button:focus-visible {
+  outline: 2px solid var(--color-5);
+  outline-offset: 2px;
+}
+
 /* ===================================================================== */
 /* Keyframes — tüm component'lerin paylaştığı animasyonlar              */
 /* ===================================================================== */
@@ -178,5 +192,50 @@ textarea:focus {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes liminal-panel-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes liminal-checkmark-draw {
+  from {
+    stroke-dashoffset: 40;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes liminal-scale-in {
+  from {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* ===================================================================== */
+/* Reduced motion (Item 18)                                               */
+/* ===================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

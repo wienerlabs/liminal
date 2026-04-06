@@ -14,6 +14,7 @@ import type { CSSProperties, FC } from "react";
 import type { ExecutionState } from "../state/executionMachine";
 import { resolveTokenSymbol } from "../services/quicknode";
 import { requestAnalyticsTab } from "../state/analyticsNav";
+import Button from "./Button";
 
 // ---------------------------------------------------------------------------
 // Theme
@@ -26,7 +27,7 @@ const THEME = {
   text: "var(--color-text)",
   textMuted: "var(--color-text-muted)",
   accent: "var(--color-5)",
-  success: "var(--color-5)",
+  success: "var(--color-success)",
   amber: "var(--color-warn)",
   shadow: "var(--shadow-component)",
 } as const;
@@ -132,7 +133,30 @@ export const ExecutionSummaryCard: FC<ExecutionSummaryCardProps> = ({
 
   return (
     <div style={styles.card}>
-      <div style={styles.checkmark}>✓</div>
+      <div style={styles.checkmark}>
+        <svg width="52" height="52" viewBox="0 0 52 52">
+          <circle
+            cx="26"
+            cy="26"
+            r="24"
+            fill="none"
+            stroke="var(--color-success)"
+            strokeWidth="2"
+            opacity="0.3"
+          />
+          <path
+            d="M15 27L23 35L37 18"
+            fill="none"
+            stroke="var(--color-success)"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeDasharray="40"
+            strokeDashoffset="0"
+            style={{ animation: "liminal-checkmark-draw 600ms ease-out" }}
+          />
+        </svg>
+      </div>
       <div style={styles.title}>EXECUTION COMPLETED</div>
 
       <div style={styles.pairRow}>
@@ -193,20 +217,12 @@ export const ExecutionSummaryCard: FC<ExecutionSummaryCardProps> = ({
       </div>
 
       <div style={styles.actions}>
-        <button
-          type="button"
-          onClick={onReset}
-          style={styles.primaryButton}
-        >
+        <Button variant="primary" onClick={onReset} style={{ width: "100%" }}>
           START NEW EXECUTION
-        </button>
-        <button
-          type="button"
-          onClick={handleViewDetails}
-          style={styles.secondaryButton}
-        >
+        </Button>
+        <Button variant="secondary" onClick={handleViewDetails} style={{ width: "100%" }}>
           VIEW DETAILS
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -249,10 +265,11 @@ const styles: Record<string, CSSProperties> = {
     fontFamily: MONO,
   },
   checkmark: {
-    fontSize: 52,
-    color: THEME.success,
     lineHeight: 1,
     marginBottom: 4,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
   },
   title: {
     fontSize: 14,
@@ -327,6 +344,7 @@ const styles: Record<string, CSSProperties> = {
     fontVariantNumeric: "tabular-nums",
     marginTop: 2,
     lineHeight: 1.1,
+    animation: "liminal-scale-in 600ms ease-out",
   },
   valueCaptureHint: {
     fontSize: 9,
