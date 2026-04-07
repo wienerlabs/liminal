@@ -385,7 +385,7 @@ const SliceRow: FC<{
   return (
     <div
       style={styles.sliceRow}
-      className={isExecutingNow ? "liminal-active-border" : undefined}
+      className={undefined}
     >
       <div
         style={{

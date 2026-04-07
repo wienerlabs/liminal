@@ -43,18 +43,13 @@ export const Button: FC<ButtonProps> = ({
     opacity: disabled ? 0.4 : 1,
     color: isPrimary ? "var(--color-text-inverse)" : "var(--color-text)",
     background: isPrimary
-      ? "linear-gradient(135deg, var(--color-5), #6366f1)"
+      ? "var(--color-5)"
       : "transparent",
     boxShadow: isPrimary
-      ? hovered && !disabled
-        ? "0 0 20px rgba(34,209,238,0.3), 0 0 60px rgba(34,209,238,0.1)"
-        : undefined
+      ? undefined
       : hovered && !disabled
         ? "var(--shadow-component)"
         : "none",
-    animation: isPrimary && !disabled
-      ? "liminal-glow-pulse 2s ease-in-out infinite"
-      : undefined,
     filter:
       hovered && !disabled ? "brightness(1.12)" : "brightness(1)",
     transform: pressed && !disabled ? "scale(0.97)" : "scale(1)",

@@ -37,7 +37,7 @@
   --shadow-raised:
     0 8px 24px rgba(0, 0, 0, 0.4),
     0 0 0 1px rgba(255, 255, 255, 0.06);
-  --shadow-accent-glow: 0 0 28px rgba(34, 209, 238, 0.25);
+  --shadow-accent-glow: 0 0 12px rgba(34, 209, 238, 0.1);
 
   /* ----- Semantic success / danger ------------------------------------- */
   --color-success: #22c55e;
@@ -106,26 +106,10 @@ body,
 }
 
 body {
-  background: #0b0e14;
-  background-image:
-    radial-gradient(ellipse at 20% 0%, rgba(34, 209, 238, 0.06) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 100%, rgba(99, 102, 241, 0.04) 0%, transparent 50%);
-  background-attachment: fixed;
-  background-color: #0b0e14;
+  background: var(--color-1);
   min-height: 100vh;
   min-height: 100svh;
   min-height: 100dvh;
-}
-
-/* Dot grid background pattern (Phase 5) */
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-  background-size: 24px 24px;
-  pointer-events: none;
-  z-index: 0;
 }
 
 /* Liminal root container — tam viewport yüksekliği, dvh fallback zinciri. */
@@ -259,44 +243,6 @@ button:focus-visible {
   }
 }
 
-/* CTA button glow pulse (Phase 5) */
-@keyframes liminal-glow-pulse {
-  0%, 100% { box-shadow: 0 0 20px rgba(34, 209, 238, 0.2); }
-  50% { box-shadow: 0 0 32px rgba(34, 209, 238, 0.35); }
-}
-
-/* Rotating gradient border for active execution (Phase 5) */
-@keyframes liminal-border-rotate {
-  from { --angle: 0deg; }
-  to { --angle: 360deg; }
-}
-
-@property --angle {
-  syntax: '<angle>';
-  initial-value: 0deg;
-  inherits: false;
-}
-
-.liminal-active-border {
-  position: relative;
-  border: 1px solid transparent;
-  background-clip: padding-box;
-  background-origin: padding-box;
-}
-
-.liminal-active-border::before {
-  content: '';
-  position: absolute;
-  inset: -1px;
-  border-radius: inherit;
-  padding: 1px;
-  background: conic-gradient(from var(--angle), var(--color-5), rgba(99, 102, 241, 0.6), var(--color-5));
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  animation: liminal-border-rotate 3s linear infinite;
-  pointer-events: none;
-}
 
 /* ===================================================================== */
 /* Range slider cross-browser (Item 5 Round 2)                            */

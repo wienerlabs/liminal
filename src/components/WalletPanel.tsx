@@ -115,7 +115,6 @@ function decimalsFor(symbol: string): number {
 // ---------------------------------------------------------------------------
 
 export const WalletPanel: FC = () => {
-  const [panelHovered, setPanelHovered] = useState(false);
   const [wallet, setWallet] = useState<WalletState>({
     connected: false,
     connecting: false,
@@ -217,13 +216,8 @@ export const WalletPanel: FC = () => {
   if (!wallet.connected) {
     return (
       <aside
-        style={{
-          ...styles.panel,
-          borderColor: panelHovered ? "var(--color-accent-border)" : undefined,
-        }}
+        style={styles.panel}
         aria-label="Wallet panel"
-        onMouseEnter={() => setPanelHovered(true)}
-        onMouseLeave={() => setPanelHovered(false)}
       >
         <header style={styles.header}>WALLET</header>
         <div style={styles.emptyBody}>
@@ -273,13 +267,8 @@ export const WalletPanel: FC = () => {
   // -----------------------------------------------------------------------
   return (
     <aside
-      style={{
-        ...styles.panel,
-        borderColor: panelHovered ? "var(--color-accent-border)" : undefined,
-      }}
+      style={styles.panel}
       aria-label="Wallet panel"
-      onMouseEnter={() => setPanelHovered(true)}
-      onMouseLeave={() => setPanelHovered(false)}
     >
       <header style={styles.header}>WALLET</header>
 
@@ -513,9 +502,7 @@ const styles: Record<string, CSSProperties> = {
     flexDirection: "column",
     width: "100%",
     minHeight: 440,
-    background: "var(--surface-panel)",
-    backdropFilter: "blur(16px)",
-    WebkitBackdropFilter: "blur(16px)",
+    background: "var(--color-2)",
     color: THEME.text,
     border: `1px solid ${THEME.border}`,
     borderRadius: "var(--radius-lg)",
@@ -583,8 +570,7 @@ const styles: Record<string, CSSProperties> = {
     borderRadius: 8,
     padding: "14px 28px",
     letterSpacing: 1,
-    boxShadow: `0 0 28px ${THEME.accentGlow}`,
-    transition: "transform 120ms ease, box-shadow 120ms ease",
+    transition: "transform 120ms ease",
   },
   secondaryButton: {
     fontFamily: MONO,

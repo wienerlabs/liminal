@@ -811,7 +811,6 @@ export const ExecutionPanel: FC = () => {
                 width: "100%",
                 padding: "14px 28px",
                 minHeight: isMobile ? 56 : undefined,
-                boxShadow: canConfigure ? `0 0 28px ${THEME.accentGlow}` : undefined,
               }}
             >
               START EXECUTION
@@ -1065,9 +1064,7 @@ const styles: Record<string, CSSProperties> = {
     flexDirection: "column",
     width: "100%",
     minHeight: 560,
-    background: "var(--surface-panel)",
-    backdropFilter: "blur(16px)",
-    WebkitBackdropFilter: "blur(16px)",
+    background: "var(--color-2)",
     color: THEME.text,
     border: `1px solid ${THEME.border}`,
     borderRadius: "var(--radius-lg)",
@@ -1290,7 +1287,7 @@ const styles: Record<string, CSSProperties> = {
     fontFamily: MONO,
     fontSize: 11,
     border: `1px solid ${THEME.border}`,
-    borderRadius: 20,
+    borderRadius: "var(--radius-md)",
     padding: "8px 16px",
     letterSpacing: 0.5,
     transition: "all 150ms ease",
@@ -1347,7 +1344,6 @@ const styles: Record<string, CSSProperties> = {
     padding: "14px 28px",
     width: "100%",
     letterSpacing: 1,
-    boxShadow: `0 0 28px ${THEME.accentGlow}`,
   },
   recoveryBanner: {
     margin: "12px 16px 0",
