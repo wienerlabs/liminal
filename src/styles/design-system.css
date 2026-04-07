@@ -14,16 +14,16 @@
 
 :root {
   /* ----- Ana palet ---------------------------------------------------- */
-  --color-1: #0b0e14;        /* deepest background */
-  --color-2: #111520;        /* panel background */
-  --color-3: #1a1f2e;        /* elevated surface / skeleton mid */
-  --color-4: #242b3d;        /* interactive hover */
+  --color-1: #000000;        /* deepest background — pure black */
+  --color-2: #0a0a0a;        /* panel background */
+  --color-3: #141414;        /* elevated surface / skeleton mid */
+  --color-4: #1e1e1e;        /* interactive hover */
   --color-5: #22d1ee;        /* accent — electric cyan/teal */
 
   /* ----- Metin -------------------------------------------------------- */
   --color-text: #e2e8f0;           /* primary text, light */
   --color-text-muted: #64748b;     /* secondary text */
-  --color-text-inverse: #0b0e14;   /* for accent-bg buttons */
+  --color-text-inverse: #000000;   /* for accent-bg buttons */
 
   /* ----- Stroke sistemi ---------------------------------------------- */
   --color-stroke: rgba(255, 255, 255, 0.08);
@@ -62,10 +62,10 @@
   /* ----- Surface hierarchy ------------------------------------------- */
   --surface-raised: rgba(255, 255, 255, 0.04);
   --surface-raised-strong: rgba(255, 255, 255, 0.08);
-  --surface-panel: rgba(17, 21, 32, 0.75);
+  --surface-panel: #0a0a0a;
   --surface-card: rgba(255, 255, 255, 0.03);
   --surface-card-hover: rgba(255, 255, 255, 0.06);
-  --surface-input: rgba(0, 0, 0, 0.25);
+  --surface-input: rgba(0, 0, 0, 0.4);
 
   /* ----- Overlay ------------------------------------------------------ */
   --color-overlay: rgba(0, 0, 0, 0.75);
