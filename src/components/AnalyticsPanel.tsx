@@ -1343,27 +1343,31 @@ const styles: Record<string, CSSProperties> = {
     flexDirection: "column",
     width: "100%",
     minHeight: 560,
-    background: THEME.panel,
+    background: "var(--surface-panel)",
+    backdropFilter: "blur(16px)",
+    WebkitBackdropFilter: "blur(16px)",
     color: THEME.text,
     border: `1px solid ${THEME.border}`,
     borderRadius: "var(--radius-lg)",
     fontFamily: MONO,
     overflow: "hidden",
     boxShadow: "var(--shadow-component)",
+    transition: "border-color 200ms ease",
   },
   header: {
     fontFamily: MONO,
-    fontSize: 11,
-    letterSpacing: 2,
-    color: THEME.accent,
-    padding: "16px 20px 14px",
+    fontSize: 9,
+    letterSpacing: 2.5,
+    color: THEME.textMuted,
+    opacity: 0.5,
+    padding: "12px 16px 10px",
     borderBottom: `1px solid ${THEME.border}`,
     textTransform: "uppercase",
   },
   tabs: {
     display: "flex",
     gap: 2,
-    padding: "0 20px",
+    padding: "0 16px",
     borderBottom: `1px solid ${THEME.border}`,
   },
   tabButton: {
@@ -1380,7 +1384,7 @@ const styles: Record<string, CSSProperties> = {
   },
   body: {
     flex: 1,
-    padding: "16px 18px",
+    padding: "12px 14px",
     overflowY: "auto",
   },
   emptyHint: {
@@ -1400,7 +1404,7 @@ const styles: Record<string, CSSProperties> = {
     padding: "20px 0",
   },
   skeletonChartCard: {
-    background: THEME.panelElevated,
+    background: "var(--surface-card)",
     border: `1px solid ${THEME.border}`,
     borderRadius: "var(--radius-md)",
     padding: "14px 12px 10px",
@@ -1480,7 +1484,7 @@ const styles: Record<string, CSSProperties> = {
 
   // Charts
   chartCard: {
-    background: THEME.panelElevated,
+    background: "var(--surface-card)",
     border: `1px solid ${THEME.border}`,
     borderRadius: 8,
     padding: "14px 12px 10px",
@@ -1510,7 +1514,7 @@ const styles: Record<string, CSSProperties> = {
     gap: 8,
   },
   timelineItem: {
-    background: THEME.panel,
+    background: "var(--surface-card)",
     border: `1px solid ${THEME.border}`,
     borderRadius: 6,
     padding: "10px 12px",
@@ -1570,7 +1574,7 @@ const styles: Record<string, CSSProperties> = {
     gap: 10,
   },
   historyCard: {
-    background: THEME.panelElevated,
+    background: "var(--surface-card)",
     border: `1px solid ${THEME.border}`,
     borderRadius: 8,
     padding: "12px 14px",
@@ -1651,7 +1655,7 @@ const styles: Record<string, CSSProperties> = {
   confirmYes: {
     fontFamily: MONO,
     background: THEME.danger,
-    color: "var(--color-text-inverse)",
+    color: "#ffffff",
     border: "none",
     borderRadius: 4,
     padding: "4px 8px",
@@ -1674,7 +1678,7 @@ const styles: Record<string, CSSProperties> = {
   modalOverlay: {
     position: "fixed",
     inset: 0,
-    background: "rgba(0, 0, 0, 0.72)",
+    background: "var(--color-overlay)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -1682,7 +1686,7 @@ const styles: Record<string, CSSProperties> = {
     padding: 20,
   },
   modalCard: {
-    background: THEME.panel,
+    background: "var(--color-2)",
     border: `1px solid ${THEME.border}`,
     borderRadius: 12,
     padding: 22,
@@ -1691,6 +1695,7 @@ const styles: Record<string, CSSProperties> = {
     maxHeight: "85vh",
     overflowY: "auto",
     fontFamily: MONO,
+    boxShadow: "var(--shadow-raised)",
   },
   modalHeader: {
     display: "flex",
@@ -1795,7 +1800,7 @@ const styles: Record<string, CSSProperties> = {
     gap: 10,
   },
   protocolCard: {
-    background: THEME.panelElevated,
+    background: "var(--surface-card)",
     border: `1px solid ${THEME.border}`,
     borderRadius: 8,
     padding: "14px 16px",

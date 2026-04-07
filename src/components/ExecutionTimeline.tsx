@@ -383,7 +383,10 @@ const SliceRow: FC<{
   );
 
   return (
-    <div style={styles.sliceRow}>
+    <div
+      style={styles.sliceRow}
+      className={isExecutingNow ? "liminal-active-border" : undefined}
+    >
       <div
         style={{
           ...styles.sliceIcon,
@@ -466,13 +469,13 @@ const DoneMetric: FC<{ label: string; value: string; color: string }> = ({
 const styles: Record<string, CSSProperties> = {
   card: {
     fontFamily: MONO,
-    background: THEME.panel,
+    background: "var(--surface-card)",
     border: `1px solid ${THEME.border}`,
     borderRadius: "var(--radius-lg)",
-    padding: "16px 18px",
+    padding: "12px 14px",
     display: "flex",
     flexDirection: "column",
-    gap: 14,
+    gap: 12,
   },
   summaryBar: {
     display: "grid",
@@ -495,7 +498,8 @@ const styles: Record<string, CSSProperties> = {
   summaryLabel: {
     fontSize: 9,
     color: THEME.textMuted,
-    letterSpacing: 1,
+    opacity: 0.5,
+    letterSpacing: 2.5,
     textTransform: "uppercase",
   },
   summaryValue: {
@@ -527,9 +531,11 @@ const styles: Record<string, CSSProperties> = {
     display: "flex",
     gap: 10,
     padding: "10px 12px",
-    background: THEME.panelElevated,
+    background: "var(--surface-card)",
     border: `1px solid ${THEME.border}`,
     borderRadius: 6,
+    position: "relative",
+    overflow: "hidden",
   },
   sliceIcon: {
     fontSize: 18,

@@ -67,6 +67,18 @@ const SANS = "var(--font-sans)";
 
 const SOL_MINT = "So11111111111111111111111111111111111111112";
 
+// Token brand colors (canonical, not palette colors)
+const KNOWN_TOKEN_COLORS: Record<string, string> = {
+  SOL: "#9945FF",
+  USDC: "#2775CA",
+  USDT: "#26A17B",
+  BONK: "#F7931A",
+};
+
+function getTokenColor(symbol: string): string {
+  return KNOWN_TOKEN_COLORS[symbol] ?? "var(--color-5)";
+}
+
 // Execution window preset'leri (BLOK 7 Adım 3)
 const WINDOW_PRESETS: Array<{
   label: string;
@@ -635,9 +647,10 @@ export const ExecutionPanel: FC = () => {
                     title={isInFlight ? lockedTooltip : undefined}
                     style={{
                       ...styles.chip,
-                      background: active ? THEME.accent : THEME.panelElevated,
+                      background: active ? THEME.accent : "var(--surface-card)",
                       color: active ? "var(--color-text-inverse)" : THEME.textMuted,
                       borderColor: active ? THEME.accent : THEME.border,
+                      boxShadow: active ? "0 0 16px rgba(34,209,238,0.25)" : undefined,
                       opacity: isInFlight ? 0.5 : 1,
                       cursor: isInFlight ? "not-allowed" : "pointer",
                       width: isMobile ? "100%" : undefined,
@@ -826,29 +839,49 @@ const TokenSelect: FC<{
   onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
   disabled?: boolean;
   lockedTooltip?: string;
-}> = ({ label, value, tokens, onChange, disabled, lockedTooltip }) => (
-  <label style={styles.selectWrap}>
-    <span style={styles.selectLabel}>{label}</span>
-    <select
-      value={value}
-      onChange={onChange}
-      disabled={disabled}
-      title={disabled ? lockedTooltip : undefined}
-      style={{
-        ...styles.select,
-        opacity: disabled ? 0.5 : 1,
-        cursor: disabled ? "not-allowed" : "pointer",
-      }}
-    >
-      <option value="">— select —</option>
-      {tokens.map((t) => (
-        <option key={t.mint} value={t.mint}>
-          {t.symbol}
-        </option>
-      ))}
-    </select>
-  </label>
-);
+}> = ({ label, value, tokens, onChange, disabled, lockedTooltip }) => {
+  const selectedToken = tokens.find((t) => t.mint === value);
+  return (
+    <label style={styles.selectWrap}>
+      <span style={styles.selectLabel}>{label}</span>
+      <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+        {selectedToken && (
+          <span
+            style={{
+              position: "absolute",
+              left: 12,
+              width: 8,
+              height: 8,
+              borderRadius: "50%",
+              background: getTokenColor(selectedToken.symbol),
+              zIndex: 1,
+              pointerEvents: "none",
+            }}
+          />
+        )}
+        <select
+          value={value}
+          onChange={onChange}
+          disabled={disabled}
+          title={disabled ? lockedTooltip : undefined}
+          style={{
+            ...styles.select,
+            paddingLeft: selectedToken ? 28 : 12,
+            opacity: disabled ? 0.5 : 1,
+            cursor: disabled ? "not-allowed" : "pointer",
+          }}
+        >
+          <option value="">-- select --</option>
+          {tokens.map((t) => (
+            <option key={t.mint} value={t.mint}>
+              {t.symbol}
+            </option>
+          ))}
+        </select>
+      </div>
+    </label>
+  );
+};
 
 const PriceDisplay: FC<{
   mints: string[];
@@ -1032,20 +1065,24 @@ const styles: Record<string, CSSProperties> = {
     flexDirection: "column",
     width: "100%",
     minHeight: 560,
-    background: THEME.panel,
+    background: "var(--surface-panel)",
+    backdropFilter: "blur(16px)",
+    WebkitBackdropFilter: "blur(16px)",
     color: THEME.text,
     border: `1px solid ${THEME.border}`,
     borderRadius: "var(--radius-lg)",
     fontFamily: MONO,
     overflow: "hidden",
     boxShadow: "var(--shadow-component)",
+    transition: "border-color 200ms ease",
   },
   header: {
     fontFamily: MONO,
-    fontSize: 11,
-    letterSpacing: 2,
-    color: THEME.accent,
-    padding: "16px 20px 14px",
+    fontSize: 9,
+    letterSpacing: 2.5,
+    color: THEME.textMuted,
+    opacity: 0.5,
+    padding: "12px 16px 10px",
     borderBottom: `1px solid ${THEME.border}`,
     textTransform: "uppercase",
   },
@@ -1065,20 +1102,21 @@ const styles: Record<string, CSSProperties> = {
     lineHeight: 1.6,
   },
   section: {
-    padding: "14px 20px",
+    padding: "10px 16px",
   },
   sectionLabel: {
     fontFamily: MONO,
-    fontSize: 10,
+    fontSize: 9,
     color: THEME.textMuted,
-    letterSpacing: 1.5,
-    marginBottom: 10,
+    opacity: 0.5,
+    letterSpacing: 2.5,
+    marginBottom: 8,
     textTransform: "uppercase",
   },
   divider: {
     height: 1,
     background: THEME.border,
-    margin: "4px 20px",
+    margin: "4px 16px",
   },
   row: {
     display: "flex",
@@ -1103,7 +1141,8 @@ const styles: Record<string, CSSProperties> = {
     fontFamily: MONO,
     fontSize: 13,
     color: THEME.text,
-    background: THEME.panelElevated,
+    background: "var(--surface-input)",
+    boxShadow: "inset 0 1px 3px rgba(0,0,0,0.3)",
     border: `1px solid ${THEME.border}`,
     borderRadius: "var(--radius-sm)",
     padding: "10px 32px 10px 12px",
@@ -1112,7 +1151,7 @@ const styles: Record<string, CSSProperties> = {
     appearance: "none",
     WebkitAppearance: "none",
     MozAppearance: "none",
-    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 5l3 3 3-3' fill='none' stroke='%233a3a4a' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
+    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 5l3 3 3-3' fill='none' stroke='%2364748b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
     backgroundRepeat: "no-repeat",
     backgroundPosition: "right 12px center",
   },
@@ -1133,7 +1172,8 @@ const styles: Record<string, CSSProperties> = {
     fontFamily: MONO,
     fontSize: 14,
     color: THEME.text,
-    background: THEME.panelElevated,
+    background: "var(--surface-input)",
+    boxShadow: "inset 0 1px 3px rgba(0,0,0,0.3)",
     border: `1px solid ${THEME.border}`,
     borderRadius: 6,
     padding: "10px 12px",
@@ -1250,9 +1290,10 @@ const styles: Record<string, CSSProperties> = {
     fontFamily: MONO,
     fontSize: 11,
     border: `1px solid ${THEME.border}`,
-    borderRadius: 6,
-    padding: "8px 14px",
+    borderRadius: 20,
+    padding: "8px 16px",
     letterSpacing: 0.5,
+    transition: "all 150ms ease",
   },
   slippageRow: {
     display: "flex",
@@ -1276,7 +1317,7 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 10,
     color: THEME.textMuted,
     textAlign: "center",
-    padding: "10px 20px 0",
+    padding: "10px 16px 0",
     lineHeight: 1.6,
   },
   txPreviewValue: {
@@ -1284,7 +1325,7 @@ const styles: Record<string, CSSProperties> = {
     fontWeight: 700,
   },
   footer: {
-    padding: "16px 20px",
+    padding: "12px 16px",
     borderTop: `1px solid ${THEME.border}`,
   },
   shortcutHint: {
@@ -1393,7 +1434,7 @@ const styles: Record<string, CSSProperties> = {
     alignItems: "flex-start",
     gap: 12,
     padding: "8px 12px",
-    background: "var(--surface-raised)",
+    background: "var(--surface-card)",
     border: "1px solid var(--color-stroke)",
     borderRadius: "var(--radius-md)",
   },

@@ -69,7 +69,8 @@ const styles: Record<string, CSSProperties> = {
   tooltip: {
     position: "fixed",
     zIndex: 10000,
-    background: "var(--surface-raised-strong)",
+    background: "var(--color-3)",
+    border: "1px solid var(--color-stroke-nested)",
     boxShadow: "var(--shadow-raised)",
     borderRadius: "var(--radius-sm)",
     fontFamily: "var(--font-sans)",

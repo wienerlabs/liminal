@@ -5,71 +5,83 @@
  * keyframe'leri burada tanımlanır. Component'ler ve utility'ler yalnızca bu
  * CSS variable'larına referans verir — hardcoded hex değer kalmaz.
  *
- * Tek istisna: --color-warn (#f59e0b). Bu, paletten gelmeyen tek uyarı rengi
- * ve user spec'inde açıkça exception olarak tanımlandı.
- *
- * Palette: Light/pastel blue spektrumu (open-color inspired).
- * Body zemini: radial gradient, fixed attachment — scroll'da kaymaz.
- * Typography: Bricolage Grotesque (Google Fonts, 12..96 opsz + 200..800 wght).
+ * Palette: Dark DeFi terminal aesthetic (Jupiter/Drift/Marginfi inspired).
+ * Body zemini: dark base + subtle cyan/indigo radial glows, fixed attachment.
+ * Typography: Bricolage Grotesque (sans) + JetBrains Mono (mono).
  */
 
-@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 :root {
   /* ----- Ana palet ---------------------------------------------------- */
-  --color-1: #edf2fa; /* en açık — arka plan */
-  --color-2: #d7e3fc;
-  --color-3: #ccdbfd;
-  --color-4: #c1d3fe;
-  --color-5: #abc4ff; /* en koyu — vurgu / accent */
+  --color-1: #0b0e14;        /* deepest background */
+  --color-2: #111520;        /* panel background */
+  --color-3: #1a1f2e;        /* elevated surface / skeleton mid */
+  --color-4: #242b3d;        /* interactive hover */
+  --color-5: #22d1ee;        /* accent — electric cyan/teal */
 
   /* ----- Metin -------------------------------------------------------- */
-  --color-text: #0a0a0f;
-  --color-text-muted: #3a3a4a;
-  --color-text-inverse: #ffffff;
+  --color-text: #e2e8f0;           /* primary text, light */
+  --color-text-muted: #64748b;     /* secondary text */
+  --color-text-inverse: #0b0e14;   /* for accent-bg buttons */
 
   /* ----- Stroke sistemi ---------------------------------------------- */
-  --color-stroke: rgba(0, 0, 0, 0.12);
-  --color-stroke-nested: rgba(0, 0, 0, 0.18);
-  --color-stroke-hover: rgba(0, 0, 0, 0.22);
+  --color-stroke: rgba(255, 255, 255, 0.08);
+  --color-stroke-nested: rgba(255, 255, 255, 0.12);
+  --color-stroke-hover: rgba(255, 255, 255, 0.18);
 
   /* ----- Shadow ------------------------------------------------------- */
   --shadow-component:
-    0 1px 4px rgba(0, 0, 0, 0.06),
-    0 0 0 1px rgba(0, 0, 0, 0.04);
+    0 1px 4px rgba(0, 0, 0, 0.3),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
   --shadow-raised:
-    0 4px 12px rgba(0, 0, 0, 0.08),
-    0 0 0 1px rgba(0, 0, 0, 0.06);
-  --shadow-accent-glow: 0 0 28px rgba(171, 196, 255, 0.5);
+    0 8px 24px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.06);
+  --shadow-accent-glow: 0 0 28px rgba(34, 209, 238, 0.25);
+
+  /* ----- Semantic success / danger ------------------------------------- */
+  --color-success: #22c55e;
+  --color-danger: #ef4444;
 
   /* ----- Uyarı (paletten-dışı tek istisna) --------------------------- */
   --color-warn: #f59e0b;
-  --color-warn-bg: rgba(245, 158, 11, 0.08);
-  --color-warn-border: rgba(245, 158, 11, 0.4);
+  --color-warn-bg: rgba(245, 158, 11, 0.1);
+  --color-warn-border: rgba(245, 158, 11, 0.3);
+
+  /* ----- Success/danger backgrounds ----------------------------------- */
+  --color-success-bg: rgba(34, 197, 94, 0.1);
+  --color-success-border: rgba(34, 197, 94, 0.3);
+  --color-danger-bg: rgba(239, 68, 68, 0.08);
+  --color-danger-border: rgba(239, 68, 68, 0.3);
 
   /* ----- Accent derivatives (rgba türetmeler) ------------------------ */
-  --color-accent-bg-soft: rgba(171, 196, 255, 0.2);
-  --color-accent-bg-strong: rgba(171, 196, 255, 0.5);
-  --color-accent-border: rgba(171, 196, 255, 0.6);
+  --color-accent-bg-soft: rgba(34, 209, 238, 0.08);
+  --color-accent-bg-strong: rgba(34, 209, 238, 0.15);
+  --color-accent-border: rgba(34, 209, 238, 0.3);
 
-  /* ----- Surface (panel üstü elevated katmanlar) --------------------- */
-  --surface-raised: rgba(255, 255, 255, 0.55);
-  --surface-raised-strong: rgba(255, 255, 255, 0.8);
-
-  /* ----- Semantic success / danger ------------------------------------- */
-  --color-success: #2d8a4e;
-  --color-danger: #dc2626;
-  --color-success-bg: rgba(45, 138, 78, 0.1);
-  --color-success-border: rgba(45, 138, 78, 0.3);
-  --color-danger-bg: rgba(220, 38, 38, 0.08);
-  --color-danger-border: rgba(220, 38, 38, 0.3);
+  /* ----- Surface hierarchy ------------------------------------------- */
+  --surface-raised: rgba(255, 255, 255, 0.04);
+  --surface-raised-strong: rgba(255, 255, 255, 0.08);
+  --surface-panel: rgba(17, 21, 32, 0.75);
+  --surface-card: rgba(255, 255, 255, 0.03);
+  --surface-card-hover: rgba(255, 255, 255, 0.06);
+  --surface-input: rgba(0, 0, 0, 0.25);
 
   /* ----- Overlay ------------------------------------------------------ */
-  --color-overlay: rgba(10, 10, 15, 0.6);
+  --color-overlay: rgba(0, 0, 0, 0.75);
 
   /* ----- Tipografi --------------------------------------------------- */
   --font-sans: 'Bricolage Grotesque', system-ui, -apple-system, sans-serif;
-  --font-mono: 'Bricolage Grotesque', ui-monospace, Menlo, Consolas, monospace;
+  --font-mono: 'JetBrains Mono', 'Bricolage Grotesque', ui-monospace, Menlo, Consolas, monospace;
+
+  /* ----- Type scale -------------------------------------------------- */
+  --text-xs: 10px;
+  --text-sm: 11px;
+  --text-base: 13px;
+  --text-lg: 15px;
+  --text-xl: 18px;
+  --text-2xl: 24px;
+  --text-3xl: 32px;
 
   /* ----- Radius sistemi ---------------------------------------------- */
   --radius-sm: 6px;
@@ -94,18 +106,26 @@ body,
 }
 
 body {
-  /* Subtle diagonal radial gradient — scroll'da kaymaz. */
-  background: radial-gradient(
-    ellipse at 20% 50%,
-    #d7e3fc 0%,
-    #edf2fa 50%,
-    #ccdbfd 100%
-  );
+  background: #0b0e14;
+  background-image:
+    radial-gradient(ellipse at 20% 0%, rgba(34, 209, 238, 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 100%, rgba(99, 102, 241, 0.04) 0%, transparent 50%);
   background-attachment: fixed;
-  background-color: var(--color-1);
+  background-color: #0b0e14;
   min-height: 100vh;
   min-height: 100svh;
   min-height: 100dvh;
+}
+
+/* Dot grid background pattern (Phase 5) */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 24px 24px;
+  pointer-events: none;
+  z-index: 0;
 }
 
 /* Liminal root container — tam viewport yüksekliği, dvh fallback zinciri. */
@@ -115,6 +135,8 @@ body {
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
+  position: relative;
+  z-index: 1;
 }
 
 /* Sayısal değerler için tabular-nums yardımcısı. */
@@ -237,6 +259,45 @@ button:focus-visible {
   }
 }
 
+/* CTA button glow pulse (Phase 5) */
+@keyframes liminal-glow-pulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(34, 209, 238, 0.2); }
+  50% { box-shadow: 0 0 32px rgba(34, 209, 238, 0.35); }
+}
+
+/* Rotating gradient border for active execution (Phase 5) */
+@keyframes liminal-border-rotate {
+  from { --angle: 0deg; }
+  to { --angle: 360deg; }
+}
+
+@property --angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.liminal-active-border {
+  position: relative;
+  border: 1px solid transparent;
+  background-clip: padding-box;
+  background-origin: padding-box;
+}
+
+.liminal-active-border::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(from var(--angle), var(--color-5), rgba(99, 102, 241, 0.6), var(--color-5));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: liminal-border-rotate 3s linear infinite;
+  pointer-events: none;
+}
+
 /* ===================================================================== */
 /* Range slider cross-browser (Item 5 Round 2)                            */
 /* ===================================================================== */
@@ -281,7 +342,7 @@ input[type="range"]::-moz-range-thumb {
 }
 
 /* ===================================================================== */
-/* Custom scrollbar (Item 18 Round 2)                                     */
+/* Custom scrollbar — dark, near-invisible (Phase 4)                     */
 /* ===================================================================== */
 
 ::-webkit-scrollbar {
@@ -293,13 +354,13 @@ input[type="range"]::-moz-range-thumb {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--color-4);
+  background: rgba(255, 255, 255, 0.1);
   border-radius: var(--radius-sm);
 }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--color-4) transparent;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
 }
 
 /* ===================================================================== */

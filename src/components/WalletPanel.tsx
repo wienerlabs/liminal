@@ -19,6 +19,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useState,
   type CSSProperties,
   type FC,
@@ -42,6 +43,18 @@ import { requestAnalyticsTab } from "../state/analyticsNav";
 import Button from "./Button";
 
 const SOL_MINT = "So11111111111111111111111111111111111111112";
+
+// Token brand colors (canonical, not palette colors)
+const KNOWN_TOKEN_COLORS: Record<string, string> = {
+  SOL: "#9945FF",
+  USDC: "#2775CA",
+  USDT: "#26A17B",
+  BONK: "#F7931A",
+};
+
+function tokenColor(symbol: string): string {
+  return KNOWN_TOKEN_COLORS[symbol] ?? "var(--color-5)";
+}
 
 // ---------------------------------------------------------------------------
 // Theme tokens — CLAUDE.md BLOK 7 renk paleti
@@ -102,6 +115,7 @@ function decimalsFor(symbol: string): number {
 // ---------------------------------------------------------------------------
 
 export const WalletPanel: FC = () => {
+  const [panelHovered, setPanelHovered] = useState(false);
   const [wallet, setWallet] = useState<WalletState>({
     connected: false,
     connecting: false,
@@ -202,7 +216,15 @@ export const WalletPanel: FC = () => {
   // -----------------------------------------------------------------------
   if (!wallet.connected) {
     return (
-      <aside style={styles.panel} aria-label="Wallet panel">
+      <aside
+        style={{
+          ...styles.panel,
+          borderColor: panelHovered ? "var(--color-accent-border)" : undefined,
+        }}
+        aria-label="Wallet panel"
+        onMouseEnter={() => setPanelHovered(true)}
+        onMouseLeave={() => setPanelHovered(false)}
+      >
         <header style={styles.header}>WALLET</header>
         <div style={styles.emptyBody}>
           <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
@@ -250,7 +272,15 @@ export const WalletPanel: FC = () => {
   // Connected state: adres + bakiyeler + disconnect
   // -----------------------------------------------------------------------
   return (
-    <aside style={styles.panel} aria-label="Wallet panel">
+    <aside
+      style={{
+        ...styles.panel,
+        borderColor: panelHovered ? "var(--color-accent-border)" : undefined,
+      }}
+      aria-label="Wallet panel"
+      onMouseEnter={() => setPanelHovered(true)}
+      onMouseLeave={() => setPanelHovered(false)}
+    >
       <header style={styles.header}>WALLET</header>
 
       <section style={styles.section}>
@@ -430,14 +460,38 @@ const BalanceRow: FC<{
   amount: number;
   usd: number | null;
 }> = ({ symbol, amount, usd }) => {
+  const [hovered, setHovered] = useState(false);
+  const usdColor = useMemo(() => {
+    if (usd == null) return THEME.textMuted;
+    if (usd > 0) return "var(--color-success)";
+    return THEME.textMuted;
+  }, [usd]);
   return (
-    <div style={styles.balanceRow}>
-      <span style={styles.balanceSymbol}>{symbol}</span>
+    <div
+      style={{
+        ...styles.balanceRow,
+        background: hovered ? "var(--surface-card-hover)" : "transparent",
+      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span
+          style={{
+            width: 8,
+            height: 8,
+            borderRadius: "50%",
+            background: tokenColor(symbol),
+            flexShrink: 0,
+          }}
+        />
+        <span style={styles.balanceSymbol}>{symbol}</span>
+      </div>
       <div style={styles.balanceValues}>
         <span style={styles.balanceAmount}>
           {formatAmount(amount, decimalsFor(symbol))}
         </span>
-        <span style={styles.balanceUsd}>
+        <span style={{ ...styles.balanceUsd, color: usdColor }}>
           {usd != null ? formatUSD(usd) : "— $"}
         </span>
       </div>
@@ -459,20 +513,24 @@ const styles: Record<string, CSSProperties> = {
     flexDirection: "column",
     width: "100%",
     minHeight: 440,
-    background: THEME.panel,
+    background: "var(--surface-panel)",
+    backdropFilter: "blur(16px)",
+    WebkitBackdropFilter: "blur(16px)",
     color: THEME.text,
     border: `1px solid ${THEME.border}`,
     borderRadius: "var(--radius-lg)",
     fontFamily: MONO,
     overflow: "hidden",
     boxShadow: "var(--shadow-component)",
+    transition: "border-color 200ms ease",
   },
   header: {
     fontFamily: MONO,
-    fontSize: 11,
-    letterSpacing: 2,
-    color: THEME.accent,
-    padding: "16px 20px 14px",
+    fontSize: 9,
+    letterSpacing: 2.5,
+    color: THEME.textMuted,
+    opacity: 0.5,
+    padding: "12px 16px 10px",
     borderBottom: `1px solid ${THEME.border}`,
     textTransform: "uppercase",
   },
@@ -542,13 +600,14 @@ const styles: Record<string, CSSProperties> = {
     textTransform: "uppercase",
   },
   section: {
-    padding: "16px 20px",
+    padding: "12px 16px",
   },
   sectionLabel: {
     fontFamily: MONO,
-    fontSize: 10,
+    fontSize: 9,
     color: THEME.textMuted,
-    letterSpacing: 1.5,
+    opacity: 0.5,
+    letterSpacing: 2.5,
     marginBottom: 8,
     textTransform: "uppercase",
   },
@@ -579,7 +638,7 @@ const styles: Record<string, CSSProperties> = {
   divider: {
     height: 1,
     background: THEME.border,
-    margin: "0 20px",
+    margin: "0 16px",
   },
   balanceList: {
     display: "flex",
@@ -589,9 +648,11 @@ const styles: Record<string, CSSProperties> = {
   balanceRow: {
     display: "flex",
     justifyContent: "space-between",
-    alignItems: "baseline",
-    padding: "8px 0",
-    borderBottom: `1px dashed ${THEME.border}`,
+    alignItems: "center",
+    padding: "8px 6px",
+    borderBottom: `1px solid ${THEME.border}`,
+    borderRadius: 4,
+    transition: "background 150ms ease",
   },
   balanceSymbol: {
     fontFamily: MONO,
@@ -650,7 +711,7 @@ const styles: Record<string, CSSProperties> = {
     flex: 1,
   },
   footer: {
-    padding: "16px 20px",
+    padding: "12px 16px",
     borderTop: `1px solid ${THEME.border}`,
   },
   historyHeaderRow: {

@@ -381,10 +381,10 @@ const SkeletonCenter: FC = () => (
 const styles: Record<string, CSSProperties> = {
   card: {
     fontFamily: MONO,
-    background: THEME.panelElevated,
+    background: "var(--surface-card)",
     border: `1px solid ${THEME.border}`,
     borderRadius: "var(--radius-md)",
-    padding: "14px 16px",
+    padding: "12px 14px",
     display: "flex",
     flexDirection: "column",
   },
