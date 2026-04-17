@@ -306,26 +306,30 @@ export async function batchWithdrawAndSwap(
 
   // --- Size check (Solana packet limit) ----------------------------------
   // A VersionedTransaction must serialize into ≤1232 bytes (packet MTU
-  // including Solana framing). If a Kamino withdraw + DFlow swap batch
-  // busts this ceiling we fail fast and surface an actionable error —
-  // far better than a cryptic "Transaction too large" from the RPC.
+  // including Solana framing). If the Kamino withdraw + DFlow swap batch
+  // busts this ceiling — either at our 1232 check OR at web3.js's
+  // "encoding overruns Uint8Array" throw — we silently fall back to two
+  // sequential transactions (withdraw, then swap). Atomicity is lost
+  // but UX stays intact: the user signs twice instead of once and the
+  // slice still completes.
+  let tooLarge = false;
   try {
-    // Compute size against an unsigned serialization; sig slots are empty
-    // bytes, so this is a safe upper bound for the signed payload too.
     const serialized = transaction.serialize();
-    if (serialized.length > 1232) {
-      throw new Error(
-        `Batched transaction is ${serialized.length} bytes — exceeds the 1232-byte Solana packet limit. ` +
-          "Reduce slice count or widen slippage so each swap takes a shorter route, " +
-          "then retry.",
-      );
-    }
-  } catch (err) {
-    // Re-throw our own size error untouched; wrap anything else as a
-    // size-inspection failure so the caller sees context.
-    if (err instanceof Error && err.message.includes("1232-byte")) throw err;
-    throw new Error(
-      `Transaction size check error: ${err instanceof Error ? err.message : String(err)}`,
+    if (serialized.length > 1232) tooLarge = true;
+  } catch {
+    // web3.js pre-empts the size check with an "encoding overruns
+    // Uint8Array" throw when the compiled message is way past the cap.
+    // Treat that as the same signal.
+    tooLarge = true;
+  }
+  if (tooLarge) {
+    return fallbackSequentialSendSwap(
+      walletPublicKey,
+      kaminoWithdrawIx,
+      dflowSwapIx,
+      signTransaction,
+      connection,
+      lookupTables,
     );
   }
 
@@ -404,4 +408,139 @@ export async function batchWithdrawAndSwap(
   }
 
   return { signature, confirmedAt, slot };
+}
+
+// ---------------------------------------------------------------------------
+// Fallback: sequential Kamino-withdraw → DFlow-swap when the batched tx
+// can't fit in a single Solana packet.
+// ---------------------------------------------------------------------------
+
+type SendInstructionSetInput = {
+  walletPublicKey: PublicKey;
+  instructions: TransactionInstruction[];
+  signTransaction: BatchSignTransactionFn;
+  connection: Connection;
+  lookupTables: AddressLookupTableAccount[];
+  label: string;
+};
+
+/**
+ * Compile + simulate + sign + send + confirm a single VersionedTransaction.
+ * Throws on any failure. Returns the signature and the confirmed block slot.
+ */
+async function sendInstructionSet({
+  walletPublicKey,
+  instructions,
+  signTransaction,
+  connection,
+  lookupTables,
+  label,
+}: SendInstructionSetInput): Promise<{ signature: string; slot: number }> {
+  const { blockhash, lastValidBlockHeight } =
+    await connection.getLatestBlockhash(COMMITMENT);
+
+  const compiled = new TransactionMessage({
+    payerKey: walletPublicKey,
+    recentBlockhash: blockhash,
+    instructions,
+  }).compileToV0Message(lookupTables);
+  const transaction = new VersionedTransaction(compiled);
+
+  const { result: simResult, rawErr: simRawErr } = await runSimulation(
+    transaction,
+    connection,
+  );
+  if (!simResult.success) {
+    throw new SimulationFailedError(simResult, simRawErr, instructions.length, 0);
+  }
+
+  const signed = await signTransaction(transaction);
+
+  let signature: string;
+  try {
+    signature = await connection.sendRawTransaction(signed.serialize(), {
+      skipPreflight: false,
+      preflightCommitment: COMMITMENT,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new Error(`${label} broadcast error: ${message}`);
+  }
+
+  await Promise.race([
+    connection.confirmTransaction(
+      { signature, blockhash, lastValidBlockHeight },
+      COMMITMENT,
+    ),
+    new Promise<never>((_, reject) =>
+      setTimeout(
+        () =>
+          reject(
+            new Error(
+              `${label} was not confirmed in ${CONFIRM_TIMEOUT_MS / 1000} seconds. Signature: ${signature}`,
+            ),
+          ),
+        CONFIRM_TIMEOUT_MS,
+      ),
+    ),
+  ]);
+
+  let slot = 0;
+  try {
+    const txInfo = await connection.getTransaction(signature, {
+      commitment: "confirmed",
+      maxSupportedTransactionVersion: 0,
+    });
+    slot = txInfo?.slot ?? 0;
+  } catch {
+    /* slot opsiyonel */
+  }
+  return { signature, slot };
+}
+
+/**
+ * Fallback path used when the Kamino-withdraw + DFlow-swap batch doesn't
+ * fit in a single 1232-byte transaction. Sends the two ix sets in sequence
+ * instead — the user signs twice but the slice still completes.
+ *
+ * Return shape matches the happy-path `BatchResult` so `executionMachine`
+ * treats it identically. The returned `signature` is the DFlow swap's
+ * confirmed signature (the slice's authoritative on-chain proof); the
+ * Kamino withdraw signature is logged for analytics but not surfaced.
+ */
+async function fallbackSequentialSendSwap(
+  walletPublicKey: PublicKey,
+  kaminoWithdrawIx: TransactionInstruction[],
+  dflowSwapIx: TransactionInstruction[],
+  signTransaction: BatchSignTransactionFn,
+  connection: Connection,
+  lookupTables: AddressLookupTableAccount[],
+): Promise<BatchResult> {
+  const kaminoResult = await sendInstructionSet({
+    walletPublicKey,
+    instructions: kaminoWithdrawIx,
+    signTransaction,
+    connection,
+    lookupTables,
+    label: "Kamino withdraw",
+  });
+  console.info(
+    `[LIMINAL] Batched tx exceeded packet limit — fell back to sequential. ` +
+      `Kamino withdraw confirmed: ${kaminoResult.signature}`,
+  );
+
+  const swapResult = await sendInstructionSet({
+    walletPublicKey,
+    instructions: dflowSwapIx,
+    signTransaction,
+    connection,
+    lookupTables,
+    label: "DFlow swap",
+  });
+
+  return {
+    signature: swapResult.signature,
+    confirmedAt: new Date(),
+    slot: swapResult.slot,
+  };
 }
