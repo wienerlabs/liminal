@@ -15,9 +15,21 @@
  */
 
 interface ImportMetaEnv {
-  /** QuickNode Solana mainnet HTTP Provider URL (REQUIRED). */
+  /** QuickNode Solana RPC HTTP Provider URL (REQUIRED). */
   readonly VITE_QUICKNODE_RPC_URL: string;
-  /** DFlow endorsement server (optional, defaults to https://pond.dflow.net). */
+  /**
+   * Solana cluster the app connects to. Defaults to "mainnet-beta".
+   * Use "devnet" for safe flow testing without burning real SOL —
+   * token mints, Kamino program ID, and Pyth feeds all switch to their
+   * devnet counterparts when this is set.
+   */
+  readonly VITE_SOLANA_NETWORK?: "mainnet-beta" | "devnet";
+  /**
+   * Opt-in Sentry DSN for production error telemetry. When unset the
+   * app runs with no telemetry — zero data leaves the browser.
+   */
+  readonly VITE_SENTRY_DSN?: string;
+  /** Aggregator base URL (defaults to Jupiter Ultra). */
   readonly VITE_DFLOW_API_URL?: string;
 }
 

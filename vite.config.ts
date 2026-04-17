@@ -69,6 +69,21 @@ export default defineConfig({
     commonjsOptions: {
       transformMixedEsModules: true,
     },
+    // Strip `<link rel="modulepreload">` for lazy chunks. Kamino + Orca
+    // is 4.4 MB / 764 kB-gzip; we only want it to land in the browser
+    // when the user actually touches a Kamino surface, not on first
+    // paint. Preload would defeat the whole lazy-load point.
+    modulePreload: {
+      polyfill: false,
+      resolveDependencies: (_filename, deps) =>
+        deps.filter(
+          (d) =>
+            !d.includes("vendor-kamino") &&
+            !d.includes("vendor-recharts") &&
+            !d.includes("vendor-confetti") &&
+            !d.includes("kamino-impl"),
+        ),
+    },
     rollupOptions: {
       output: {
         manualChunks(id: string): string | undefined {
