@@ -304,6 +304,31 @@ export async function batchWithdrawAndSwap(
 
   const transaction = new VersionedTransaction(compiled);
 
+  // --- Size check (Solana packet limit) ----------------------------------
+  // A VersionedTransaction must serialize into ≤1232 bytes (packet MTU
+  // including Solana framing). If a Kamino withdraw + DFlow swap batch
+  // busts this ceiling we fail fast and surface an actionable error —
+  // far better than a cryptic "Transaction too large" from the RPC.
+  try {
+    // Compute size against an unsigned serialization; sig slots are empty
+    // bytes, so this is a safe upper bound for the signed payload too.
+    const serialized = transaction.serialize();
+    if (serialized.length > 1232) {
+      throw new Error(
+        `Batched transaction is ${serialized.length} bytes — exceeds the 1232-byte Solana packet limit. ` +
+          "Reduce slice count or widen slippage so each swap takes a shorter route, " +
+          "then retry.",
+      );
+    }
+  } catch (err) {
+    // Re-throw our own size error untouched; wrap anything else as a
+    // size-inspection failure so the caller sees context.
+    if (err instanceof Error && err.message.includes("1232-byte")) throw err;
+    throw new Error(
+      `Transaction size check error: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+
   // --- Simulate (BLOK 6 kural 5 — broadcast etmeden önce ZORUNLU) -------
   const { result: simResult, rawErr: simRawErr } = await runSimulation(
     transaction,
