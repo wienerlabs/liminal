@@ -497,14 +497,14 @@ const styles: Record<string, CSSProperties> = {
     textAlign: "right",
   },
   summaryLabel: {
-    fontSize: 10,
+    fontSize: 13,
     color: THEME.textMuted,
     letterSpacing: "0.16em",
     fontWeight: 600,
     textTransform: "uppercase",
   },
   summaryValue: {
-    fontSize: 13,
+    fontSize: 16,
     fontWeight: 600,
     color: THEME.text,
     fontVariantNumeric: "tabular-nums",
@@ -517,11 +517,11 @@ const styles: Record<string, CSSProperties> = {
     background: "var(--color-warn-bg)",
     border: `1px solid var(--color-warn-border)`,
     borderRadius: 6,
-    fontSize: 12,
+    fontSize: 15,
     color: THEME.amber,
   },
   slippageIcon: {
-    fontSize: 14,
+    fontSize: 17,
   },
   slicesList: {
     display: "flex",
@@ -539,7 +539,7 @@ const styles: Record<string, CSSProperties> = {
     overflow: "hidden",
   },
   sliceIcon: {
-    fontSize: 18,
+    fontSize: 21,
     width: 22,
     textAlign: "center",
     flexShrink: 0,
@@ -558,17 +558,17 @@ const styles: Record<string, CSSProperties> = {
     alignItems: "baseline",
   },
   sliceNumber: {
-    fontSize: 12,
+    fontSize: 15,
     color: THEME.text,
     fontWeight: 600,
   },
   sliceAmount: {
-    fontSize: 12,
+    fontSize: 15,
     color: THEME.text,
     fontVariantNumeric: "tabular-nums",
   },
   sliceSubtle: {
-    fontSize: 10,
+    fontSize: 13,
     color: THEME.textMuted,
     fontVariantNumeric: "tabular-nums",
   },
@@ -583,7 +583,7 @@ const styles: Record<string, CSSProperties> = {
     borderRadius: 8,
   },
   doneTitle: {
-    fontSize: 10,
+    fontSize: 13,
     color: THEME.success,
     letterSpacing: 1.5,
     textTransform: "uppercase",
@@ -600,19 +600,19 @@ const styles: Record<string, CSSProperties> = {
     gap: 3,
   },
   doneMetricLabel: {
-    fontSize: 9,
+    fontSize: 12,
     color: THEME.textMuted,
     letterSpacing: 0.5,
     textTransform: "uppercase",
   },
   doneMetricValue: {
-    fontSize: 15,
+    fontSize: 18,
     fontWeight: 700,
     fontVariantNumeric: "tabular-nums",
   },
   doneResetButton: {
     fontFamily: MONO,
-    fontSize: 11,
+    fontSize: 14,
     fontWeight: 600,
     color: "var(--color-text-inverse)",
     background: THEME.accent,

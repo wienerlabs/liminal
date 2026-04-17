@@ -2,7 +2,9 @@
  * LIMINAL — StepIndicator
  *
  * Horizontal stepper: Deposit -> Monitor -> Execute -> Repeat -> Withdraw
- * Completed: filled var(--color-5), active: pulsing border, pending: stroke outline.
+ * Completed: filled var(--color-5), active: pulsing ring, pending: grey outline.
+ *
+ * Pass `currentStep = -1` to render all steps as pending (pre-execution state).
  */
 
 import type { CSSProperties, FC } from "react";
@@ -10,16 +12,16 @@ import type { CSSProperties, FC } from "react";
 const STEPS = ["Deposit", "Monitor", "Execute", "Repeat", "Withdraw"];
 
 export type StepIndicatorProps = {
-  currentStep: number; // 0-4
+  currentStep: number; // -1 = no step active; 0-4 = active step
 };
 
 export const StepIndicator: FC<StepIndicatorProps> = ({ currentStep }) => {
   return (
     <div style={styles.container}>
       {STEPS.map((label, i) => {
-        const isCompleted = i < currentStep;
-        const isActive = i === currentStep;
-        const isPending = i > currentStep;
+        const isCompleted = currentStep >= 0 && i < currentStep;
+        const isActive = currentStep >= 0 && i === currentStep;
+        // isPending covers both "not yet reached" and "no execution" (currentStep = -1)
         return (
           <div key={label} style={styles.stepGroup}>
             {i > 0 && (
@@ -39,16 +41,19 @@ export const StepIndicator: FC<StepIndicatorProps> = ({ currentStep }) => {
                 background: isCompleted ? "var(--color-5)" : "transparent",
                 borderColor: isActive
                   ? "var(--color-5)"
-                  : isPending
-                    ? "var(--color-stroke)"
-                    : "var(--color-5)",
+                  : isCompleted
+                    ? "var(--color-5)"
+                    : "var(--color-stroke)",
+                boxShadow: isActive
+                  ? "0 0 0 4px var(--color-accent-bg-soft)"
+                  : undefined,
                 animation: isActive
                   ? "liminal-pulse 1.4s ease-in-out infinite"
                   : undefined,
               }}
             >
               {isCompleted && (
-                <svg width="10" height="10" viewBox="0 0 10 10">
+                <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
                   <path
                     d="M2 5.5L4 7.5L8 3"
                     stroke="var(--color-text-inverse)"
@@ -63,10 +68,11 @@ export const StepIndicator: FC<StepIndicatorProps> = ({ currentStep }) => {
             <div
               style={{
                 ...styles.label,
-                color: isActive || isCompleted
-                  ? "var(--color-text)"
-                  : "var(--color-text-muted)",
-                fontWeight: isActive ? 700 : 400,
+                color:
+                  isActive || isCompleted
+                    ? "var(--color-text)"
+                    : "var(--color-text-muted)",
+                fontWeight: isActive ? 700 : 500,
               }}
             >
               {label}
@@ -107,7 +113,7 @@ const styles: Record<string, CSSProperties> = {
   },
   label: {
     fontFamily: "var(--font-mono)",
-    fontSize: 10,
+    fontSize: 13,
     letterSpacing: "0.04em",
     textTransform: "uppercase" as const,
     marginTop: 6,

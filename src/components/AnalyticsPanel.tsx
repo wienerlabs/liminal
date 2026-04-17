@@ -257,12 +257,13 @@ const LiveTab: FC<{
     if (state.status === ExecutionStatus.DONE && !confettiFiredRef.current) {
       confettiFiredRef.current = true;
       try {
-        // Karanlık zeminde görünür palette: cyan accent + success green + white
+        // Light pastel zeminde görünür palette: pink + mint + sky + yellow
         const palette = [
-          readCssVar("--color-5") || "#22d1ee",
-          readCssVar("--color-success") || "#22c55e",
-          "#ffffff",
-          "#a5f3fc",
+          readCssVar("--color-5") || "#f9b2d7",        // pink
+          readCssVar("--color-5-strong") || "#f48cc4", // deeper pink
+          readCssVar("--color-3") || "#daf9de",        // mint
+          readCssVar("--color-4") || "#cfecf3",        // sky
+          readCssVar("--color-1") || "#f6ffdc",        // yellow
         ];
         confetti({
           particleCount: 140,
@@ -283,48 +284,7 @@ const LiveTab: FC<{
   }, [state.status]);
 
   if (!hasData) {
-    return (
-      <div style={styles.skeletonEmpty}>
-        {/* Skeleton bar chart */}
-        <div style={styles.skeletonChartCard}>
-          <div style={styles.skeletonChartLabel}>DFLOW PRICE IMPROVEMENT</div>
-          <div style={styles.skeletonBarRow}>
-            {[60, 85, 45, 70, 55].map((h, i) => (
-              <div
-                key={i}
-                style={{
-                  width: 20,
-                  height: h,
-                  borderRadius: "var(--radius-sm)",
-                  background: "var(--color-stroke)",
-                  opacity: 0.5,
-                }}
-              />
-            ))}
-          </div>
-        </div>
-        {/* Skeleton area chart */}
-        <div style={styles.skeletonChartCard}>
-          <div style={styles.skeletonChartLabel}>KAMINO YIELD</div>
-          <svg width="100%" height="60" viewBox="0 0 200 60" preserveAspectRatio="none" style={{ opacity: 0.4 }}>
-            <path
-              d="M0,50 C20,45 40,35 60,38 C80,41 100,25 120,20 C140,15 160,22 180,18 L200,12 L200,60 L0,60 Z"
-              fill="var(--color-stroke)"
-            />
-            <path
-              d="M0,50 C20,45 40,35 60,38 C80,41 100,25 120,20 C140,15 160,22 180,18 L200,12"
-              fill="none"
-              stroke="var(--color-5)"
-              strokeWidth="2"
-              opacity="0.5"
-            />
-          </svg>
-        </div>
-        <div style={styles.skeletonHintText}>
-          Real-time analytics will appear here when an execution starts.
-        </div>
-      </div>
-    );
+    return <LiveHeroCard />;
   }
 
   return (
@@ -336,6 +296,92 @@ const LiveTab: FC<{
     </div>
   );
 };
+
+// ---------------------------------------------------------------------------
+// LiveHeroCard — pre-execution empty state with value proposition
+// ---------------------------------------------------------------------------
+
+const LiveHeroCard: FC = () => (
+  <div style={styles.heroWrap}>
+    <div style={styles.heroBadge}>
+      <span style={styles.heroBadgeDot} />
+      <span>AWAITING EXECUTION</span>
+    </div>
+    <h3 style={styles.heroTitle}>
+      Earn while you trade.
+    </h3>
+    <p style={styles.heroSubtitle}>
+      Analytics populate the moment execution starts — live DFlow savings,
+      accruing Kamino yield, and your total value capture in real time.
+    </p>
+
+    <div style={styles.heroFeatures}>
+      <HeroFeature
+        icon={<HeroIconBps />}
+        title="DFlow price improvement"
+        desc="Basis-point gain vs. the market baseline, per slice."
+      />
+      <HeroFeature
+        icon={<HeroIconYield />}
+        title="Live Kamino yield"
+        desc="Idle capital accrues interest every 15 seconds."
+      />
+      <HeroFeature
+        icon={<HeroIconCapture />}
+        title="Total value capture"
+        desc="DFlow savings + Kamino yield rolled up in USD."
+      />
+    </div>
+  </div>
+);
+
+const HeroFeature: FC<{
+  icon: JSX.Element;
+  title: string;
+  desc: string;
+}> = ({ icon, title, desc }) => (
+  <div style={styles.heroFeatureRow}>
+    <div style={styles.heroFeatureIconWrap}>{icon}</div>
+    <div style={{ minWidth: 0 }}>
+      <div style={styles.heroFeatureTitle}>{title}</div>
+      <div style={styles.heroFeatureDesc}>{desc}</div>
+    </div>
+  </div>
+);
+
+const HeroIconBps: FC = () => (
+  <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+    <rect x="2" y="11" width="2.8" height="5" rx="0.8" fill="var(--color-5-strong)" />
+    <rect x="6.5" y="7" width="2.8" height="9" rx="0.8" fill="var(--color-5)" />
+    <rect x="11" y="3" width="2.8" height="13" rx="0.8" fill="var(--color-5-strong)" />
+  </svg>
+);
+
+const HeroIconYield: FC = () => (
+  <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+    <circle cx="9" cy="9" r="7" stroke="var(--color-success)" strokeWidth="1.5" />
+    <path d="M9 4.5v5l3 1.8" stroke="var(--color-success)" strokeWidth="1.5" strokeLinecap="round" />
+  </svg>
+);
+
+const HeroIconCapture: FC = () => (
+  <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+    <path
+      d="M9 2l5 3v5c0 3.5-2.5 5.5-5 7-2.5-1.5-5-3.5-5-7V5l5-3z"
+      stroke="var(--color-5-strong)"
+      strokeWidth="1.5"
+      fill="var(--color-accent-bg-soft)"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M6.5 9l2 2L12 7"
+      stroke="var(--color-5-strong)"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
 
 // ---------------------------------------------------------------------------
 // Value Capture Banner
@@ -456,13 +502,13 @@ const DFlowBarChart: FC<{
             <XAxis
               dataKey="name"
               stroke={THEME.textMuted}
-              tick={{ fontSize: 10, fontFamily: MONO }}
+              tick={{ fontSize: 13, fontFamily: MONO }}
               tickLine={false}
               axisLine={{ stroke: THEME.border }}
             />
             <YAxis
               stroke={THEME.textMuted}
-              tick={{ fontSize: 10, fontFamily: MONO }}
+              tick={{ fontSize: 13, fontFamily: MONO }}
               tickLine={false}
               axisLine={{ stroke: THEME.border }}
               width={40}
@@ -475,7 +521,7 @@ const DFlowBarChart: FC<{
                 border: `1px solid ${THEME.border}`,
                 borderRadius: 6,
                 fontFamily: MONO,
-                fontSize: 11,
+                fontSize: 14,
               }}
               labelStyle={{ color: THEME.textMuted }}
               formatter={(_v: unknown, _n: unknown, item: { payload?: BarDatum }) => {
@@ -631,14 +677,14 @@ const KaminoYieldChart: FC<{
             <XAxis
               dataKey="label"
               stroke={THEME.textMuted}
-              tick={{ fontSize: 9, fontFamily: MONO }}
+              tick={{ fontSize: 12, fontFamily: MONO }}
               tickLine={false}
               axisLine={{ stroke: THEME.border }}
               minTickGap={20}
             />
             <YAxis
               stroke={THEME.textMuted}
-              tick={{ fontSize: 9, fontFamily: MONO }}
+              tick={{ fontSize: 12, fontFamily: MONO }}
               tickLine={false}
               axisLine={{ stroke: THEME.border }}
               width={44}
@@ -650,7 +696,7 @@ const KaminoYieldChart: FC<{
                 border: `1px solid ${THEME.border}`,
                 borderRadius: 6,
                 fontFamily: MONO,
-                fontSize: 11,
+                fontSize: 14,
               }}
               labelStyle={{ color: THEME.textMuted }}
               formatter={(v: number) => [formatUSD(v), "yield"]}
@@ -1330,13 +1376,13 @@ const ProtocolTab: FC<{ isMobile: boolean }> = ({ isMobile }) => {
                 <XAxis
                   dataKey="date"
                   stroke={THEME.textMuted}
-                  tick={{ fontSize: 9, fontFamily: MONO }}
+                  tick={{ fontSize: 12, fontFamily: MONO }}
                   tickLine={false}
                   axisLine={{ stroke: THEME.border }}
                 />
                 <YAxis
                   stroke={THEME.textMuted}
-                  tick={{ fontSize: 9, fontFamily: MONO }}
+                  tick={{ fontSize: 12, fontFamily: MONO }}
                   tickLine={false}
                   axisLine={{ stroke: THEME.border }}
                   width={44}
@@ -1348,7 +1394,7 @@ const ProtocolTab: FC<{ isMobile: boolean }> = ({ isMobile }) => {
                     border: `1px solid ${THEME.border}`,
                     borderRadius: 6,
                     fontFamily: MONO,
-                    fontSize: 11,
+                    fontSize: 14,
                   }}
                   labelStyle={{ color: THEME.textMuted }}
                   formatter={(v: number) => [formatUSD(v), "cumulative"]}
@@ -1411,7 +1457,7 @@ const styles: Record<string, CSSProperties> = {
   },
   header: {
     fontFamily: MONO,
-    fontSize: 9,
+    fontSize: 12,
     letterSpacing: 2.5,
     color: THEME.textMuted,
     opacity: 0.5,
@@ -1427,7 +1473,7 @@ const styles: Record<string, CSSProperties> = {
   },
   tabButton: {
     fontFamily: MONO,
-    fontSize: 11,
+    fontSize: 14,
     fontWeight: 600,
     background: "transparent",
     border: "none",
@@ -1444,14 +1490,94 @@ const styles: Record<string, CSSProperties> = {
   },
   emptyHint: {
     fontFamily: MONO,
-    fontSize: 12,
+    fontSize: 15,
     color: THEME.textMuted,
     textAlign: "center",
     padding: "40px 20px",
     lineHeight: 1.6,
   },
 
-  // Skeleton empty state
+  // Hero empty state — pre-execution value proposition
+  heroWrap: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 14,
+    padding: "20px 4px 8px",
+  },
+  heroBadge: {
+    display: "inline-flex",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 8,
+    padding: "4px 10px",
+    borderRadius: 999,
+    background: "var(--color-accent-bg-soft)",
+    border: "1px solid var(--color-accent-border)",
+    fontSize: 11,
+    fontWeight: 600,
+    letterSpacing: "0.12em",
+    color: "var(--color-5-strong)",
+  } as CSSProperties,
+  heroBadgeDot: {
+    width: 7,
+    height: 7,
+    borderRadius: "50%",
+    background: "var(--color-5-strong)",
+    animation: "liminal-active-pulse 1.6s ease-in-out infinite",
+    display: "inline-block",
+  } as CSSProperties,
+  heroTitle: {
+    fontSize: 22,
+    fontWeight: 700,
+    color: "var(--color-text)",
+    lineHeight: 1.2,
+    margin: 0,
+    letterSpacing: "-0.01em",
+  },
+  heroSubtitle: {
+    fontSize: 13,
+    color: "var(--color-text-muted)",
+    lineHeight: 1.55,
+    margin: 0,
+  },
+  heroFeatures: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 10,
+    marginTop: 6,
+  },
+  heroFeatureRow: {
+    display: "flex",
+    gap: 12,
+    alignItems: "flex-start",
+    padding: "12px 12px",
+    background: "var(--surface-card)",
+    border: "1px solid var(--color-stroke)",
+    borderRadius: "var(--radius-md)",
+  },
+  heroFeatureIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: "var(--radius-sm)",
+    background: "var(--color-accent-bg-soft)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  heroFeatureTitle: {
+    fontSize: 13,
+    fontWeight: 600,
+    color: "var(--color-text)",
+    marginBottom: 2,
+  },
+  heroFeatureDesc: {
+    fontSize: 12,
+    color: "var(--color-text-muted)",
+    lineHeight: 1.45,
+  },
+
+  // Skeleton empty state (deprecated — kept in case referenced elsewhere)
   skeletonEmpty: {
     display: "flex",
     flexDirection: "column",
@@ -1465,7 +1591,7 @@ const styles: Record<string, CSSProperties> = {
     padding: "14px 12px 10px",
   },
   skeletonChartLabel: {
-    fontSize: 9,
+    fontSize: 12,
     color: THEME.textMuted,
     letterSpacing: 1.5,
     textTransform: "uppercase",
@@ -1482,7 +1608,7 @@ const styles: Record<string, CSSProperties> = {
     padding: "0 16px",
   },
   skeletonHintText: {
-    fontSize: 11,
+    fontSize: 14,
     color: THEME.textMuted,
     textAlign: "center",
     padding: "8px 20px",
@@ -1503,14 +1629,14 @@ const styles: Record<string, CSSProperties> = {
     textAlign: "center",
   },
   valueCaptureLabel: {
-    fontSize: 10,
+    fontSize: 13,
     color: THEME.textMuted,
     letterSpacing: 1.5,
     textTransform: "uppercase",
     marginBottom: 8,
   },
   valueCaptureValue: {
-    fontSize: 32,
+    fontSize: 36,
     fontWeight: 700,
     fontVariantNumeric: "tabular-nums",
     lineHeight: 1.1,
@@ -1525,7 +1651,7 @@ const styles: Record<string, CSSProperties> = {
   breakdownRow: {
     display: "flex",
     gap: 6,
-    fontSize: 11,
+    fontSize: 14,
     fontVariantNumeric: "tabular-nums",
   },
   breakdownKey: {
@@ -1545,7 +1671,7 @@ const styles: Record<string, CSSProperties> = {
     padding: "14px 12px 10px",
   },
   chartLabel: {
-    fontSize: 9,
+    fontSize: 12,
     color: THEME.accent,
     letterSpacing: 1.5,
     textTransform: "uppercase",
@@ -1556,7 +1682,7 @@ const styles: Record<string, CSSProperties> = {
     width: "100%",
   },
   yieldEmpty: {
-    fontSize: 11,
+    fontSize: 14,
     color: THEME.textMuted,
     padding: "28px 16px",
     textAlign: "center",
@@ -1581,19 +1707,19 @@ const styles: Record<string, CSSProperties> = {
     marginBottom: 4,
   },
   timelineTitle: {
-    fontSize: 12,
+    fontSize: 15,
     fontWeight: 600,
     color: THEME.text,
   },
   timelineTime: {
-    fontSize: 10,
+    fontSize: 13,
     color: THEME.textMuted,
     fontVariantNumeric: "tabular-nums",
   },
   timelineMetrics: {
     display: "flex",
     gap: 12,
-    fontSize: 10,
+    fontSize: 13,
     color: THEME.textMuted,
     fontVariantNumeric: "tabular-nums",
   },
@@ -1617,7 +1743,7 @@ const styles: Record<string, CSSProperties> = {
     textAlign: "center",
   },
   historyEmptyText: {
-    fontSize: 12,
+    fontSize: 15,
     color: THEME.textMuted,
     lineHeight: 1.5,
   },
@@ -1655,21 +1781,21 @@ const styles: Record<string, CSSProperties> = {
     gap: 2,
   },
   historyPair: {
-    fontSize: 13,
+    fontSize: 16,
     fontWeight: 600,
   },
   historyDate: {
-    fontSize: 10,
+    fontSize: 13,
     color: THEME.textMuted,
   },
   historyRow: {
-    fontSize: 11,
+    fontSize: 14,
     color: THEME.textMuted,
     marginBottom: 6,
     fontVariantNumeric: "tabular-nums",
   },
   historyValueRow: {
-    fontSize: 10,
+    fontSize: 13,
     color: THEME.textMuted,
     fontVariantNumeric: "tabular-nums",
     display: "flex",
@@ -1692,7 +1818,7 @@ const styles: Record<string, CSSProperties> = {
     borderRadius: "var(--radius-sm)",
     color: THEME.textMuted,
     cursor: "pointer",
-    fontSize: 16,
+    fontSize: 19,
     width: 32,
     height: 32,
     lineHeight: 1,
@@ -1708,7 +1834,7 @@ const styles: Record<string, CSSProperties> = {
     alignItems: "center",
   },
   confirmText: {
-    fontSize: 10,
+    fontSize: 13,
     color: THEME.amber,
   },
   confirmYes: {
@@ -1718,7 +1844,7 @@ const styles: Record<string, CSSProperties> = {
     border: "none",
     borderRadius: 4,
     padding: "4px 8px",
-    fontSize: 10,
+    fontSize: 13,
     cursor: "pointer",
     fontWeight: 600,
   },
@@ -1729,7 +1855,7 @@ const styles: Record<string, CSSProperties> = {
     border: `1px solid ${THEME.border}`,
     borderRadius: 4,
     padding: "4px 8px",
-    fontSize: 10,
+    fontSize: 13,
     cursor: "pointer",
   },
 
@@ -1763,12 +1889,12 @@ const styles: Record<string, CSSProperties> = {
     marginBottom: 16,
   },
   modalTitle: {
-    fontSize: 16,
+    fontSize: 19,
     fontWeight: 700,
     color: THEME.text,
   },
   modalSubtitle: {
-    fontSize: 10,
+    fontSize: 13,
     color: THEME.textMuted,
     marginTop: 2,
   },
@@ -1798,7 +1924,7 @@ const styles: Record<string, CSSProperties> = {
     gap: 3,
   },
   summaryMetricLabel: {
-    fontSize: 9,
+    fontSize: 12,
     color: THEME.textMuted,
     letterSpacing: 0.5,
     textTransform: "uppercase",
@@ -1807,7 +1933,7 @@ const styles: Record<string, CSSProperties> = {
     fontVariantNumeric: "tabular-nums",
   },
   modalSectionTitle: {
-    fontSize: 10,
+    fontSize: 13,
     color: THEME.accent,
     letterSpacing: 1.5,
     textTransform: "uppercase",
@@ -1821,13 +1947,13 @@ const styles: Record<string, CSSProperties> = {
   table: {
     width: "100%",
     borderCollapse: "collapse",
-    fontSize: 11,
+    fontSize: 14,
   },
   th: {
     textAlign: "left",
     padding: "6px 8px",
     color: THEME.textMuted,
-    fontSize: 9,
+    fontSize: 12,
     letterSpacing: 0.5,
     textTransform: "uppercase",
     borderBottom: `1px solid ${THEME.border}`,
@@ -1848,7 +1974,7 @@ const styles: Record<string, CSSProperties> = {
     gap: 6,
   },
   explorerLink: {
-    fontSize: 11,
+    fontSize: 14,
     color: THEME.accent,
     textDecoration: "none",
     padding: "4px 0",
@@ -1871,7 +1997,7 @@ const styles: Record<string, CSSProperties> = {
     gap: 6,
   },
   protocolLabel: {
-    fontSize: 9,
+    fontSize: 12,
     color: THEME.textMuted,
     letterSpacing: 1,
     textTransform: "uppercase",

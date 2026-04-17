@@ -6,9 +6,8 @@
  *
  * Tasarım kuralları (CLAUDE.md + design-system.css):
  * - Tüm renkler src/styles/design-system.css CSS değişkenlerinden gelir
- * - Bricolage Grotesque (sans), monospace fallback tx/adresler için
+ * - Space Grotesk (sans), JetBrains Mono (mono — tx/adresler ve sayılar)
  * - Sayısal değerler tabular-nums ile layout kaymasız
- * - Türkçe UX metinleri
  * - Loading: skeleton loader; Error: açıklayıcı mesaj + retry
  *
  * Veri kaynakları (BLOK 5):
@@ -35,6 +34,7 @@ import {
   type WalletState,
 } from "../services/solflare";
 import { usePriceMonitor } from "../hooks/usePriceMonitor";
+import { useTokenRegistry } from "../hooks/useTokenRegistry";
 import {
   getHistory,
   type HistoricalExecution,
@@ -76,7 +76,7 @@ const THEME = {
   shadow: "var(--shadow-component)",
 } as const;
 
-// Tüm metinler Bricolage Grotesque sans-serif.
+// Tüm metinler Space Grotesk sans-serif.
 // Wallet adresleri / signature gibi tek-kolon okuma gereken yerlerde MONO.
 const MONO = "var(--font-mono)";
 const SANS = "var(--font-sans)";
@@ -126,6 +126,15 @@ export const WalletPanel: FC = () => {
   const [balanceError, setBalanceError] = useState<string | null>(null);
   const [connectError, setConnectError] = useState<string | null>(null);
   const [confirmingDisconnect, setConfirmingDisconnect] = useState(false);
+
+  // Jupiter token registry — warm up metadata for every mint we'll render.
+  // Registry fires per-mint fetches in parallel and re-renders as each lands.
+  const allMints = useMemo(() => {
+    const list: string[] = [SOL_MINT];
+    for (const t of tokens ?? []) if (t.mint) list.push(t.mint);
+    return list;
+  }, [tokens]);
+  const tokenRegistry = useTokenRegistry(allMints);
 
   // SOL USD fiyatı için canlı Pyth feed'i (BLOK 5 Senaryo 1).
   // Wallet bağlıyken poll eder; disconnect'te boş array ile idle kalır.
@@ -308,16 +317,20 @@ export const WalletPanel: FC = () => {
         ) : (
           <div style={styles.balanceList}>
             <BalanceRow
+              mint={SOL_MINT}
               symbol="SOL"
               amount={sol}
               usd={solUsdPrice != null ? sol * solUsdPrice : null}
+              registry={tokenRegistry}
             />
             {tokens.map((t) => (
               <BalanceRow
                 key={t.mint}
+                mint={t.mint}
                 symbol={t.symbol}
                 amount={t.balance}
                 usd={t.usdValue > 0 ? t.usdValue : null}
+                registry={tokenRegistry}
               />
             ))}
           </div>
@@ -467,17 +480,34 @@ const CopyableAddress: FC<{ address: string | null }> = ({ address }) => {
   );
 };
 
-const BalanceRow: FC<{
+type BalanceRowProps = {
+  mint: string;
   symbol: string;
   amount: number;
   usd: number | null;
-}> = ({ symbol, amount, usd }) => {
+  registry: ReturnType<typeof useTokenRegistry>;
+};
+
+const BalanceRow: FC<BalanceRowProps> = ({
+  mint,
+  symbol,
+  amount,
+  usd,
+  registry,
+}) => {
   const [hovered, setHovered] = useState(false);
+  const [imgFailed, setImgFailed] = useState(false);
+
+  const tokenInfo = registry.lookup(mint);
+  const displaySymbol = tokenInfo?.symbol ?? symbol;
+  const logoURI = tokenInfo?.logoURI ?? null;
+
   const usdColor = useMemo(() => {
     if (usd == null) return THEME.textMuted;
     if (usd > 0) return "var(--color-success)";
     return THEME.textMuted;
   }, [usd]);
+
   return (
     <div
       style={{
@@ -487,24 +517,21 @@ const BalanceRow: FC<{
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span
-          style={{
-            width: 8,
-            height: 8,
-            borderRadius: "50%",
-            background: tokenColor(symbol),
-            flexShrink: 0,
-          }}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+        <TokenAvatar
+          symbol={displaySymbol}
+          logoURI={logoURI}
+          imgFailed={imgFailed}
+          onImgFail={() => setImgFailed(true)}
         />
-        <span style={styles.balanceSymbol}>{symbol}</span>
+        <span style={styles.balanceSymbol}>{displaySymbol}</span>
       </div>
       <div style={styles.balanceValues}>
         <span style={styles.balanceAmount}>
-          {formatAmount(amount, decimalsFor(symbol))}
+          {formatAmount(amount, decimalsFor(displaySymbol))}
         </span>
         <span style={{ ...styles.balanceUsd, color: usdColor }}>
-          {usd != null ? formatUSD(usd) : "— $"}
+          {usd != null ? formatUSD(usd) : "—"}
         </span>
       </div>
     </div>
@@ -514,6 +541,67 @@ const BalanceRow: FC<{
 const BalanceSkeleton: FC = () => (
   <div style={styles.skeleton} aria-hidden="true" />
 );
+
+/**
+ * Token avatar — shows logo image when available, otherwise renders a
+ * gradient pastel circle with the token's initial letter. Failed image
+ * loads (404, CORS, etc.) gracefully fall back to the initial avatar.
+ */
+const TokenAvatar: FC<{
+  symbol: string;
+  logoURI: string | null;
+  imgFailed: boolean;
+  onImgFail: () => void;
+}> = ({ symbol, logoURI, imgFailed, onImgFail }) => {
+  const initial = (symbol || "?").trim().charAt(0).toUpperCase();
+  // Stable hue from symbol for fallback avatar color
+  let hue = 0;
+  for (let i = 0; i < symbol.length; i++) hue = (hue * 31 + symbol.charCodeAt(i)) % 360;
+
+  if (logoURI && !imgFailed) {
+    return (
+      <img
+        src={logoURI}
+        alt=""
+        width={24}
+        height={24}
+        loading="lazy"
+        decoding="async"
+        onError={onImgFail}
+        style={{
+          width: 24,
+          height: 24,
+          borderRadius: "50%",
+          flexShrink: 0,
+          background: "var(--surface-card)",
+          objectFit: "cover",
+        }}
+      />
+    );
+  }
+
+  return (
+    <span
+      aria-hidden="true"
+      style={{
+        width: 24,
+        height: 24,
+        borderRadius: "50%",
+        flexShrink: 0,
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: `linear-gradient(135deg, hsl(${hue}, 70%, 82%), hsl(${(hue + 40) % 360}, 70%, 75%))`,
+        color: "var(--color-text)",
+        fontSize: 11,
+        fontWeight: 700,
+        letterSpacing: 0,
+      }}
+    >
+      {initial}
+    </span>
+  );
+};
 
 // ---------------------------------------------------------------------------
 // Styles
@@ -525,6 +613,7 @@ const styles: Record<string, CSSProperties> = {
     flexDirection: "column",
     width: "100%",
     minHeight: 600,
+    maxHeight: "calc(100vh - var(--header-height) - var(--space-8))",
     background: "var(--color-2)",
     color: THEME.text,
     border: `1px solid ${THEME.border}`,
@@ -536,7 +625,7 @@ const styles: Record<string, CSSProperties> = {
   },
   header: {
     fontFamily: MONO,
-    fontSize: 10,
+    fontSize: 13,
     letterSpacing: "0.18em",
     fontWeight: 600,
     color: THEME.textMuted,
@@ -555,7 +644,7 @@ const styles: Record<string, CSSProperties> = {
   },
   emptyHint: {
     fontFamily: MONO,
-    fontSize: 12,
+    fontSize: 15,
     color: THEME.textMuted,
     textAlign: "center",
     maxWidth: 240,
@@ -569,7 +658,7 @@ const styles: Record<string, CSSProperties> = {
   },
   bulletItem: {
     fontFamily: MONO,
-    fontSize: 11,
+    fontSize: 14,
     color: THEME.textMuted,
     display: "flex",
     alignItems: "center",
@@ -585,7 +674,7 @@ const styles: Record<string, CSSProperties> = {
   },
   primaryButton: {
     fontFamily: MONO,
-    fontSize: 13,
+    fontSize: 16,
     fontWeight: 600,
     color: "var(--color-text-inverse)",
     background: THEME.accent,
@@ -597,7 +686,7 @@ const styles: Record<string, CSSProperties> = {
   },
   secondaryButton: {
     fontFamily: MONO,
-    fontSize: 11,
+    fontSize: 14,
     color: THEME.textMuted,
     background: "transparent",
     border: `1px solid ${THEME.border}`,
@@ -613,7 +702,7 @@ const styles: Record<string, CSSProperties> = {
   },
   sectionLabel: {
     fontFamily: MONO,
-    fontSize: 10,
+    fontSize: 13,
     color: THEME.textMuted,
     letterSpacing: "0.16em",
     fontWeight: 600,
@@ -632,14 +721,14 @@ const styles: Record<string, CSSProperties> = {
   },
   addressValue: {
     fontFamily: MONO,
-    fontSize: 14,
+    fontSize: 17,
     color: THEME.text,
     letterSpacing: 0.5,
     fontVariantNumeric: "tabular-nums",
   },
   copiedText: {
     fontFamily: MONO,
-    fontSize: 10,
+    fontSize: 13,
     color: THEME.accent,
     fontWeight: 600,
     minWidth: 44,
@@ -652,20 +741,24 @@ const styles: Record<string, CSSProperties> = {
   balanceList: {
     display: "flex",
     flexDirection: "column",
-    gap: 12,
+    gap: 4,
+    maxHeight: 280,
+    overflowY: "auto",
+    paddingRight: 4,
+    marginRight: -4,
   },
   balanceRow: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: "8px 6px",
-    borderBottom: `1px solid ${THEME.border}`,
-    borderRadius: 4,
-    transition: "background 150ms ease",
+    padding: "8px 8px",
+    borderRadius: "var(--radius-sm)",
+    transition: "background var(--motion-base) var(--ease-out)",
+    minWidth: 0,
   },
   balanceSymbol: {
     fontFamily: MONO,
-    fontSize: 13,
+    fontSize: 16,
     fontWeight: 600,
     color: THEME.text,
     letterSpacing: 0.5,
@@ -678,13 +771,13 @@ const styles: Record<string, CSSProperties> = {
   },
   balanceAmount: {
     fontFamily: MONO,
-    fontSize: 13,
+    fontSize: 16,
     color: THEME.text,
     fontVariantNumeric: "tabular-nums",
   },
   balanceUsd: {
     fontFamily: MONO,
-    fontSize: 10,
+    fontSize: 13,
     color: THEME.textMuted,
     fontVariantNumeric: "tabular-nums",
   },
@@ -706,13 +799,13 @@ const styles: Record<string, CSSProperties> = {
   },
   errorText: {
     fontFamily: MONO,
-    fontSize: 12,
+    fontSize: 15,
     color: THEME.danger,
     lineHeight: 1.5,
   },
   errorDetail: {
     fontFamily: MONO,
-    fontSize: 10,
+    fontSize: 13,
     color: THEME.textMuted,
     lineHeight: 1.5,
   },
@@ -731,7 +824,7 @@ const styles: Record<string, CSSProperties> = {
   },
   historyAllLink: {
     fontFamily: MONO,
-    fontSize: 9,
+    fontSize: 12,
     color: THEME.accent,
     background: "transparent",
     border: "none",
@@ -742,7 +835,7 @@ const styles: Record<string, CSSProperties> = {
   },
   historyEmpty: {
     fontFamily: MONO,
-    fontSize: 10,
+    fontSize: 13,
     color: THEME.textMuted,
     textAlign: "center",
     padding: "8px 0",
@@ -772,16 +865,16 @@ const styles: Record<string, CSSProperties> = {
     gap: 6,
   },
   historyRowPair: {
-    fontSize: 11,
+    fontSize: 14,
     fontWeight: 600,
     color: THEME.text,
   },
   historyRowDate: {
-    fontSize: 9,
+    fontSize: 12,
     color: THEME.textMuted,
   },
   historyRowValue: {
-    fontSize: 11,
+    fontSize: 14,
     fontWeight: 700,
     fontVariantNumeric: "tabular-nums",
   },
@@ -792,7 +885,7 @@ const styles: Record<string, CSSProperties> = {
   },
   disconnectConfirmYes: {
     fontFamily: MONO,
-    fontSize: 11,
+    fontSize: 14,
     color: "#fff",
     background: "var(--color-danger)",
     border: "1px solid var(--color-danger)",

@@ -50,21 +50,41 @@ export default defineConfig({
       output: {
         manualChunks(id: string): string | undefined {
           if (!id.includes("node_modules")) return undefined;
-          // Sadece bağımsız ağaçları ayır; React'i kendi chunk'ında izole
-          // etmiyoruz çünkü Solana wallet adapter React'a depend ediyor ve
-          // bu cross-chunk circular dependency'ye yol açar.
+          // Independent dependency trees split off. React stays in main
+          // bundle to avoid circulars with Solana wallet adapters.
           if (id.includes("recharts") || /[\\/]d3-/.test(id)) {
             return "vendor-recharts";
           }
           if (id.includes("canvas-confetti")) {
             return "vendor-confetti";
           }
-          return undefined; // geri kalanı default vendor chunk'ında bırak
+          if (
+            id.includes("@kamino-finance") ||
+            id.includes("@orca-so") ||
+            id.includes("whirlpool")
+          ) {
+            return "vendor-kamino";
+          }
+          return undefined;
         },
       },
     },
   },
   optimizeDeps: {
+    // Exclude the WASM-dependent and top-level-await carrying packages so
+    // esbuild's pre-bundler doesn't try to wrap them as CJS (which fails
+    // because of top-level await in the Orca Whirlpools WASM loader).
+    exclude: [
+      "@kamino-finance/kliquidity-sdk",
+      "@orca-so/whirlpools-core",
+    ],
+    include: [
+      "@kamino-finance/klend-sdk",
+      "@kamino-finance/scope-sdk",
+      "@solana/kit",
+      "bn.js",
+      "decimal.js",
+    ],
     esbuildOptions: {
       target: "es2022",
     },

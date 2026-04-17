@@ -34,6 +34,7 @@ import { selectOptimalVault, type KaminoVault } from "../services/kamino";
 import { usePriceMonitor } from "../hooks/usePriceMonitor";
 import { useExecutionMachine } from "../hooks/useExecutionMachine";
 import { useDeviceDetection } from "../hooks/useDeviceDetection";
+import { useTokenRegistry } from "../hooks/useTokenRegistry";
 import { ExecutionStatus } from "../state/executionMachine";
 import VaultPreview from "./VaultPreview";
 import QuoteComparison from "./QuoteComparison";
@@ -244,8 +245,20 @@ export const ExecutionPanel: FC = () => {
     const unsub = subscribeWallet(setWallet);
     return unsub;
   }, []);
-  const { tokens, loading: tokensLoading, error: tokensError } =
+  const { tokens: rawTokens, loading: tokensLoading, error: tokensError } =
     useAvailableTokens(wallet);
+
+  // --- Token registry (Jupiter) — warm up metadata for all wallet tokens.
+  const rawMints = useMemo(() => rawTokens.map((t) => t.mint), [rawTokens]);
+  const tokenRegistry = useTokenRegistry(rawMints);
+  const tokens = useMemo(
+    () =>
+      rawTokens.map((t) => {
+        const info = tokenRegistry.lookup(t.mint);
+        return info ? { ...t, symbol: info.symbol } : t;
+      }),
+    [rawTokens, tokenRegistry],
+  );
 
   // --- Device detection for mobile responsive adjustments ----------------
   const device = useDeviceDetection();
@@ -828,11 +841,35 @@ export const ExecutionPanel: FC = () => {
             >
               START EXECUTION
             </Button>
-            {!isMobile && (
-              <div style={styles.shortcutHint}>
-                {navigator.platform?.includes("Mac") ? "\u2318" : "Ctrl"}+Enter to start
-              </div>
-            )}
+            {(() => {
+              const reason = disabledReason({
+                walletConnected: wallet.connected,
+                fromMint,
+                toMint,
+                amountNum,
+                amountExceedsBalance,
+                sliceCount,
+                slippageBps,
+                optimalVault,
+                isIdleOrConfigured,
+              });
+              if (reason) {
+                return (
+                  <div style={styles.disabledHint} role="status">
+                    <span style={styles.disabledHintIcon} aria-hidden="true">!</span>
+                    <span>{reason}</span>
+                  </div>
+                );
+              }
+              if (!isMobile) {
+                return (
+                  <div style={styles.shortcutHint}>
+                    {navigator.platform?.includes("Mac") ? "\u2318" : "Ctrl"}+Enter to start
+                  </div>
+                );
+              }
+              return null;
+            })()}
           </div>
         </>
       )}
@@ -951,13 +988,27 @@ const PriceDisplay: FC<{
         const symbol = token?.symbol ?? mint.slice(0, 4);
         const price = prices[mint];
         const sparkData = historyRef.current[mint] ?? [];
+        const noFeed = price == null && lastUpdated !== null;
         return (
           <div key={mint} style={styles.priceRow}>
             <span style={styles.priceText}>
               1 {symbol} ={" "}
-              <span style={styles.priceValue}>
-                {price != null ? formatUSD(price) : "— $"}
-              </span>
+              {noFeed ? (
+                <span
+                  style={{
+                    color: THEME.textMuted,
+                    fontSize: 12,
+                    fontWeight: 500,
+                  }}
+                  title="No Pyth price feed available for this token"
+                >
+                  no feed
+                </span>
+              ) : (
+                <span style={styles.priceValue}>
+                  {price != null ? formatUSD(price) : "…"}
+                </span>
+              )}
             </span>
             {sparkData.length >= 2 && (
               <Sparkline data={sparkData} width={60} height={20} />
@@ -995,17 +1046,54 @@ const SkeletonBox: FC<{ width: string | number; height: number }> = ({
 // Step derivation helper (Item 7)
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// disabledReason — surface the single most actionable blocker to the user
+// instead of silently greying out START EXECUTION. Ordered from user-fixable
+// (wallet, token, amount) to system-level (vault, state).
+// ---------------------------------------------------------------------------
+
+type DisabledInput = {
+  walletConnected: boolean;
+  fromMint: string;
+  toMint: string;
+  amountNum: number;
+  amountExceedsBalance: boolean;
+  sliceCount: number;
+  slippageBps: number;
+  optimalVault: KaminoVault | null;
+  isIdleOrConfigured: boolean;
+};
+
+function disabledReason(i: DisabledInput): string | null {
+  if (!i.walletConnected) return "Connect your Solflare wallet to start.";
+  if (!i.fromMint) return "Select a token to swap from.";
+  if (!i.toMint) return "Select a token to swap to.";
+  if (i.amountNum <= 0) return "Enter an amount greater than 0.";
+  if (i.amountExceedsBalance) return "Amount exceeds your balance.";
+  if (i.sliceCount < 1) return "Slice count must be at least 1.";
+  if (i.slippageBps < MIN_SLIPPAGE_BPS)
+    return `Slippage must be at least ${MIN_SLIPPAGE_BPS / 100}%.`;
+  if (i.slippageBps > MAX_SLIPPAGE_BPS)
+    return `Slippage can't exceed ${MAX_SLIPPAGE_BPS / 100}%.`;
+  if (!i.optimalVault)
+    return "No active Kamino vault found for this token — idle capital can't be parked.";
+  if (!i.isIdleOrConfigured) return "An execution is already in progress.";
+  return null;
+}
+
+// Map state → currentStep index. IDLE/CONFIGURED return -1 so no step is
+// highlighted (all circles appear pending grey). Execution starts at step 0
+// once DEPOSITING fires.
 function deriveStep(status: ExecutionStatus): number {
   switch (status) {
     case ExecutionStatus.IDLE:
     case ExecutionStatus.CONFIGURED:
-      return 0;
+      return -1; // no step active pre-start
     case ExecutionStatus.DEPOSITING:
       return 0;
     case ExecutionStatus.ACTIVE:
       return 1;
     case ExecutionStatus.SLICE_WITHDRAWING:
-      return 2;
     case ExecutionStatus.SLICE_EXECUTING:
       return 2;
     case ExecutionStatus.COMPLETING:
@@ -1015,7 +1103,7 @@ function deriveStep(status: ExecutionStatus): number {
     case ExecutionStatus.ERROR:
       return 2;
     default:
-      return 0;
+      return -1;
   }
 }
 
@@ -1088,7 +1176,7 @@ const styles: Record<string, CSSProperties> = {
   },
   header: {
     fontFamily: MONO,
-    fontSize: 10,
+    fontSize: 13,
     letterSpacing: "0.18em",
     fontWeight: 600,
     color: THEME.textMuted,
@@ -1105,7 +1193,7 @@ const styles: Record<string, CSSProperties> = {
   },
   emptyHint: {
     fontFamily: MONO,
-    fontSize: 12,
+    fontSize: 15,
     color: THEME.textMuted,
     textAlign: "center",
     maxWidth: 280,
@@ -1116,7 +1204,7 @@ const styles: Record<string, CSSProperties> = {
   },
   sectionLabel: {
     fontFamily: MONO,
-    fontSize: 10,
+    fontSize: 13,
     color: THEME.textMuted,
     letterSpacing: "0.16em",
     fontWeight: 600,
@@ -1142,17 +1230,17 @@ const styles: Record<string, CSSProperties> = {
   },
   selectLabel: {
     fontFamily: MONO,
-    fontSize: 9,
+    fontSize: 12,
     color: THEME.textMuted,
     letterSpacing: 1,
     textTransform: "uppercase",
   },
   select: {
     fontFamily: MONO,
-    fontSize: 13,
+    fontSize: 16,
     color: THEME.text,
     background: "var(--surface-input)",
-    boxShadow: "inset 0 1px 3px rgba(0,0,0,0.3)",
+    boxShadow: "inset 0 1px 2px rgba(26, 26, 26, 0.06)",
     border: `1px solid ${THEME.border}`,
     borderRadius: "var(--radius-sm)",
     padding: "10px 32px 10px 12px",
@@ -1180,10 +1268,10 @@ const styles: Record<string, CSSProperties> = {
   },
   numericInput: {
     fontFamily: MONO,
-    fontSize: 14,
+    fontSize: 17,
     color: THEME.text,
     background: "var(--surface-input)",
-    boxShadow: "inset 0 1px 3px rgba(0,0,0,0.3)",
+    boxShadow: "inset 0 1px 2px rgba(26, 26, 26, 0.06)",
     border: `1px solid ${THEME.border}`,
     borderRadius: 6,
     padding: "10px 12px",
@@ -1202,7 +1290,7 @@ const styles: Record<string, CSSProperties> = {
     top: "50%",
     transform: "translateY(-50%)",
     fontFamily: MONO,
-    fontSize: 10,
+    fontSize: 13,
     fontWeight: 700,
     letterSpacing: "0.06em",
     textTransform: "uppercase",
@@ -1217,14 +1305,14 @@ const styles: Record<string, CSSProperties> = {
   },
   amountHint: {
     fontFamily: MONO,
-    fontSize: 10,
+    fontSize: 13,
     color: THEME.textMuted,
     marginTop: 6,
     fontVariantNumeric: "tabular-nums",
   },
   amountError: {
     fontFamily: MONO,
-    fontSize: 10,
+    fontSize: 13,
     color: THEME.danger,
     marginTop: 6,
   },
@@ -1242,7 +1330,7 @@ const styles: Record<string, CSSProperties> = {
   },
   priceText: {
     fontFamily: MONO,
-    fontSize: 14,
+    fontSize: 17,
     color: THEME.text,
     fontVariantNumeric: "tabular-nums",
   },
@@ -1252,14 +1340,14 @@ const styles: Record<string, CSSProperties> = {
   },
   timestamp: {
     fontFamily: MONO,
-    fontSize: 10,
+    fontSize: 13,
     color: THEME.textMuted,
     fontVariantNumeric: "tabular-nums",
     marginTop: 4,
   },
   hintText: {
     fontFamily: MONO,
-    fontSize: 11,
+    fontSize: 14,
     color: THEME.textMuted,
     lineHeight: 1.6,
   },
@@ -1271,7 +1359,7 @@ const styles: Record<string, CSSProperties> = {
   },
   warningText: {
     fontFamily: MONO,
-    fontSize: 12,
+    fontSize: 15,
     color: THEME.amber,
     lineHeight: 1.5,
   },
@@ -1286,13 +1374,13 @@ const styles: Record<string, CSSProperties> = {
   },
   errorText: {
     fontFamily: MONO,
-    fontSize: 12,
+    fontSize: 15,
     color: THEME.danger,
     lineHeight: 1.5,
   },
   errorDetail: {
     fontFamily: MONO,
-    fontSize: 10,
+    fontSize: 13,
     color: THEME.textMuted,
     lineHeight: 1.5,
   },
@@ -1302,7 +1390,7 @@ const styles: Record<string, CSSProperties> = {
   },
   chip: {
     fontFamily: MONO,
-    fontSize: 11,
+    fontSize: 14,
     border: `1px solid ${THEME.border}`,
     borderRadius: "var(--radius-md)",
     padding: "8px 16px",
@@ -1319,7 +1407,7 @@ const styles: Record<string, CSSProperties> = {
   },
   sliderLabel: {
     fontFamily: MONO,
-    fontSize: 10,
+    fontSize: 13,
     color: THEME.textMuted,
     letterSpacing: 0.5,
   },
@@ -1328,7 +1416,7 @@ const styles: Record<string, CSSProperties> = {
   },
   txPreview: {
     fontFamily: MONO,
-    fontSize: 10,
+    fontSize: 13,
     color: THEME.textMuted,
     textAlign: "center",
     padding: "10px 16px 0",
@@ -1344,15 +1432,42 @@ const styles: Record<string, CSSProperties> = {
   },
   shortcutHint: {
     fontFamily: MONO,
-    fontSize: 9,
+    fontSize: 12,
     color: "var(--color-text-muted)",
     textAlign: "center",
     marginTop: 6,
     letterSpacing: 0.5,
   },
+  disabledHint: {
+    marginTop: 10,
+    padding: "8px 12px",
+    borderRadius: "var(--radius-sm)",
+    background: "var(--color-warn-bg)",
+    border: "1px solid var(--color-warn-border)",
+    color: "var(--color-warn)",
+    fontSize: 12,
+    lineHeight: 1.45,
+    display: "flex",
+    alignItems: "flex-start",
+    gap: 8,
+  },
+  disabledHintIcon: {
+    width: 18,
+    height: 18,
+    borderRadius: "50%",
+    background: "var(--color-warn)",
+    color: "#ffffff",
+    fontWeight: 700,
+    fontSize: 12,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+    lineHeight: 1,
+  },
   primaryButton: {
     fontFamily: MONO,
-    fontSize: 13,
+    fontSize: 16,
     fontWeight: 600,
     color: "var(--color-text-inverse)",
     background: THEME.accent,
@@ -1374,7 +1489,7 @@ const styles: Record<string, CSSProperties> = {
   },
   recoveryTitle: {
     fontFamily: MONO,
-    fontSize: 10,
+    fontSize: 13,
     color: THEME.accent,
     letterSpacing: 1.5,
     textTransform: "uppercase",
@@ -1382,13 +1497,13 @@ const styles: Record<string, CSSProperties> = {
   },
   recoveryText: {
     fontFamily: MONO,
-    fontSize: 12,
+    fontSize: 15,
     color: THEME.text,
     lineHeight: 1.5,
   },
   recoveryWarning: {
     fontFamily: MONO,
-    fontSize: 10,
+    fontSize: 13,
     color: THEME.amber,
     lineHeight: 1.5,
   },
@@ -1399,7 +1514,7 @@ const styles: Record<string, CSSProperties> = {
   },
   recoveryPrimary: {
     fontFamily: MONO,
-    fontSize: 11,
+    fontSize: 14,
     fontWeight: 600,
     color: "var(--color-text-inverse)",
     background: THEME.accent,
@@ -1410,7 +1525,7 @@ const styles: Record<string, CSSProperties> = {
   },
   recoverySecondary: {
     fontFamily: MONO,
-    fontSize: 11,
+    fontSize: 14,
     color: THEME.textMuted,
     background: "transparent",
     border: `1px solid ${THEME.border}`,
@@ -1431,7 +1546,7 @@ const styles: Record<string, CSSProperties> = {
   },
   welcomeTagline: {
     fontFamily: SANS,
-    fontSize: 18,
+    fontSize: 21,
     fontWeight: 700,
     color: "var(--color-text)",
     textAlign: "center",
@@ -1464,14 +1579,14 @@ const styles: Record<string, CSSProperties> = {
   },
   welcomeFeatureTitle: {
     fontFamily: MONO,
-    fontSize: 11,
+    fontSize: 14,
     fontWeight: 700,
     color: "var(--color-text)",
     letterSpacing: 0.5,
   },
   welcomeFeatureDesc: {
     fontFamily: MONO,
-    fontSize: 10,
+    fontSize: 13,
     color: "var(--color-text-muted)",
     lineHeight: 1.4,
   },

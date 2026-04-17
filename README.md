@@ -13,11 +13,11 @@ LIMINAL asks: _"What's the best price over the next N minutes, and how do we ear
 
 For every execution you configure:
 
-1. **Deposit** — the full input amount is deposited into the optimal Kamino lending vault (selected automatically by highest APY).
-2. **TWAP monitoring** — the machine waits through each slice's target time, polling live Pyth prices.
-3. **Batched slice execution** — at each slice the Kamino withdraw and DFlow swap are packed into a **single versioned transaction** (atomic, one signature), with mandatory pre-broadcast simulation.
+1. **Deposit** — the full input amount is deposited into the optimal Kamino lending reserve (selected automatically by highest supply APY on Kamino Main Market).
+2. **TWAP monitoring** — the machine waits through each slice's target time, polling live Pyth prices every 5 seconds.
+3. **Batched slice execution** — at each slice the Kamino partial withdraw and DFlow swap are packed into a **single versioned transaction** (atomic, one signature), with mandatory pre-broadcast simulation.
 4. **Final withdraw** — any residual + accumulated Kamino yield is returned to your wallet.
-5. **Analytics** — every slice's price improvement (bps + USD), yield contribution, and completion time is captured for the live panel and saved to history.
+5. **Analytics** — every slice's price improvement (bps + USD), yield contribution, and completion time is captured for the live panel and saved to localStorage history.
 
 A 4-slice execution takes **6 signatures total** (1 deposit + 4 batched slices + 1 final withdraw) instead of 10 — the batching utility halves transaction count versus naive sequential withdraw→swap pairs.
 
@@ -27,10 +27,40 @@ A 4-slice execution takes **6 signatures total** (1 deposit + 4 batched slices +
 
 | Partner | Role | Integration depth |
 |---|---|---|
-| **Solflare** | The single user touchpoint | Wallet adapter, session persistence, in-app browser auto-connect, pre-broadcast simulation, mobile signing delay, transaction batching UX |
-| **Quicknode** | Data + confirmation backbone | Solana mainnet RPC, Pyth price feed polling (5s), transaction confirmation, `confirmed` commitment everywhere |
-| **Kamino** | Idle capital yield | Lending vault auto-selection (never CLMM to avoid IL), deposit / partial withdraw / final withdraw lifecycle woven into the state machine |
+| **Solflare** | The single user touchpoint | Wallet adapter, session persistence, in-app browser auto-connect, pre-broadcast simulation, transaction batching UX, 2-step disconnect confirm |
+| **QuickNode** | Data + confirmation backbone | Solana mainnet RPC, Pyth price feed polling (5s), transaction confirmation, `confirmed` commitment everywhere, env-driven endpoint |
+| **Kamino** | Idle capital yield | `@kamino-finance/klend-sdk@7.3` with `@solana/kit` RPC bridge, `KaminoMarket.load` on Main Market, reserve APY / liquidity / utilization surfaced live, `getUserVanillaObligation` for real on-chain position tracking |
 | **DFlow** | MEV-protected execution engine | Quote comparison (market baseline vs DFlow endorsed quote), real price improvement bps, slippage defer discipline, no Jupiter fallback |
+
+---
+
+## Design system
+
+### Palette — pastel light theme
+
+A four-color pastel palette drives the entire UI; every component references CSS variables, never hardcoded hex.
+
+| Token | Hex | Role |
+|---|---|---|
+| `--color-1` | `#F6FFDC` — yellow | body background (widest surface) |
+| `--color-2` | `#FFFFFF` — white | panel surface |
+| `--color-3` | `#DAF9DE` — mint | elevated card |
+| `--color-4` | `#CFECF3` — sky | hover / secondary surface |
+| `--color-5` | `#F9B2D7` — pink | accent (CTA, active state, highlights) |
+
+Body gets a subtle atmospheric gradient (pink + sky + mint blobs on the yellow base) rather than a flat fill. Text is near-black (`#1a1a1a`) for AAA contrast. Semantic colors (`#16a34a` success, `#dc2626` danger, `#d97706` warning) are tuned to pass WCAG AA on every pastel surface.
+
+### Typography
+
+**Space Grotesk** (Google Fonts, weights 300 / 400 / 500 / 600 / 700) for all UI copy. **JetBrains Mono** is reserved for raw code / hash / signature display via the `.liminal-code` utility class. The `--font-mono` CSS variable is also mapped to Space Grotesk so legacy inline `fontFamily: MONO` references render consistently — numeric layouts stay stable thanks to `font-variant-numeric: tabular-nums`.
+
+### Token logos
+
+Every wallet token resolves through a **Jupiter v2 search** lookup (`tokens.jup.ag/tokens/v2/search`) keyed by mint address. The registry handles pump.fun, verified, community, and LST tokens transparently — something the older `verified`-only list missed. Logos load lazily with automatic IPFS/Arweave URI normalization; when a logo 404s or CORS-fails, a stable HSL gradient avatar with the token's initial letter takes over. `localStorage` caches results for 24 hours.
+
+### Type scale & spacing
+
+8pt grid (`--space-1` through `--space-12`). Three-tier radius (`--radius-sm: 4` / `md: 8` / `lg: 12`). Type scale from `--text-xs: 13px` through `--text-3xl: 36px` — larger than the typical terminal to prioritize readability.
 
 ---
 
@@ -40,13 +70,15 @@ A 4-slice execution takes **6 signatures total** (1 deposit + 4 batched slices +
 src/
 ├── App.tsx                         Root layout (desktop / tablet / mobile)
 ├── main.tsx                        React entry
+├── vite-env.d.ts                   Typed import.meta.env declarations
 ├── styles/
-│   └── design-system.css           Single source of truth (colors, fonts, strokes)
+│   └── design-system.css           Single source of truth — tokens, keyframes
 ├── services/
 │   ├── solflare.ts                 Wallet adapter + session + signing
-│   ├── quicknode.ts                RPC + Pyth + price polling
-│   ├── kamino.ts                   Lending vault integration (see Notes)
+│   ├── quicknode.ts                RPC + Pyth + price polling (env-driven)
+│   ├── kamino.ts                   Kamino v7 SDK via @solana/kit RPC bridge
 │   ├── dflow.ts                    Quote + swap + TWAP slice math
+│   ├── tokenRegistry.ts            Jupiter v2 search + localStorage 24h cache
 │   └── analyticsStore.ts           localStorage history (FIFO 50)
 ├── state/
 │   ├── executionMachine.ts         TWAP state machine (IDLE → DONE)
@@ -56,19 +88,30 @@ src/
 │   └── errorHandler.ts             parseError — every catch block routes here
 ├── hooks/
 │   ├── useExecutionMachine.ts      Module-singleton store + actions
-│   ├── useKaminoPosition.ts
+│   ├── useKaminoPosition.ts        30s polling + deposit/withdraw mutations
 │   ├── useDFlowExecution.ts
 │   ├── usePriceMonitor.ts
+│   ├── useTokenRegistry.ts         Warm up registry for a list of mints
+│   ├── useNetworkStatus.ts
 │   └── useDeviceDetection.ts
 └── components/
-    ├── WalletPanel.tsx             Left panel: balances + history
-    ├── ExecutionPanel.tsx          Middle panel: config + live timeline
-    ├── AnalyticsPanel.tsx          Right panel: live / history / protocol
+    ├── WalletPanel.tsx             Left panel: balances (logo + symbol) + history
+    ├── ExecutionPanel.tsx          Middle panel: config + live timeline + CTA
+    ├── AnalyticsPanel.tsx          Right panel: live hero / history / protocol
+    ├── HeaderBar.tsx               Sticky brand + network + wallet badge
     ├── VaultPreview.tsx
     ├── QuoteComparison.tsx
     ├── ExecutionTimeline.tsx
     ├── ExecutionSummaryCard.tsx
-    └── ErrorCard.tsx
+    ├── ErrorCard.tsx
+    ├── StepIndicator.tsx
+    ├── ProgressRing.tsx
+    ├── Sparkline.tsx
+    ├── AnimatedNumber.tsx          Respects prefers-reduced-motion
+    ├── Tooltip.tsx
+    ├── Button.tsx
+    ├── CountdownTimer.tsx
+    └── ToastProvider.tsx           Region-role notifications with semantic icons
 ```
 
 ### The state machine
@@ -87,9 +130,11 @@ IDLE → CONFIGURED → DEPOSITING → ACTIVE
 
 Pure transitions (`configure`, `reset`) compute new state; async effects (`depositEffect`, `executeNextSlice`, `completeEffect`, `retryEffect`) run RPC work and call setState. Cancellation is cooperative — every yield point re-reads status from a module-level ref. Recovery is automatic: state serializes to localStorage on each transition, and on page reload an in-flight execution surfaces a banner.
 
-### Design system
+### Kamino integration
 
-`src/styles/design-system.css` owns every color and typography value. Components reference `var(--color-*)` strings only; no hardcoded hex anywhere outside that file. The palette is a five-stop pastel blue (`#edf2fa → #abc4ff`), the single exception being `--color-warn` (`#f59e0b`) for warning and error states. The font stack is Bricolage Grotesque (Google Fonts, variable axis 12..96 opsz + 200..800 wght) with a monospace fallback for transaction signatures and wallet addresses.
+`src/services/kamino.ts` is wired against **`@kamino-finance/klend-sdk` v7.3** with the `@solana/kit` RPC client (v7 requirement). A module-level bridge turns our QuickNode HTTPS endpoint into `createSolanaRpc(...)`. Main Market is cached for 60s between reloads, and `KaminoMarket.load()` fetches every reserve with its live APY, available liquidity, and utilization ratio.
+
+The write path (`deposit`, `partialWithdraw`, `finalWithdraw`, `buildPartialWithdrawInstructions`) is currently held at the `@solana/kit` `Instruction` → `@solana/web3.js` `VersionedTransaction` bridge — see [Roadmap](#roadmap). The read path (vault listing, optimal selection by APY, on-chain obligation tracking) is fully functional.
 
 ---
 
@@ -99,8 +144,8 @@ Pure transitions (`configure`, `reset`) compute new state; async effects (`depos
 
 - Node.js 18+
 - npm 9+
-- A Quicknode Solana Mainnet endpoint (free tier is enough)
-- A Solflare wallet with some SOL for gas
+- A QuickNode Solana Mainnet endpoint (free tier is enough — 10M requests/month, 25 req/s)
+- A Solflare wallet (browser extension or mobile in-app browser) with some SOL for gas
 
 ### Install and run
 
@@ -108,21 +153,26 @@ Pure transitions (`configure`, `reset`) compute new state; async effects (`depos
 git clone https://github.com/wienerlabs/liminal.git
 cd liminal
 npm install
+cp .env.example .env.local
+# Edit .env.local and paste your QuickNode HTTP Provider URL
 npm run dev
 ```
 
-The Vite dev server boots at `http://localhost:5173/`. Open it in any browser with the Solflare extension installed, or in the Solflare mobile in-app browser (auto-connects without a prompt).
+The Vite dev server boots at `http://localhost:5173/` (or `5174` if 5173 is in use). Open it in any browser with the Solflare extension installed, or in the Solflare mobile in-app browser — the wallet auto-connects without a prompt in that context.
 
-### Configuration
+### Environment variables
 
-Before the app can talk to Solana mainnet, fill in your RPC endpoint:
+Copy [`.env.example`](./.env.example) to `.env.local` (gitignored automatically) and fill in:
 
-```ts
-// src/services/quicknode.ts
-export const QUICKNODE_RPC_ENDPOINT = "https://your-endpoint.solana-mainnet.quiknode.pro/...";
+```bash
+# REQUIRED
+VITE_QUICKNODE_RPC_URL=https://your-name.solana-mainnet.quiknode.pro/your-token/
+
+# OPTIONAL (defaults shown)
+# VITE_DFLOW_API_URL=https://pond.dflow.net
 ```
 
-The file prints a clear `console.error` on boot and every RPC call throws a descriptive error until this constant is filled — no silent failures.
+If `VITE_QUICKNODE_RPC_URL` is missing, the app throws a descriptive error on every RPC call — no silent failures. Typed via `src/vite-env.d.ts` for autocomplete.
 
 ### Build
 
@@ -132,19 +182,43 @@ npm run preview   # serve the production build locally
 npm run typecheck # tsc --noEmit only
 ```
 
+Production bundles split across:
+
+| Chunk | Raw | Gzip |
+|---|---|---|
+| `index.js` (app code) | ~450 kB | ~92 kB |
+| `vendor-recharts` | 754 kB | 167 kB |
+| `vendor-kamino` (klend-sdk + scope + kliquidity) | 9.2 MB | 1.4 MB |
+| `vendor-confetti` | 14 kB | 5 kB |
+| `index.css` | 5.7 kB | 1.94 kB |
+
+The Kamino vendor chunk is heavy because the SDK ships a full on-chain state model. `vite.config.ts` excludes the Orca Whirlpools WASM bindings from `optimizeDeps` pre-bundling to sidestep an esbuild top-level-await conflict.
+
 ---
 
 ## How an execution flows
 
-1. **Connect** Solflare from the left panel. Your SOL + SPL balances populate with live USD values from Pyth.
-2. **Pick a token pair** in the middle panel. The live price starts streaming from Pyth every 5 seconds.
+1. **Connect** Solflare from the left panel. SOL + SPL balances populate with Jupiter-resolved symbols, logo images, and live USD values from Pyth where feeds exist.
+2. **Pick a token pair** in the middle panel. The live price starts streaming from Pyth every 5 seconds. Tokens without a Pyth feed show `no feed` instead of endless skeleton.
 3. **Enter an amount**, pick a window (30m / 1h / 2h / 4h), choose a slice count, set a slippage threshold (10–300 bps).
-4. The middle panel tells you exactly how many transactions you'll sign (`1 + sliceCount + 1`). This is the batching discipline at work.
-5. **Click `START EXECUTION`.** Solflare opens. Approve the Kamino deposit. The state machine transitions to `ACTIVE` and the TWAP loop starts.
-6. Each slice waits until its target time, then fetches a DFlow quote, batches the Kamino withdraw and DFlow swap into one transaction, simulates it, asks Solflare to sign, broadcasts, and confirms. The timeline on the right updates as each slice completes with bps earned, USD value, and elapsed time.
-7. When the last slice is done, the final withdraw pulls the residual and accumulated yield out of Kamino. The panel switches to `ExecutionSummaryCard`, confetti fires, the session is saved to localStorage history, and the analytics panel aggregates it into the Protocol tab.
+4. If anything is missing, an amber hint beneath `START EXECUTION` tells you exactly what — wallet, token, amount, vault, etc. No silent-disable.
+5. The middle panel tells you exactly how many transactions you'll sign (`1 + sliceCount + 1`) — the batching discipline at work.
+6. **Click `START EXECUTION`.** Solflare opens. Approve the Kamino deposit. The state machine transitions to `ACTIVE`, the TWAP loop starts, and the step indicator lights up `Deposit → Monitor → Execute → Repeat → Withdraw` in real time.
+7. Each slice waits until its target time, fetches a DFlow quote, batches the Kamino withdraw and DFlow swap into one versioned transaction, simulates it, asks Solflare to sign, broadcasts, and confirms. The timeline on the right updates each slice with bps earned, USD value, and elapsed time.
+8. When the last slice completes, the final withdraw pulls residual + accumulated yield out of Kamino. The panel switches to `ExecutionSummaryCard`, confetti fires (pink / mint / sky palette), history is saved, and the analytics Protocol tab aggregates totals.
 
 At any point during an `ACTIVE` execution you can close the tab — a `beforeunload` warning fires — and the next time you load the app it asks whether to resume.
+
+---
+
+## Accessibility
+
+- **Role semantics** — `role="tablist"` + `aria-selected` on both mobile and desktop tab groups, `role="dialog"` + `aria-modal` + `aria-labelledby` on the history detail modal.
+- **Focus management** — modal traps Tab, closes on Escape with `stopPropagation`, restores focus to the opener on close, locks body scroll while open.
+- **Live regions** — price list is `aria-live="polite"`, toasts differentiate `polite` vs `assertive` by type, skeletons carry `aria-busy`.
+- **Touch targets** — 44 px minimum on the slider thumb, mobile tabs, delete and modal-close buttons.
+- **Reduced motion** — `AnimatedNumber` snaps instead of interpolating when `prefers-reduced-motion: reduce` is set. CSS animations are globally capped to 0.01 ms under the same media query.
+- **Contrast** — muted text is `#5b6470` on pastel backgrounds (WCAG AA for body text). Accent pink `#F9B2D7` with near-black text passes AAA.
 
 ---
 
@@ -157,7 +231,7 @@ Every catch block in the state machine, services, and hooks routes through `pars
 - A `retryable` boolean
 - Optional `sliceIndex` and timestamp
 
-`ErrorCard.tsx` renders it: warning triangle for retryable, red X for non-retryable. The retry button re-enters the correct effect (`retryEffect` routes by code). For `KAMINO_INSUFFICIENT_LIQUIDITY` and `KAMINO_WITHDRAW_FAILED` a small reassurance note appears — "your funds in Kamino are safe; manual withdrawal may be required."
+`ErrorCard.tsx` renders it: warning triangle on an amber background for retryable, red ✕ on a danger background for non-retryable — distinct visual hierarchy. The retry button re-enters the correct effect (`retryEffect` routes by code). For `KAMINO_INSUFFICIENT_LIQUIDITY` and `KAMINO_WITHDRAW_FAILED` a small reassurance note appears — _"your funds in Kamino are safe; manual withdrawal may be required."_
 
 Slippage excess is deliberately _not_ an error. The machine defers the slice 30 seconds, surfaces an inline amber banner, and continues. Only a quote fetch that hard-fails (network, endpoint down) escalates to ERROR state.
 
@@ -167,9 +241,9 @@ Slippage excess is deliberately _not_ an error. The machine defers the slice 30 
 
 Three breakpoints driven by `useDeviceDetection`:
 
-- **Desktop ≥1024** — three panels side by side (280px / flex / 320px).
-- **Tablet 768–1023** — execution + analytics 50/50, wallet panel hidden (still accessible when you connect).
-- **Mobile <768** — single column, bottom tab bar (`Wallet / Execute / Analytics`), and a fixed-top `Execution active` bar during any in-flight status. Solflare's mobile in-app browser is detected by matching `navigator.userAgent` against `/solflare/i` **and** checking `window.solflare.isSolflare === true`, at which point the wallet auto-connects without a prompt.
+- **Desktop ≥1024** — three panels side by side (`300 / 1fr / 300`, symmetric). Header is sticky with `backdrop-filter: blur(8px)`.
+- **Tablet 768–1023** — execution + analytics 50/50, wallet panel hidden (still accessible through the Connect CTA embedded in the middle panel).
+- **Mobile <768** — single column, bottom tab bar (`Wallet / Execute / Analytics`) with safe-area-inset padding, and a sticky-below-header `Execution active` bar during any in-flight status. Solflare's mobile in-app browser is detected via `navigator.userAgent` + `window.solflare.isSolflare`, and wallet auto-connects without a prompt.
 
 ---
 
@@ -178,24 +252,39 @@ Three breakpoints driven by `useDeviceDetection`:
 | Area | Stack |
 |---|---|
 | Runtime | React 18, Vite 5, TypeScript 5 |
-| Solana | `@solana/web3.js`, `@pythnetwork/client`, `@kamino-finance/klend-sdk` |
+| Solana | `@solana/web3.js`, `@solana/kit`, `@pythnetwork/client` |
+| Kamino | `@kamino-finance/klend-sdk@7.3` (`@solana/kit` RPC) |
 | DFlow | HTTP client against `https://pond.dflow.net` |
+| Token metadata | Jupiter v2 search API (`tokens.jup.ag/tokens/v2/search`) |
 | Charts | recharts |
-| Animation | canvas-confetti |
+| Animation | canvas-confetti, CSS keyframes |
 | Polyfills | `vite-plugin-node-polyfills` (Buffer/crypto/stream) + `vite-plugin-wasm` + `vite-plugin-top-level-await` |
-| Fonts | Bricolage Grotesque via Google Fonts |
+| Fonts | Space Grotesk + JetBrains Mono via Google Fonts |
 
 ---
 
-## Known limitations
+## Roadmap
 
-1. **Kamino SDK v7 incompatibility.** `@kamino-finance/klend-sdk` v7 moved to the `@solana/kit` Address + Rpc types and ships as CJS, which Vite cannot resolve as ESM at runtime. To keep the dev server booting and all other flows working, `src/services/kamino.ts` is a public-API-preserving stub: read paths (`getAvailableVaults`, `getPositionValue`) return empty data, write paths (`deposit`, `partialWithdraw`, `finalWithdraw`) throw a clear `Kamino SDK v7 refactor pending` error. Solflare, Quicknode, Pyth, DFlow, the state machine, analytics, error handling, recovery, and the full responsive UI all work against live infrastructure. Fix path: downgrade klend-sdk to v6.x **or** rewrite `kamino.ts` against the v7 API.
+### Kamino write path
 
-2. **Quicknode endpoint must be filled in.** Empty by default; a clear `console.error` fires on module load and every RPC call throws a descriptive message until you paste your HTTP provider URL.
+`@kamino-finance/klend-sdk@7` returns `KaminoAction` objects populated with `@solana/kit` `Instruction[]` arrays. To actually submit a deposit/withdraw through Solflare, each instruction needs to be converted to a `@solana/web3.js` `TransactionInstruction` (pubkey and data byte-preserving), assembled into a `VersionedTransaction`, signed by Solflare, broadcast through our existing QuickNode connection, and confirmed. This bridge layer is the last piece standing between read-only analytics and end-to-end mainnet execution.
 
-3. **USDC mint address.** The original project spec listed a USDC mint that does not round-trip through Solana's base58 decoder. The constant is stored as a string in `kamino.ts` to avoid crashing on boot; replace it with the canonical mainnet USDC mint before any real trade.
+Reference: `services/kamino.ts` — `deposit` / `partialWithdraw` / `finalWithdraw` / `buildPartialWithdrawInstructions` currently throw a descriptive pending error. The read path (`getAvailableVaults`, `selectOptimalVault`, `getPositionValue`) is fully wired.
 
-4. **DFlow REST paths.** `/api/quote` and `/api/swap` are reasonable assumptions based on common aggregator conventions. Verify against the current DFlow endorsement server contract before a production run; changes are isolated to two constants at the top of `src/services/dflow.ts`.
+### Other improvements tracked
+
+- **Bundle size** — `vendor-kamino` is 1.4 MB gzip. A dynamic `import()` at the panel level could defer the chunk until a user actually connects and picks a token.
+- **Onchain activity** — once the write path lands, hit the BLOK 8 target (5+ wallets × 50 txs on mainnet before submission).
+- **USDC mint address sanity check** — replace the spec-supplied string (which does not round-trip through base58 decoders) with the canonical mint before any real USDC trade.
+- **DFlow REST paths** — `/api/quote` and `/api/swap` are assumed from aggregator convention. Verify against the current endorsement-server contract before mainnet usage.
+
+---
+
+## Security
+
+- `.env.local` is gitignored via the `*.local` pattern and again explicitly via `.env*` — secrets never reach git. `.env.example` is committed as the template.
+- The development-only global error trap in `index.html` is guarded to `localhost` / `127.0.0.1` / `.local` hostnames and ring-buffered to 200 entries; it no-ops on any deployed origin.
+- `HeaderBar`, `WalletPanel`, and the execution flow show the connected wallet's public address only — full address is copy-on-click and truncated in display.
 
 ---
 

@@ -1,90 +1,111 @@
 /**
- * LIMINAL — Design System (v2)
+ * LIMINAL — Design System (v3 Pastel Light)
  *
  * Tek truth source. Tüm renkler, tipografi, spacing, radius, shadow ve
  * animation keyframe'leri burada tanımlanır. Component'ler yalnızca bu CSS
- * variable'larına referans verir — hardcoded hex/px değer kalmaz.
+ * variable'larına referans verir.
  *
- * Palette: Dark DeFi terminal aesthetic (Jupiter/Drift/Marginfi inspired).
- * Typography: Bricolage Grotesque (sans) + JetBrains Mono (mono).
+ * Palette (kullanıcı pastel paletten türetildi):
+ *   - Yellow  #F6FFDC  → body background (en açık)
+ *   - Mint    #DAF9DE  → panel/card surface
+ *   - Sky     #CFECF3  → hover / secondary surface
+ *   - Pink    #F9B2D7  → accent (CTA, active state, vurgu)
+ *
+ * Typography: Space Grotesk (sans) + JetBrains Mono (mono).
+ * Note: Bricolage Grotesque kaldırıldı — bu projede kullanılmaz.
  * Spacing scale: 4-8-12-16-20-24-32-48 (8pt grid).
  * Radius scale: 4 / 8 / 12 — üç tier.
- * Surface tier: panel < card < raised — üç tier, opacity netleştirildi.
  */
 
-@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 :root {
-  /* ----- Ana palet ---------------------------------------------------- */
-  --color-1: #000000;        /* deepest background — pure black */
-  --color-2: #0a0a0a;        /* panel background */
-  --color-3: #141414;        /* elevated surface / skeleton mid */
-  --color-4: #1e1e1e;        /* interactive hover */
-  --color-5: #22d1ee;        /* accent — electric cyan/teal */
+  /* ----- Pastel palette tokens (kullanıcı seçimi) ----------------------
+     Surface katmanı en açık zeminden başlayıp accent'e doğru gider:
+       color-1 = body bg (yellow, en geniş yüzey)
+       color-2 = panel bg (off-white tone, kart altlığı)
+       color-3 = elevated/card surface (mint)
+       color-4 = hover (sky)
+       color-5 = ACCENT (pink) — CTA, vurgular, aktif state
+     -------------------------------------------------------------------- */
+  --color-1: #f6ffdc;        /* yellow — body background */
+  --color-2: #ffffff;         /* white — panel surface */
+  --color-3: #daf9de;        /* mint — elevated card */
+  --color-4: #cfecf3;        /* sky — hover surface */
+  --color-5: #f9b2d7;        /* pink — accent */
+  --color-5-strong: #f48cc4; /* deeper pink — hover/active accent */
 
-  /* ----- Metin -------------------------------------------------------- */
-  --color-text: #e2e8f0;           /* primary text, light */
-  --color-text-muted: #94a3b8;     /* secondary text — yükseltildi (4.6:1 → 7.2:1) */
-  --color-text-subtle: #64748b;    /* tertiary — sadece dekoratif kullan */
-  --color-text-inverse: #000000;   /* for accent-bg buttons */
+  /* ----- Metin (light bg üstünde okunabilir koyu tonlar) -------------- */
+  --color-text: #1a1a1a;            /* primary text, near-black */
+  --color-text-muted: #5b6470;      /* secondary text — AA pass on yellow bg */
+  --color-text-subtle: #8a93a0;     /* tertiary — sadece dekoratif */
+  --color-text-inverse: #1a1a1a;    /* accent (pink) bg üstünde de siyah okunur */
 
-  /* ----- Stroke sistemi ---------------------------------------------- */
-  --color-stroke: rgba(255, 255, 255, 0.08);
-  --color-stroke-nested: rgba(255, 255, 255, 0.12);
-  --color-stroke-hover: rgba(255, 255, 255, 0.18);
+  /* ----- Stroke sistemi (light theme: siyah opacity) ----------------- */
+  --color-stroke: rgba(26, 26, 26, 0.08);
+  --color-stroke-nested: rgba(26, 26, 26, 0.12);
+  --color-stroke-hover: rgba(26, 26, 26, 0.20);
 
-  /* ----- Shadow ------------------------------------------------------- */
+  /* ----- Shadow (light theme: koyu drop) ----------------------------- */
   --shadow-component:
-    0 1px 4px rgba(0, 0, 0, 0.3),
-    0 0 0 1px rgba(255, 255, 255, 0.04);
+    0 1px 3px rgba(26, 26, 26, 0.06),
+    0 0 0 1px rgba(26, 26, 26, 0.04);
   --shadow-raised:
-    0 8px 24px rgba(0, 0, 0, 0.4),
-    0 0 0 1px rgba(255, 255, 255, 0.06);
-  --shadow-accent-glow: 0 0 20px rgba(34, 209, 238, 0.25);
+    0 8px 24px rgba(26, 26, 26, 0.10),
+    0 0 0 1px rgba(26, 26, 26, 0.06);
+  --shadow-accent-glow: 0 0 24px rgba(249, 178, 215, 0.55);
 
-  /* ----- Semantic success / danger ------------------------------------- */
-  --color-success: #22c55e;
-  --color-danger: #ef4444;
+  /* ----- Semantic success / danger (pastel zeminde okunabilir) ------- */
+  --color-success: #16a34a;
+  --color-danger: #dc2626;
 
-  /* ----- Uyarı (paletten-dışı tek istisna) --------------------------- */
-  --color-warn: #f59e0b;
-  --color-warn-bg: rgba(245, 158, 11, 0.10);
-  --color-warn-border: rgba(245, 158, 11, 0.32);
+  /* ----- Uyarı (warning amber) --------------------------------------- */
+  --color-warn: #d97706;
+  --color-warn-bg: rgba(217, 119, 6, 0.10);
+  --color-warn-border: rgba(217, 119, 6, 0.35);
 
   /* ----- Success/danger backgrounds ----------------------------------- */
-  --color-success-bg: rgba(34, 197, 94, 0.10);
-  --color-success-border: rgba(34, 197, 94, 0.32);
-  --color-danger-bg: rgba(239, 68, 68, 0.10);
-  --color-danger-border: rgba(239, 68, 68, 0.32);
+  --color-success-bg: rgba(22, 163, 74, 0.08);
+  --color-success-border: rgba(22, 163, 74, 0.32);
+  --color-danger-bg: rgba(220, 38, 38, 0.08);
+  --color-danger-border: rgba(220, 38, 38, 0.32);
 
-  /* ----- Accent derivatives ------------------------------------------ */
-  --color-accent-bg-soft: rgba(34, 209, 238, 0.08);
-  --color-accent-bg-strong: rgba(34, 209, 238, 0.15);
-  --color-accent-border: rgba(34, 209, 238, 0.32);
+  /* ----- Accent derivatives (pink) ----------------------------------- */
+  --color-accent-bg-soft: rgba(249, 178, 215, 0.18);
+  --color-accent-bg-strong: rgba(249, 178, 215, 0.40);
+  --color-accent-border: rgba(244, 140, 196, 0.50);
 
-  /* ----- Surface hierarchy (3-tier net) ------------------------------ */
-  --surface-panel: #0a0a0a;                       /* tier 1: panel zemini */
-  --surface-card: rgba(255, 255, 255, 0.03);      /* tier 2: card */
-  --surface-card-hover: rgba(255, 255, 255, 0.06);
-  --surface-raised: rgba(255, 255, 255, 0.05);    /* tier 3: floating */
-  --surface-raised-strong: rgba(255, 255, 255, 0.08);
-  --surface-input: rgba(0, 0, 0, 0.4);
+  /* ----- Surface hierarchy (3-tier, light theme) --------------------- */
+  --surface-panel: #ffffff;                       /* tier 1: panel zemini */
+  --surface-card: rgba(255, 255, 255, 0.65);      /* tier 2: card overlay */
+  --surface-card-hover: rgba(207, 236, 243, 0.50);/* tier 2: hover (sky tinted) */
+  --surface-raised: #ffffff;                       /* tier 3: floating */
+  --surface-raised-strong: rgba(255, 255, 255, 0.95);
+  --surface-input: #ffffff;
 
-  /* ----- Overlay ------------------------------------------------------ */
-  --color-overlay: rgba(0, 0, 0, 0.78);
+  /* ----- Overlay (modal arkası) ------------------------------------- */
+  --color-overlay: rgba(26, 26, 26, 0.45);
 
-  /* ----- Tipografi --------------------------------------------------- */
-  --font-sans: 'Bricolage Grotesque', system-ui, -apple-system, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  /* ----- Tipografi --------------------------------------------------
+     Bütün UI Space Grotesk. Hiçbir yerde başka sans yüklenmiyor.
+     `--font-mono` da Space Grotesk — çünkü tüm component'ler içerikte
+     bu token'ı kullanıyor ve kullanıcı isteği bütün metinlerin Space
+     Grotesk olması. Sayısal hizalama için `font-variant-numeric: tabular-nums`
+     hala kullanılıyor (Space Grotesk tabular destekler).
+     `--font-code` sadece raw kod/hash gibi gerçekten monospace gereken
+     ender yerler için ayrı bırakıldı. */
+  --font-sans: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-code: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
 
-  /* ----- Type scale (yükseltildi: 11 → 12 base) ---------------------- */
-  --text-xs: 11px;
-  --text-sm: 12px;
-  --text-base: 14px;
-  --text-lg: 16px;
-  --text-xl: 18px;
-  --text-2xl: 24px;
-  --text-3xl: 32px;
+  /* ----- Type scale (büyütülmüş — kullanıcı isteği) ----------------- */
+  --text-xs: 13px;
+  --text-sm: 14px;
+  --text-base: 16px;
+  --text-lg: 18px;
+  --text-xl: 21px;
+  --text-2xl: 27px;
+  --text-3xl: 36px;
 
   /* ----- Spacing scale (8pt grid) ----------------------------------- */
   --space-1: 4px;
@@ -102,7 +123,7 @@
   --radius-lg: 12px;
 
   /* ----- Touch targets ----------------------------------------------- */
-  --touch-min: 44px;            /* WCAG AA mobil minimum */
+  --touch-min: 44px;
 
   /* ----- Layout constants ------------------------------------------- */
   --header-height: 48px;
@@ -131,15 +152,28 @@ body,
   margin: 0;
   padding: 0;
   color: var(--color-text);
-  font-family: var(--font-sans);
+  font-family: 'Space Grotesk', var(--font-sans);
   font-size: var(--text-base);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
 }
 
+/* Defense: even if a third-party stylesheet or a stray inline style sneaks in
+   another sans, the entire document tree inherits Space Grotesk. We're not
+   using !important on individual elements (would break code blocks), but on
+   the root we lock the cascade. */
+html {
+  font-family: 'Space Grotesk', system-ui, -apple-system, sans-serif !important;
+}
+
 body {
   background: var(--color-1);
+  background-image:
+    radial-gradient(at 18% 22%, rgba(249, 178, 215, 0.20) 0, transparent 45%),
+    radial-gradient(at 82% 10%, rgba(207, 236, 243, 0.45) 0, transparent 50%),
+    radial-gradient(at 50% 95%, rgba(218, 249, 222, 0.50) 0, transparent 55%);
+  background-attachment: fixed;
   min-height: 100vh;
   min-height: 100svh;
   min-height: 100dvh;
@@ -161,6 +195,13 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* Wallet adresi / signature / hash gibi gerçekten monospace gereken yerler.
+   Diğer her şey Space Grotesk kalır. */
+.liminal-code {
+  font-family: var(--font-code);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ===================================================================== */
 /* Button/input defaults                                                 */
 /* ===================================================================== */
@@ -176,12 +217,12 @@ textarea {
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  outline: 2px solid var(--color-5);
+  outline: 2px solid var(--color-5-strong);
   outline-offset: 2px;
 }
 
 button:focus-visible {
-  outline: 2px solid var(--color-5);
+  outline: 2px solid var(--color-5-strong);
   outline-offset: 2px;
 }
 
@@ -192,7 +233,7 @@ input:focus:not(:focus-visible) {
 }
 
 /* ===================================================================== */
-/* Keyframes — tüm component'lerin paylaştığı animasyonlar              */
+/* Keyframes                                                             */
 /* ===================================================================== */
 
 @keyframes liminal-active-pulse {
@@ -236,7 +277,7 @@ input:focus:not(:focus-visible) {
 }
 
 /* ===================================================================== */
-/* Range slider cross-browser — touch-friendly thumb (24px)             */
+/* Range slider — touch-friendly thumb (light theme variant)            */
 /* ===================================================================== */
 
 input[type="range"] {
@@ -244,7 +285,7 @@ input[type="range"] {
   appearance: none;
   background: transparent;
   cursor: pointer;
-  height: 24px; /* touch target hit area */
+  height: 24px;
 }
 
 input[type="range"]::-webkit-slider-runnable-track {
@@ -260,8 +301,8 @@ input[type="range"]::-webkit-slider-thumb {
   height: 18px;
   border-radius: 50%;
   background: var(--color-5);
-  border: 3px solid var(--color-2);
-  box-shadow: 0 0 0 1px var(--color-5);
+  border: 3px solid #ffffff;
+  box-shadow: 0 0 0 1px var(--color-5-strong);
   margin-top: -7px;
 }
 
@@ -277,17 +318,17 @@ input[type="range"]::-moz-range-thumb {
   height: 18px;
   border-radius: 50%;
   background: var(--color-5);
-  border: 3px solid var(--color-2);
-  box-shadow: 0 0 0 1px var(--color-5);
+  border: 3px solid #ffffff;
+  box-shadow: 0 0 0 1px var(--color-5-strong);
 }
 
 /* ===================================================================== */
-/* Custom scrollbar — dark, near-invisible                              */
+/* Custom scrollbar — pastel theme                                       */
 /* ===================================================================== */
 
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
@@ -295,17 +336,21 @@ input[type="range"]::-moz-range-thumb {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(26, 26, 26, 0.18);
   border-radius: var(--radius-sm);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(26, 26, 26, 0.28);
 }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+  scrollbar-color: rgba(26, 26, 26, 0.18) transparent;
 }
 
 /* ===================================================================== */
-/* Reduced motion — disable all animations                               */
+/* Reduced motion                                                        */
 /* ===================================================================== */
 
 @media (prefers-reduced-motion: reduce) {
