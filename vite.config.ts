@@ -105,6 +105,26 @@ export default defineConfig({
       supported: {
         "top-level-await": true,
       },
+      // Vite's top-level `resolve.alias` doesn't propagate into esbuild's
+      // pre-bundler, so we wire an explicit onResolve plugin here. Without
+      // this, klend-sdk's CJS dep-cache still contains raw
+      // `require("@kamino-finance/kliquidity-sdk/dist")` calls that fail
+      // at runtime as "Dynamic require ... is not supported".
+      plugins: [
+        {
+          name: "liminal-kliquidity-shim",
+          setup(build) {
+            const shimPath = path.resolve(
+              __dirname,
+              "src/stubs/kliquidity-shim.ts",
+            );
+            build.onResolve(
+              { filter: /^@kamino-finance\/kliquidity-sdk(\/.*)?$/ },
+              () => ({ path: shimPath }),
+            );
+          },
+        },
+      ],
     },
   },
 });
