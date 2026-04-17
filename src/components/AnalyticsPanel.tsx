@@ -112,6 +112,25 @@ function formatUSD(n: number): string {
   })}`;
 }
 
+/**
+ * Compact USD formatter for tight headline slots (TOTAL GAIN banner,
+ * Protocol tab hero number). Caps at 2 significant digits past the
+ * magnitude prefix so a $19,434,173.51 reading never overflows the
+ * fixed-width banner: $19.43M, $1.45B, etc.
+ *
+ * Below $10k we fall back to the full `formatUSD` so detail isn't lost
+ * on the common small-execution case.
+ */
+function formatUSDCompact(n: number): string {
+  const abs = Math.abs(n);
+  if (abs < 10_000) return formatUSD(n);
+  const sign = n < 0 ? "-" : "";
+  return `${sign}$${abs.toLocaleString("en-US", {
+    notation: "compact",
+    maximumFractionDigits: 2,
+  })}`;
+}
+
 function formatBps(bps: number): string {
   const sign = bps >= 0 ? "+" : "";
   return `${sign}${bps.toLocaleString("en-US", {
@@ -400,6 +419,12 @@ const ValueCaptureBanner: FC<{
   const liveYieldUsd = useLiveKaminoYieldUsd(state);
   const totalValueUsd = state.totalPriceImprovementUsd + liveYieldUsd;
 
+  // Big magnitudes switch to compact notation so the banner never clips.
+  // AnimatedNumber is for smooth tick transitions at human-scale values;
+  // at six-plus digits the animation becomes visually noisy anyway.
+  const useCompact = Math.abs(totalValueUsd) >= 10_000;
+  const compactDisplay = formatUSDCompact(totalValueUsd);
+
   return (
     <div style={styles.valueCaptureBanner}>
       <div style={styles.valueCaptureLabel}>TOTAL GAIN</div>
@@ -407,15 +432,30 @@ const ValueCaptureBanner: FC<{
         style={{
           ...styles.valueCaptureValue,
           color: totalValueUsd >= 0 ? THEME.success : THEME.amber,
-          fontSize: isMobile ? "2rem" : "3rem",
+          // clamp(min, ideal, max) keeps the headline legible on mobile
+          // (min 1.6rem) while letting it breathe on desktop (max 2.75rem).
+          fontSize: isMobile
+            ? "clamp(1.6rem, 8vw, 2.2rem)"
+            : "clamp(2rem, 4vw, 2.75rem)",
+          overflowWrap: "anywhere",
+          lineHeight: 1.05,
         }}
+        title={
+          useCompact
+            ? `${formatUSD(totalValueUsd)} exact`
+            : undefined
+        }
       >
-        <AnimatedNumber
-          value={totalValueUsd}
-          prefix="$"
-          decimals={2}
-          duration={600}
-        />
+        {useCompact ? (
+          compactDisplay
+        ) : (
+          <AnimatedNumber
+            value={totalValueUsd}
+            prefix="$"
+            decimals={2}
+            duration={600}
+          />
+        )}
       </div>
       <div style={styles.valueCaptureBreakdown}>
         <div style={styles.breakdownRow}>
@@ -429,14 +469,14 @@ const ValueCaptureBanner: FC<{
                   : THEME.amber,
             }}
           >
-            {formatUSD(state.totalPriceImprovementUsd)} (
+            {formatUSDCompact(state.totalPriceImprovementUsd)} (
             {formatBps(state.totalPriceImprovementBps)} bps)
           </span>
         </div>
         <div style={styles.breakdownRow}>
           <span style={styles.breakdownKey}>Kamino:</span>
           <span style={{ ...styles.breakdownValue, color: THEME.success }}>
-            {formatUSD(liveYieldUsd)}
+            {formatUSDCompact(liveYieldUsd)}
           </span>
         </div>
       </div>
@@ -1627,6 +1667,8 @@ const styles: Record<string, CSSProperties> = {
     borderRadius: 10,
     padding: "18px 20px",
     textAlign: "center",
+    minWidth: 0,
+    overflow: "hidden",
   },
   valueCaptureLabel: {
     fontSize: 13,
