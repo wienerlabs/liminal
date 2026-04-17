@@ -30,6 +30,10 @@ import ExecutionPanel from "./components/ExecutionPanel";
 import AnalyticsPanel from "./components/AnalyticsPanel";
 import HeaderBar from "./components/HeaderBar";
 import { ToastContainer } from "./components/ToastProvider";
+import DisclaimerModal, {
+  hasAcceptedDisclaimer,
+} from "./components/DisclaimerModal";
+import { getActiveNetworkConfig } from "./services/network";
 
 // ---------------------------------------------------------------------------
 // Theme
@@ -59,6 +63,16 @@ export const App: FC = () => {
 
   const [wallet, setWallet] = useState<WalletState>(() => getWalletState());
   useEffect(() => subscribeWallet(setWallet), []);
+
+  // Disclaimer gate — first-connect only, persisted in localStorage.
+  // Re-rendered whenever the wallet transitions to connected so we can
+  // show the modal right at the moment the user is about to act.
+  const [disclaimerOpen, setDisclaimerOpen] = useState(false);
+  useEffect(() => {
+    if (wallet.connected && !hasAcceptedDisclaimer()) {
+      setDisclaimerOpen(true);
+    }
+  }, [wallet.connected]);
 
   const [mobileTab, setMobileTab] = useState<MobileTab>("execute");
 
@@ -93,7 +107,11 @@ export const App: FC = () => {
       <div className="liminal-root" style={styles.mobileRoot}>
         <HeaderBar networkStatus={networkStatus} />
         {device.isSolflareInAppBrowser && <SolflareBanner />}
+        <NetworkBanner />
         <ToastContainer />
+        {disclaimerOpen && (
+          <DisclaimerModal onAccept={() => setDisclaimerOpen(false)} />
+        )}
 
         {inFlight && (
           <div style={{ position: "sticky", top: "var(--header-height)", zIndex: 40 }}>
@@ -162,7 +180,11 @@ export const App: FC = () => {
       <div className="liminal-root" style={styles.appRoot}>
         <HeaderBar networkStatus={networkStatus} />
         {device.isSolflareInAppBrowser && <SolflareBanner />}
+        <NetworkBanner />
         <ToastContainer />
+        {disclaimerOpen && (
+          <DisclaimerModal onAccept={() => setDisclaimerOpen(false)} />
+        )}
         <div style={styles.tabletLayout}>
           <div style={{ ...styles.tabletPane, ...panelEntranceStyle(0) }}>
             <ExecutionPanel />
@@ -182,7 +204,11 @@ export const App: FC = () => {
     <div className="liminal-root" style={styles.appRoot}>
       <HeaderBar networkStatus={networkStatus} />
       {device.isSolflareInAppBrowser && <SolflareBanner />}
+        <NetworkBanner />
       <ToastContainer />
+        {disclaimerOpen && (
+          <DisclaimerModal onAccept={() => setDisclaimerOpen(false)} />
+        )}
       <div style={styles.desktopLayout}>
         <aside style={{ ...styles.sideCol, ...panelEntranceStyle(0) }}>
           <WalletPanel />
@@ -222,6 +248,33 @@ const SolflareBanner: FC = () => (
     <span>Opened via Solflare</span>
   </div>
 );
+
+/**
+ * Testnet/devnet banner — renders only when VITE_SOLANA_NETWORK is set
+ * to a non-mainnet cluster. Kept above every layout so the user can't
+ * miss that they're on a test environment.
+ */
+const NetworkBanner: FC = () => {
+  const config = getActiveNetworkConfig();
+  if (!config.testBanner) return null;
+  return (
+    <div
+      role="alert"
+      style={{
+        background: "var(--color-warn-bg)",
+        color: "var(--color-warn)",
+        borderBottom: "1px solid var(--color-warn-border)",
+        padding: "8px var(--space-4)",
+        textAlign: "center",
+        fontSize: 12,
+        fontWeight: 600,
+        letterSpacing: "0.02em",
+      }}
+    >
+      {config.testBanner}
+    </div>
+  );
+};
 
 const tabIcons: Record<string, (color: string) => JSX.Element> = {
   Wallet: (color: string) => (

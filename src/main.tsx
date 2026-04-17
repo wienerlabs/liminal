@@ -10,6 +10,12 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./styles/design-system.css";
+import { initTelemetry } from "./services/telemetry";
+
+// Fire-and-forget. initTelemetry is a no-op when VITE_SENTRY_DSN is
+// unset, so this is zero cost for developers running locally without a
+// DSN and completely opt-in in production.
+void initTelemetry();
 
 const rootEl = document.getElementById("root");
 if (!rootEl) {
