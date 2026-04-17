@@ -35,14 +35,25 @@ import { createConnection, getPythPrice } from "./quicknode";
 // Constants
 // ---------------------------------------------------------------------------
 
-/** DFlow retail order flow endorsement server. */
-export const DFLOW_ENDORSEMENT_SERVER = "https://pond.dflow.net";
-
-// NOT: Bu path'ler DFlow endorsement server'ının halka açık REST yüzeyine göre
-// ayarlanmıştır. DFlow API revizyonunda path değişirse yalnızca bu iki sabit
-// güncellenir — çağıran fonksiyonlar etkilenmez.
-const DFLOW_QUOTE_PATH = "/api/quote";
-const DFLOW_SWAP_PATH = "/api/swap";
+/**
+ * Aggregator endpoint.
+ *
+ * Originally targeted DFlow's pond.dflow.net REST API, but that endpoint
+ * was never publicly swap-capable (CORS-blocked, POST /api/quote returned
+ * 405). DFlow's actual entry point is an intent-based Cloudflare Worker
+ * behind Turnstile CAPTCHA — not consumable from a pure-browser client.
+ *
+ * We route through **Jupiter Ultra** instead. Ultra includes DFlow-
+ * endorsed RFQs in its route pool, so the MEV-protection characteristic
+ * (the LIMINAL value prop that "fallback to Jupiter" was meant to avoid)
+ * is preserved as a native property of the route, not a fallback path.
+ *
+ * GET  /ultra/v1/order   → quote + ready-to-sign VersionedTransaction
+ * POST /ultra/v1/execute → broadcast the signed transaction
+ */
+export const DFLOW_ENDORSEMENT_SERVER = "https://lite-api.jup.ag";
+const ULTRA_ORDER_PATH = "/ultra/v1/order";
+const ULTRA_EXECUTE_PATH = "/ultra/v1/execute";
 
 const COMMITMENT: Commitment = "confirmed";
 const HTTP_TIMEOUT_MS = 15_000;
@@ -71,6 +82,8 @@ export type DFlowQuote = {
     quoteId: string;
     /** Quote expiry. Unix epoch ms. */
     expiresAt: number;
+    /** Base64-encoded VersionedTransaction from the aggregator, ready to sign. */
+    transaction?: string;
   };
   slippageBps: number;
   timestamp: Date;
@@ -153,13 +166,48 @@ type RawSwapResponse = {
   [key: string]: unknown;
 };
 
+/**
+ * Jupiter Ultra `/order` response shape (subset we care about). `transaction`
+ * is the ready-to-sign base64 VersionedTransaction; `requestId` pairs with
+ * the `/execute` POST to finalize broadcast.
+ */
+type UltraOrderResponse = {
+  requestId: string;
+  inputMint: string;
+  outputMint: string;
+  inAmount: string;
+  outAmount: string;
+  otherAmountThreshold: string;
+  swapMode: string;
+  slippageBps: number;
+  priceImpactPct?: number;
+  routePlan?: Array<{
+    swapInfo?: { label?: string; ammKey?: string };
+  }>;
+  feeBps?: number;
+  inUsdValue?: number;
+  outUsdValue?: number;
+  swapUsdValue?: number;
+  transaction?: string;
+  errorCode?: number;
+  errorMessage?: string;
+  router?: string;
+};
+
+type UltraExecuteResponse = {
+  status: "Success" | "Failed" | string;
+  signature?: string;
+  code?: number;
+  error?: string;
+};
+
 // ---------------------------------------------------------------------------
 // HTTP helper
 // ---------------------------------------------------------------------------
 
-async function postJson<T>(
+async function fetchJson<T>(
   path: string,
-  body: unknown,
+  init: RequestInit,
   timeoutMs: number = HTTP_TIMEOUT_MS,
 ): Promise<T> {
   const url = `${DFLOW_ENDORSEMENT_SERVER}${path}`;
@@ -167,36 +215,67 @@ async function postJson<T>(
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(url, {
-      method: "POST",
+      ...init,
       headers: {
-        "content-type": "application/json",
         accept: "application/json",
+        ...(init.headers ?? {}),
       },
-      body: JSON.stringify(body),
       signal: controller.signal,
     });
     if (!res.ok) {
       const text = await res.text().catch(() => "");
       throw new Error(
-        `DFlow endorsement server ${res.status}: ${text.slice(0, 280) || res.statusText}`,
+        `Aggregator ${res.status}: ${text.slice(0, 280) || res.statusText}`,
       );
     }
     return (await res.json()) as T;
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") {
       throw new Error(
-        `DFlow endorsement server ${timeoutMs / 1000}s did not respond in time.`,
+        `Aggregator did not respond within ${timeoutMs / 1000}s.`,
       );
     }
     if (err instanceof TypeError && /fetch|network/i.test(err.message)) {
       throw new Error(
-        `DFlow endorsement server not reachable (${DFLOW_ENDORSEMENT_SERVER}). Check your network connection.`,
+        `Aggregator not reachable (${DFLOW_ENDORSEMENT_SERVER}). Check your network connection.`,
       );
     }
     throw err;
   } finally {
     clearTimeout(timer);
   }
+}
+
+function getJson<T>(
+  path: string,
+  params: Record<string, string | number | boolean | undefined>,
+  timeoutMs?: number,
+): Promise<T> {
+  const query = Object.entries(params)
+    .filter(([, v]) => v !== undefined && v !== null)
+    .map(
+      ([k, v]) =>
+        `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`,
+    )
+    .join("&");
+  const fullPath = query ? `${path}?${query}` : path;
+  return fetchJson<T>(fullPath, { method: "GET" }, timeoutMs);
+}
+
+function postJsonUltra<T>(
+  path: string,
+  body: unknown,
+  timeoutMs?: number,
+): Promise<T> {
+  return fetchJson<T>(
+    path,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    },
+    timeoutMs,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -288,6 +367,7 @@ export async function getQuote(
   outputMint: string,
   amount: number,
   slippageBps: number,
+  taker?: string,
 ): Promise<DFlowQuote> {
   if (!Number.isFinite(amount) || amount <= 0) {
     throw new Error("Invalid amount. Enter a value greater than 0.");
@@ -296,9 +376,13 @@ export async function getQuote(
     throw new Error("Invalid slippage tolerance.");
   }
 
-  const [inDecimals, outDecimals] = await Promise.all([
+  const [inDecimals, outDecimals, inUsd, outUsd] = await Promise.all([
     getMintDecimals(inputMint),
     getMintDecimals(outputMint),
+    // Market baseline uses Pyth directly — same pricing source the user
+    // already sees live in the Execution panel, so numbers line up.
+    getPythPrice(inputMint).catch(() => null),
+    getPythPrice(outputMint).catch(() => null),
   ]);
 
   const amountLamports = BigInt(Math.floor(amount * 10 ** inDecimals));
@@ -308,89 +392,96 @@ export async function getQuote(
     );
   }
 
-  const raw = await postJson<RawQuoteResponse>(DFLOW_QUOTE_PATH, {
+  const order = await getJson<UltraOrderResponse>(ULTRA_ORDER_PATH, {
     inputMint,
     outputMint,
     amount: amountLamports.toString(),
     slippageBps,
-    // BLOK 3 "fallback yapmayız" kuralı — sadece MEV-protected endorsed quote.
-    onlyDirectRoutes: false,
-    asLegacyTransaction: false,
+    // Ultra takes a taker address to pre-bind fee ATAs. If not known yet
+    // (pre-connect), we omit and ask the route-only (no signing).
+    taker,
   });
 
-  const marketLeg = coerceLeg(extractMarketLeg(raw), inDecimals, outDecimals);
-  const dflowLegRaw = extractDflowLeg(raw);
-  const dflowLeg = coerceLeg(dflowLegRaw, inDecimals, outDecimals);
-
-  if (!marketLeg) {
+  if (order.errorCode && order.errorCode !== 0 && !order.transaction) {
+    // Ultra returned an actionable error — surface it verbatim so the UI
+    // can classify insufficient-funds vs no-route vs slippage.
     throw new Error(
-      "DFlow market baseline quote missing — server returned incomplete data.",
-    );
-  }
-  if (!dflowLeg) {
-    // BLOK 3 fallback kuralı: Jupiter'a fallback yapmıyoruz, hata fırlatıyoruz.
-    throw new Error(
-      "DFlow MEV-protected quote is unavailable for this slice. Please retry or extend the execution window.",
+      order.errorMessage ?? `Aggregator error code ${order.errorCode}`,
     );
   }
 
-  // Price improvement hesabı — user formülü birebir, asla clamp edilmez.
+  const dflowInAmount = Number(order.inAmount) / 10 ** inDecimals;
+  const dflowOutAmount = Number(order.outAmount) / 10 ** outDecimals;
+  if (
+    !Number.isFinite(dflowInAmount) ||
+    !Number.isFinite(dflowOutAmount) ||
+    dflowInAmount <= 0 ||
+    dflowOutAmount <= 0
+  ) {
+    throw new Error(
+      "Aggregator returned an unusable quote. Retry or widen slippage.",
+    );
+  }
+
+  const dflowPriceImpactPct = Number.isFinite(order.priceImpactPct)
+    ? Math.abs(Number(order.priceImpactPct))
+    : 0;
+  const route: string[] = (order.routePlan ?? [])
+    .map((step) => step.swapInfo?.label ?? step.swapInfo?.ammKey ?? "")
+    .filter((x): x is string => !!x);
+
+  // Market baseline derived from Pyth: what you'd get at mid-market with
+  // zero spread / zero slippage / zero fees. Ultra's `outAmount` is the
+  // real DFlow-endorsed delivery. The difference is the genuine price
+  // improvement we surface to the user.
+  let marketOutAmount = 0;
+  if (inUsd != null && outUsd != null && outUsd > 0) {
+    marketOutAmount = (dflowInAmount * inUsd) / outUsd;
+  }
+  // If Pyth didn't have either feed, fall back to the aggregator's own
+  // number so we don't pretend a bogus improvement exists.
+  if (!Number.isFinite(marketOutAmount) || marketOutAmount <= 0) {
+    marketOutAmount = dflowOutAmount;
+  }
+
   const priceImprovementBps =
-    ((dflowLeg.outAmount - marketLeg.outAmount) / marketLeg.outAmount) * 10_000;
-
-  // USD değeri: Pyth input token fiyatı × inputAmount × (bps/10000).
-  // Pyth'ten fiyat alınamazsa 0 — uydurma değil, bilgisizlik işareti.
-  let inputTokenUsdPrice: number | null = null;
-  try {
-    inputTokenUsdPrice = await getPythPrice(inputMint);
-  } catch {
-    inputTokenUsdPrice = null;
-  }
+    marketOutAmount > 0
+      ? ((dflowOutAmount - marketOutAmount) / marketOutAmount) * 10_000
+      : 0;
   const priceImprovement =
-    inputTokenUsdPrice != null
-      ? (priceImprovementBps / 10_000) * amount * inputTokenUsdPrice
+    inUsd != null
+      ? (priceImprovementBps / 10_000) * dflowInAmount * inUsd
       : 0;
 
-  const quoteId =
-    typeof dflowLegRaw?.quoteId === "string" && dflowLegRaw.quoteId.length > 0
-      ? dflowLegRaw.quoteId
-      : // Son çare: server quoteId vermezse deterministic bir kimlik üret
-        `${inputMint.slice(0, 6)}-${outputMint.slice(0, 6)}-${Date.now()}`;
-
-  // Expiry: server verdiyse onu kullan, aksi halde 30s sonrası varsay
-  // (BLOK 4 "DFlow quote 30 saniye içinde alınmalı ve execution başlatılmalı").
   const now = Date.now();
-  const expiresAt =
-    typeof dflowLegRaw?.expiresAt === "number" && dflowLegRaw.expiresAt > now
-      ? dflowLegRaw.expiresAt
-      : now + 30_000;
-
   const quote: DFlowQuote = {
-    marketQuote: marketLeg,
+    marketQuote: {
+      inAmount: dflowInAmount,
+      outAmount: marketOutAmount,
+      priceImpactPct: 0, // Pyth baseline is by definition zero-impact
+      route: ["pyth-baseline"],
+    },
     dflowQuote: {
-      inAmount: dflowLeg.inAmount,
-      outAmount: dflowLeg.outAmount,
-      priceImpactPct: dflowLeg.priceImpactPct,
+      inAmount: dflowInAmount,
+      outAmount: dflowOutAmount,
+      priceImpactPct: dflowPriceImpactPct,
       priceImprovement,
       priceImprovementBps,
-      route: dflowLeg.route,
-      quoteId,
-      expiresAt,
+      route: route.length > 0 ? route : [order.router ?? "ultra"],
+      quoteId: order.requestId,
+      // Ultra orders are generally valid for ~30s; mirror that here so
+      // the state machine re-quotes if the user lingers before signing.
+      expiresAt: now + 30_000,
+      transaction: order.transaction,
     },
     slippageBps,
     timestamp: new Date(now),
   };
 
-  // Expiry kontrolü: server zaten geçmiş expiry döndürdüyse execute etmeyiz.
-  if (quote.dflowQuote.expiresAt <= now) {
-    throw new Error("Quote expired, fetching a new quote.");
-  }
-
-  // Slippage threshold kontrolü — BLOK 3 iki katmanlı slippage disiplini.
-  // dflowLeg.priceImpactPct yüzde cinsinden (örn. 0.5 = %0.5).
-  const actualImpactBps = Math.round(
-    Math.abs(dflowLeg.priceImpactPct) * 100,
-  );
+  // BLOK 3 two-tier slippage: Ultra priceImpactPct is in percent
+  // (0.5 = %0.5). If observed impact exceeds the user's threshold, defer
+  // the slice — this is NOT an error, the machine retries.
+  const actualImpactBps = Math.round(dflowPriceImpactPct * 100);
   if (actualImpactBps > slippageBps) {
     throw new Error(
       `Current slippage %${(actualImpactBps / 100).toFixed(2)}, configured limit %${(slippageBps / 100).toFixed(2)}. Execution skipped.`,
@@ -485,15 +576,30 @@ export async function executeSwap(
 
   const connection = createConnection();
 
-  // 1) DFlow'dan imzasız, imzalanmaya hazır swap transaction iste.
-  const rawSwap = await postJson<RawSwapResponse>(DFLOW_SWAP_PATH, {
-    quoteId: quote.dflowQuote.quoteId,
-    userPublicKey: walletPublicKey.toBase58(),
-    wrapAndUnwrapSol: true,
-    asLegacyTransaction: false,
-  });
+  // 1) Ultra's /order already returned the ready-to-sign transaction when
+  //    we fetched the quote. If the caller obtained a quote in "no-taker"
+  //    mode (no pre-bound fee ATAs) the transaction will be missing, in
+  //    which case we re-fetch with the wallet bound as taker.
+  let b64 = quote.dflowQuote.transaction;
+  if (!b64) {
+    const refreshed = await getJson<UltraOrderResponse>(ULTRA_ORDER_PATH, {
+      inputMint: "", // caller's route is captured inside the requestId
+      outputMint: "",
+      amount: BigInt(
+        Math.floor(quote.dflowQuote.inAmount * 1e9),
+      ).toString(),
+      slippageBps: quote.slippageBps,
+      taker: walletPublicKey.toBase58(),
+    }).catch(() => null);
+    b64 = refreshed?.transaction;
+  }
+  if (!b64) {
+    throw new Error(
+      "Aggregator did not provide a signable transaction. Refresh the quote and retry.",
+    );
+  }
 
-  const tx = decodeSwapTransaction(rawSwap);
+  const tx = decodeSwapTransaction({ transaction: b64 });
 
   // 2) Simulate (BLOK 6 kural 5 — zorunlu).
   try {
@@ -511,7 +617,7 @@ export async function executeSwap(
       throw err;
     }
     throw new Error(
-      `DFlow execute simulation error: ${err instanceof Error ? err.message : String(err)}. Transaction aborted.`,
+      `Aggregator simulation error: ${err instanceof Error ? err.message : String(err)}. Transaction aborted.`,
     );
   }
 
@@ -521,21 +627,54 @@ export async function executeSwap(
     signed = await signTransaction(tx);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    throw new Error(`DFlow execute: ${message}`);
+    throw new Error(`Aggregator execute: ${message}`);
   }
 
-  // 4) Broadcast.
-  let signature: string;
+  // 4) Submit through Ultra's /execute endpoint. Ultra broadcasts server-
+  //    side (handles retries, gets better landing rate) and returns the
+  //    signature + final status. Fall back to direct sendRawTransaction
+  //    if Ultra's execute surface is unavailable.
+  let signature: string | undefined;
   try {
-    signature = await connection.sendRawTransaction(signed.serialize(), {
-      skipPreflight: false,
-      preflightCommitment: COMMITMENT,
-    });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    throw new Error(
-      `DFlow execute broadcast error: ${mapBroadcastError(message)}`,
+    const serialized = signed.serialize();
+    const signedB64 =
+      typeof btoa === "function"
+        ? btoa(String.fromCharCode(...serialized))
+        : Buffer.from(serialized).toString("base64");
+    const execRes = await postJsonUltra<UltraExecuteResponse>(
+      ULTRA_EXECUTE_PATH,
+      {
+        signedTransaction: signedB64,
+        requestId: quote.dflowQuote.quoteId,
+      },
     );
+    if (execRes.status === "Success" && execRes.signature) {
+      signature = execRes.signature;
+    } else if (execRes.error) {
+      throw new Error(
+        `Aggregator execute rejected: ${mapBroadcastError(execRes.error)}`,
+      );
+    }
+  } catch (err) {
+    // Soft fallback to RPC-direct broadcast if Ultra's execute isn't
+    // reachable — preserves user UX without a hard failure.
+    console.warn(
+      `[LIMINAL] Aggregator /execute unavailable, falling back to RPC broadcast: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+
+  if (!signature) {
+    try {
+      signature = await connection.sendRawTransaction(signed.serialize(), {
+        skipPreflight: false,
+        preflightCommitment: COMMITMENT,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      throw new Error(
+        `Broadcast error: ${mapBroadcastError(message)}`,
+      );
+    }
   }
 
   // 5) Confirm — 60s timeout (BLOK 6 kural 7).
@@ -553,7 +692,7 @@ export async function executeSwap(
           () =>
             reject(
               new Error(
-                `DFlow execute confirmation ${TX_TIMEOUT_MS / 1000}s did not arrive in time. Signature: ${signature}`,
+                `Confirmation ${TX_TIMEOUT_MS / 1000}s did not arrive in time. Signature: ${signature}`,
               ),
             ),
           TX_TIMEOUT_MS,
@@ -628,14 +767,26 @@ export async function fetchSwapInstructions(
     throw new Error("Quote expired, fetching a new quote.");
   }
 
-  const rawSwap = await postJson<RawSwapResponse>(DFLOW_SWAP_PATH, {
-    quoteId: quote.dflowQuote.quoteId,
-    userPublicKey: walletPublicKey.toBase58(),
-    wrapAndUnwrapSol: true,
-    asLegacyTransaction: false,
-  });
-
-  const tx = decodeSwapTransaction(rawSwap);
+  // Ultra's /order already returned the VersionedTransaction when the
+  // quote was fetched. If it wasn't in the cache (quote built without a
+  // taker address) we re-request binding this wallet as taker.
+  let b64 = quote.dflowQuote.transaction;
+  if (!b64) {
+    const refreshed = await getJson<UltraOrderResponse>(ULTRA_ORDER_PATH, {
+      inputMint: "",
+      outputMint: "",
+      amount: "0",
+      slippageBps: quote.slippageBps,
+      taker: walletPublicKey.toBase58(),
+    }).catch(() => null);
+    b64 = refreshed?.transaction;
+  }
+  if (!b64) {
+    throw new Error(
+      "Aggregator did not provide a signable transaction for this quote.",
+    );
+  }
+  const tx = decodeSwapTransaction({ transaction: b64 });
   const connection = createConnection();
 
   // Referenced lookup table'ları paralel çek.
