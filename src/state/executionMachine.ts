@@ -366,6 +366,7 @@ export async function executeNextSlice(
         current.config.outputMint,
         slice.amount,
         current.config.slippageBps,
+        current.config.walletPublicKey.toBase58(),
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
