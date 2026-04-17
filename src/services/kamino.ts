@@ -27,19 +27,25 @@
 
 import {
   PublicKey,
+  TransactionMessage,
+  VersionedTransaction,
   type AddressLookupTableAccount,
   type TransactionInstruction,
-  type VersionedTransaction,
 } from "@solana/web3.js";
-import { createSolanaRpc, address, type Rpc } from "@solana/kit";
+import { createSolanaRpc, address, createNoopSigner, type Rpc } from "@solana/kit";
 import {
   KaminoMarket,
+  KaminoAction,
+  VanillaObligation,
   DEFAULT_KLEND_PROGRAM_ID,
   type KaminoReserve,
   type KaminoMarketRpcApi,
 } from "@kamino-finance/klend-sdk";
+import BN from "bn.js";
 import Decimal from "decimal.js";
-import { QUICKNODE_RPC_ENDPOINT } from "./quicknode";
+import { createConnection, QUICKNODE_RPC_ENDPOINT } from "./quicknode";
+import { simulateTransaction, SimulationFailedError } from "../utils/transactionBatcher";
+import { kitInstructionsToWeb3 } from "./kitBridge";
 
 // ---------------------------------------------------------------------------
 // Constants — canonical mainnet addresses
@@ -93,6 +99,24 @@ export type KaminoPositionData = {
 export type SignTransactionFn = <T extends VersionedTransaction>(
   tx: T,
 ) => Promise<T>;
+
+/**
+ * A single non-zero deposit the wallet currently has on Kamino. Powers the
+ * emergency-withdraw UI: surfaces funds parked in Kamino independent of
+ * any in-flight LIMINAL execution so the user can always see (and pull)
+ * what they own.
+ */
+export type ActiveKaminoPosition = {
+  reserveAddress: string;
+  tokenMint: string;
+  symbol: string;
+  /** Redeemable token amount (human units, not lamports). */
+  amount: number;
+  /** Current supply APY on the underlying reserve. */
+  supplyAPY: number;
+  /** Deep link to Kamino app for manual withdrawal. */
+  manageUrl: string;
+};
 
 // ---------------------------------------------------------------------------
 // RPC bridge — @solana/web3.js endpoint URL → @solana/kit Rpc instance
@@ -331,58 +355,343 @@ export async function getPositionValue(
   }
 }
 
-// ---------------------------------------------------------------------------
-// Write path (deposit / withdraw) — @solana/kit Instruction → web3.js bridge
-// is non-trivial. Tracked in PR description; pending sequel.
-// ---------------------------------------------------------------------------
+/**
+ * List every non-zero deposit the wallet has on Kamino Main Market.
+ * Safe to call at any time — silently returns [] if the wallet has no
+ * obligation or the RPC is unreachable. Used by the emergency-withdraw
+ * surface in WalletPanel.
+ */
+export async function getActivePositions(
+  walletAddress: string,
+): Promise<ActiveKaminoPosition[]> {
+  if (!walletAddress) return [];
+  try {
+    const [market, slot] = await Promise.all([loadMarket(), getCurrentSlot()]);
+    const owner = address(walletAddress);
+    let obligation;
+    try {
+      obligation = await market.getUserVanillaObligation(owner);
+    } catch {
+      return [];
+    }
+    if (!obligation) return [];
 
-const WRITE_PENDING_MSG =
-  "Kamino deposit/withdraw instruction builder pending bridge from @solana/kit" +
-  " Instruction → @solana/web3.js TransactionInstruction. Read-only path" +
-  " (APY, utilization, position) is fully functional.";
+    const out: ActiveKaminoPosition[] = [];
+    for (const [reserveAddr, deposit] of obligation.deposits.entries()) {
+      const reserve = market.reserves.get(reserveAddr);
+      if (!reserve) continue;
 
-function writePending(fn: string): never {
-  throw new Error(`[LIMINAL/Kamino.${fn}] ${WRITE_PENDING_MSG}`);
+      const rawAmount = (deposit as { amount?: unknown }).amount;
+      let amount = 0;
+      if (rawAmount && typeof (rawAmount as Decimal).toNumber === "function") {
+        amount = (rawAmount as Decimal).toNumber();
+      } else if (typeof rawAmount === "number") {
+        amount = rawAmount;
+      }
+      if (amount <= 0) continue;
+
+      let supplyAPY = 0;
+      try {
+        supplyAPY = reserve.totalSupplyAPY(slot) * 100;
+      } catch {
+        supplyAPY = 0;
+      }
+
+      out.push({
+        reserveAddress: reserveAddr.toString(),
+        tokenMint: reserve.getLiquidityMint().toString(),
+        symbol: reserve.symbol,
+        amount,
+        supplyAPY,
+        manageUrl: `https://app.kamino.finance/lending`,
+      });
+    }
+    // Largest position first so the emergency UI surfaces the biggest
+    // exposure at the top.
+    out.sort((a, b) => b.amount - a.amount);
+    return out;
+  } catch (err) {
+    console.warn(
+      `[LIMINAL/Kamino.getActivePositions] ${err instanceof Error ? err.message : String(err)}`,
+    );
+    return [];
+  }
 }
+
+// ---------------------------------------------------------------------------
+// Write path — @solana/kit Instruction → @solana/web3.js VersionedTransaction
+// ---------------------------------------------------------------------------
+//
+// Flow for every write operation:
+//   1. Load KaminoMarket + resolve reserve by liquidity mint.
+//   2. Build KaminoAction.buildDepositTxns / buildWithdrawTxns — this
+//      returns kit `Instruction[]` distributed across computeBudgetIxs /
+//      setupIxs / lendingIxs / cleanupIxs.
+//   3. Flatten & translate to web3.js TransactionInstruction[] via
+//      `kitBridge.kitInstructionsToWeb3`.
+//   4. Compile a v0 VersionedTransaction with the current blockhash.
+//   5. Run simulation (BLOK 6 pre-broadcast simulation mandate).
+//   6. Solflare-sign → sendRawTransaction → confirmTransaction.
+//   7. Return the signature + best-effort output amount.
+//
+// Notes:
+//   - `createNoopSigner` is used for the kit TransactionSigner parameter.
+//     KaminoAction only reads the signer's address; signing happens in
+//     web3.js-land through Solflare, so a noop kit signer is safe.
+//   - `amount` argument into SDK is BN in lamports / raw token units. The
+//     caller passes a UI (human) number; we multiply by 10^decimals from
+//     the reserve config. One source of truth: `reserve.state.liquidity.mintDecimals`.
+//   - Tracked deposited amount is caller-passed; SDK's obligation view is
+//     the authoritative source for final yield calculation at the end.
+
+type KaminoReserveAny = KaminoReserve & {
+  state?: { liquidity?: { mintDecimals?: number | bigint } };
+  stats?: { decimals?: number | bigint };
+};
+
+function reserveDecimals(reserve: KaminoReserve): number {
+  const r = reserve as KaminoReserveAny;
+  const fromState = r.state?.liquidity?.mintDecimals;
+  if (typeof fromState === "number") return fromState;
+  if (typeof fromState === "bigint") return Number(fromState);
+  const fromStats = r.stats?.decimals;
+  if (typeof fromStats === "number") return fromStats;
+  if (typeof fromStats === "bigint") return Number(fromStats);
+  // SOL (wrapped or native) is 9, everything else typically 6. Safe default.
+  return reserve.symbol?.toUpperCase() === "SOL" ? 9 : 6;
+}
+
+function toRawAmount(amount: number, decimals: number): BN {
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new Error("Kamino: amount must be positive finite number.");
+  }
+  // Build a safe integer via Decimal to avoid float precision drift.
+  const raw = new Decimal(amount).mul(new Decimal(10).pow(decimals)).toFixed(0);
+  return new BN(raw);
+}
+
+function collectKaminoActionIxs(action: KaminoAction): TransactionInstruction[] {
+  const all = [
+    ...(action.computeBudgetIxs ?? []),
+    ...(action.setupIxs ?? []),
+    ...(action.lendingIxs ?? []),
+    ...(action.cleanupIxs ?? []),
+  ];
+  return kitInstructionsToWeb3(all);
+}
+
+async function executeKaminoAction(
+  walletPublicKey: PublicKey,
+  instructions: TransactionInstruction[],
+  signTransaction: SignTransactionFn,
+  label: string,
+): Promise<string> {
+  const connection = createConnection();
+  const { blockhash, lastValidBlockHeight } =
+    await connection.getLatestBlockhash("confirmed");
+
+  const message = new TransactionMessage({
+    payerKey: walletPublicKey,
+    recentBlockhash: blockhash,
+    instructions,
+  }).compileToV0Message();
+
+  const tx = new VersionedTransaction(message);
+
+  const sim = await simulateTransaction(tx, connection);
+  if (!sim.success) {
+    // Kamino-only write path — ixCounts attribute the failure correctly.
+    throw new SimulationFailedError(sim, undefined, instructions.length, 0);
+  }
+  void label;
+
+  const signed = await signTransaction(tx);
+  const signature = await connection.sendRawTransaction(signed.serialize(), {
+    skipPreflight: false,
+    preflightCommitment: "confirmed",
+    maxRetries: 3,
+  });
+  await connection.confirmTransaction(
+    { signature, blockhash, lastValidBlockHeight },
+    "confirmed",
+  );
+  return signature;
+}
+
+async function loadReserveByMint(
+  tokenMint: string,
+): Promise<{ market: KaminoMarket; reserve: KaminoReserve }> {
+  const market = await loadMarket();
+  const reserve = market
+    .getReserves()
+    .find((r) => r.getLiquidityMint().toString() === tokenMint);
+  if (!reserve) {
+    throw new Error(
+      `Kamino: no reserve on Main Market for mint ${tokenMint.slice(0, 4)}…`,
+    );
+  }
+  return { market, reserve };
+}
+
+// ---------------------------------------------------------------------------
+// deposit — full amount into the chosen reserve
+// ---------------------------------------------------------------------------
 
 export async function deposit(
-  _walletPublicKey: PublicKey,
+  walletPublicKey: PublicKey,
   _vaultMarketAddress: string,
-  _tokenMint: string,
-  _amount: number,
-  _signTransaction: SignTransactionFn,
+  tokenMint: string,
+  amount: number,
+  signTransaction: SignTransactionFn,
 ): Promise<{ signature: string; kTokenAmount: number }> {
-  writePending("deposit");
+  const { market, reserve } = await loadReserveByMint(tokenMint);
+  const decimals = reserveDecimals(reserve);
+  const raw = toRawAmount(amount, decimals);
+
+  const owner = createNoopSigner(address(walletPublicKey.toBase58()));
+  const action = await KaminoAction.buildDepositTxns(
+    market,
+    raw,
+    address(tokenMint),
+    owner,
+    new VanillaObligation(address(DEFAULT_KLEND_PROGRAM_ID)),
+    false, // useV2Ixs — v1 is still widely supported; simpler surface.
+    undefined, // scopeRefreshConfig — Kamino main market reserves don't need it.
+    400_000, // extraComputeBudget — deposit instructions are CU-heavy.
+    true, // includeAtaIxs — ensure the receipt-token ATA exists.
+  );
+
+  const instructions = collectKaminoActionIxs(action);
+  const signature = await executeKaminoAction(
+    walletPublicKey,
+    instructions,
+    signTransaction,
+    "deposit",
+  );
+
+  // kTokenAmount is not returned by the SDK builder; 0 is acceptable here
+  // since useKaminoPosition / getPositionValue will reconcile on the next
+  // poll via on-chain obligation state.
+  return { signature, kTokenAmount: 0 };
 }
+
+// ---------------------------------------------------------------------------
+// partialWithdraw — redeem a subset of the reserve position
+// ---------------------------------------------------------------------------
 
 export async function partialWithdraw(
-  _walletPublicKey: PublicKey,
+  walletPublicKey: PublicKey,
   _vaultMarketAddress: string,
-  _tokenMint: string,
-  _tokenAmount: number,
-  _signTransaction: SignTransactionFn,
+  tokenMint: string,
+  tokenAmount: number,
+  signTransaction: SignTransactionFn,
 ): Promise<{ signature: string; withdrawnAmount: number }> {
-  writePending("partialWithdraw");
+  const { instructions } = await buildPartialWithdrawInstructions(
+    walletPublicKey,
+    _vaultMarketAddress,
+    tokenMint,
+    tokenAmount,
+  );
+  const signature = await executeKaminoAction(
+    walletPublicKey,
+    instructions,
+    signTransaction,
+    "partial withdraw",
+  );
+  return { signature, withdrawnAmount: tokenAmount };
 }
+
+// ---------------------------------------------------------------------------
+// finalWithdraw — drain the obligation + collect accrued yield
+// ---------------------------------------------------------------------------
+
+const U64_MAX_BN = new BN("18446744073709551615");
 
 export async function finalWithdraw(
-  _walletPublicKey: PublicKey,
+  walletPublicKey: PublicKey,
   _vaultMarketAddress: string,
-  _signTransaction: SignTransactionFn,
-  _options?: { tokenMint?: string; trackedDepositedAmount?: number },
+  signTransaction: SignTransactionFn,
+  options?: { tokenMint?: string; trackedDepositedAmount?: number },
 ): Promise<{ signature: string; totalAmount: number; yieldEarned: number }> {
-  writePending("finalWithdraw");
+  if (!options?.tokenMint) {
+    throw new Error("Kamino finalWithdraw requires tokenMint in options.");
+  }
+  const { market, reserve } = await loadReserveByMint(options.tokenMint);
+
+  const owner = createNoopSigner(address(walletPublicKey.toBase58()));
+  // U64_MAX is the Kamino convention for "withdraw everything".
+  const action = await KaminoAction.buildWithdrawTxns(
+    market,
+    U64_MAX_BN,
+    address(options.tokenMint),
+    owner,
+    new VanillaObligation(address(DEFAULT_KLEND_PROGRAM_ID)),
+    false,
+    undefined,
+    400_000,
+    true,
+  );
+
+  const instructions = collectKaminoActionIxs(action);
+  const signature = await executeKaminoAction(
+    walletPublicKey,
+    instructions,
+    signTransaction,
+    "final withdraw",
+  );
+
+  // Best-effort yield accounting: read obligation _before_ this call is
+  // tricky (we'd need a pre-simulation snapshot). For now, caller's
+  // tracked principal + any residual poll result is the source of truth.
+  const principal = Math.max(0, options.trackedDepositedAmount ?? 0);
+  const pos = await getPositionValue(
+    walletPublicKey,
+    reserve.address.toString(),
+    options.tokenMint,
+    principal,
+  );
+  return {
+    signature,
+    totalAmount: principal + pos.yieldAccrued,
+    yieldEarned: pos.yieldAccrued,
+  };
 }
 
+// ---------------------------------------------------------------------------
+// buildPartialWithdrawInstructions — used by transactionBatcher to compose
+// one atomic (withdraw + DFlow swap) tx per slice.
+// ---------------------------------------------------------------------------
+
 export async function buildPartialWithdrawInstructions(
-  _walletPublicKey: PublicKey,
+  walletPublicKey: PublicKey,
   _vaultMarketAddress: string,
-  _tokenMint: string,
-  _tokenAmount: number,
+  tokenMint: string,
+  tokenAmount: number,
 ): Promise<{
   instructions: TransactionInstruction[];
   lookupTables: AddressLookupTableAccount[];
 }> {
-  writePending("buildPartialWithdrawInstructions");
+  const { market, reserve } = await loadReserveByMint(tokenMint);
+  const decimals = reserveDecimals(reserve);
+  const raw = toRawAmount(tokenAmount, decimals);
+
+  const owner = createNoopSigner(address(walletPublicKey.toBase58()));
+  const action = await KaminoAction.buildWithdrawTxns(
+    market,
+    raw,
+    address(tokenMint),
+    owner,
+    new VanillaObligation(address(DEFAULT_KLEND_PROGRAM_ID)),
+    false,
+    undefined,
+    300_000,
+    true,
+  );
+
+  const instructions = collectKaminoActionIxs(action);
+  // Kamino v7 Main Market deposit/withdraw paths don't require address
+  // lookup tables on the read side; the batcher tops up its own LUTs for
+  // DFlow when needed.
+  return { instructions, lookupTables: [] };
 }
 
