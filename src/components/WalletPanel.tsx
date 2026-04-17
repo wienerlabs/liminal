@@ -35,6 +35,8 @@ import {
 } from "../services/solflare";
 import { usePriceMonitor } from "../hooks/usePriceMonitor";
 import { useTokenRegistry } from "../hooks/useTokenRegistry";
+import { useActiveKaminoPositions } from "../hooks/useActiveKaminoPositions";
+import type { ActiveKaminoPosition } from "../services/kamino";
 import {
   getHistory,
   type HistoricalExecution,
@@ -135,6 +137,12 @@ export const WalletPanel: FC = () => {
     return list;
   }, [tokens]);
   const tokenRegistry = useTokenRegistry(allMints);
+
+  // Active Kamino deposits — surfaced independently of any execution so the
+  // user can always see (and manage) parked capital, even mid-error.
+  const kamino = useActiveKaminoPositions(
+    wallet.connected ? wallet.address : null,
+  );
 
   // SOL USD fiyatı için canlı Pyth feed'i (BLOK 5 Senaryo 1).
   // Wallet bağlıyken poll eder; disconnect'te boş array ile idle kalır.
@@ -339,6 +347,26 @@ export const WalletPanel: FC = () => {
 
       <div style={styles.divider} />
 
+      {/* Active Kamino positions — emergency withdraw affordance. Renders
+          only when the wallet has at least one non-zero deposit on Kamino. */}
+      {kamino.positions.length > 0 && (
+        <>
+          <section style={styles.section}>
+            <div style={styles.sectionLabel}>KAMINO POSITIONS</div>
+            <div style={styles.kaminoPositionList}>
+              {kamino.positions.map((p) => (
+                <KaminoPositionRow key={p.reserveAddress} position={p} />
+              ))}
+            </div>
+            <div style={styles.kaminoFootnote}>
+              Capital parked in Kamino lending reserves. Click a row to
+              manage or withdraw directly on app.kamino.finance.
+            </div>
+          </section>
+          <div style={styles.divider} />
+        </>
+      )}
+
       {/* Kompakt geçmiş — son 3 execution */}
       <section style={styles.section}>
         <div style={styles.historyHeaderRow}>
@@ -541,6 +569,50 @@ const BalanceRow: FC<BalanceRowProps> = ({
 const BalanceSkeleton: FC = () => (
   <div style={styles.skeleton} aria-hidden="true" />
 );
+
+/**
+ * Active Kamino deposit row — one per reserve. Click opens Kamino app in
+ * a new tab for manual withdrawal. Explicit "↗" affordance signals that
+ * the action leaves LIMINAL.
+ */
+const KaminoPositionRow: FC<{ position: ActiveKaminoPosition }> = ({
+  position,
+}) => {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <a
+      href={position.manageUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        ...styles.kaminoPositionRow,
+        background: hovered ? "var(--surface-card-hover)" : "var(--surface-card)",
+        borderColor: hovered ? "var(--color-accent-border)" : THEME.border,
+      }}
+      aria-label={`Manage ${position.amount} ${position.symbol} on Kamino`}
+    >
+      <div style={styles.kaminoPositionTop}>
+        <span style={styles.kaminoPositionSymbol}>{position.symbol}</span>
+        <span style={styles.kaminoPositionApy}>
+          %{position.supplyAPY.toFixed(2)} APY
+        </span>
+      </div>
+      <div style={styles.kaminoPositionBottom}>
+        <span style={styles.kaminoPositionAmount}>
+          {position.amount.toLocaleString("en-US", {
+            maximumFractionDigits: 6,
+          })}{" "}
+          {position.symbol}
+        </span>
+        <span style={styles.kaminoPositionOpenIcon} aria-hidden="true">
+          ↗
+        </span>
+      </div>
+    </a>
+  );
+};
 
 /**
  * Token avatar — shows logo image when available, otherwise renders a
@@ -882,6 +954,62 @@ const styles: Record<string, CSSProperties> = {
     display: "flex",
     gap: 8,
     width: "100%",
+  },
+  kaminoPositionList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 6,
+  },
+  kaminoPositionRow: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 4,
+    padding: "10px 12px",
+    border: `1px solid ${THEME.border}`,
+    borderRadius: "var(--radius-md)",
+    textDecoration: "none",
+    color: "inherit",
+    transition:
+      "background var(--motion-base) var(--ease-out), border-color var(--motion-base) var(--ease-out)",
+    cursor: "pointer",
+  },
+  kaminoPositionTop: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "baseline",
+  },
+  kaminoPositionSymbol: {
+    fontSize: 16,
+    fontWeight: 600,
+    color: THEME.text,
+    letterSpacing: "0.02em",
+  },
+  kaminoPositionApy: {
+    fontSize: 15,
+    color: "var(--color-success)",
+    fontVariantNumeric: "tabular-nums",
+    fontWeight: 600,
+  },
+  kaminoPositionBottom: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "baseline",
+  },
+  kaminoPositionAmount: {
+    fontSize: 15,
+    color: THEME.textMuted,
+    fontVariantNumeric: "tabular-nums",
+  },
+  kaminoPositionOpenIcon: {
+    fontSize: 14,
+    color: "var(--color-5-strong)",
+    fontWeight: 700,
+  },
+  kaminoFootnote: {
+    marginTop: 8,
+    fontSize: 13,
+    color: THEME.textMuted,
+    lineHeight: 1.5,
   },
   disconnectConfirmYes: {
     fontFamily: MONO,

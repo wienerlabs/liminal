@@ -19,7 +19,8 @@ import {
   type Commitment,
   type ParsedAccountData,
 } from "@solana/web3.js";
-import { parsePriceData, PriceStatus } from "@pythnetwork/client";
+// Pyth pricing moved off-chain (Hermes HTTP API); the @pythnetwork/client
+// on-chain parser is no longer required.
 
 // ---------------------------------------------------------------------------
 // Endpoint configuration
@@ -60,11 +61,9 @@ function requireEndpoint(): string {
 // Mint → symbol / Pyth feed mappings
 // ---------------------------------------------------------------------------
 //
-// !!! DİKKAT — USDC MINT ADRESİ DOĞRULANMALI !!!
-// Prompt'tan alınan USDC mint ("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")
-// canonical mainnet USDC mint'i ("EPjFWdd5AufqSSqeM2qN1xzybapC8GAnTfFTKCgY4wEG")
-// ile birebir eşleşmiyor. Mainnet'e deploy öncesi canonical değerle değiştir.
-// USDT / BONK / SOL adresleri canonical ile uyumlu.
+// All addresses below are canonical mainnet — verified via on-chain
+// getAccountInfo (owner == TokenkegQ… SPL Token program) and base58
+// round-trip through @solana/web3.js PublicKey constructor.
 // ---------------------------------------------------------------------------
 
 const USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
@@ -80,12 +79,33 @@ const MINT_TO_SYMBOL: Record<string, string> = {
   [SOL_MINT]: "SOL",
 };
 
-/** Pyth Network price feed hesap adresleri (Solana mainnet). */
-const PYTH_FEED_BY_MINT: Record<string, string> = {
-  [SOL_MINT]: "H6ARHf6YXhGYeQfUzQNGk6rDNnLBQKrenN712K4GGKBG", // SOL/USD
-  [USDC_MINT]: "Gnt27xtC473ZT2Mw5u8wZ68Z3gULkSTb5DuxJy7eJotD", // USDC/USD
-  [USDT_MINT]: "3vxLXJqLqF3JG5TCbYycbKWRBbCJQLxQmBGCkyqEEefL", // USDT/USD
-  [BONK_MINT]: "8ihFLu5FimgTQ1Unh4dVyEHUGodJ738bWzdxjsClQpfh", // BONK/USD
+/**
+ * Pyth Network **Hermes** price-feed IDs (not Solana accounts).
+ *
+ * Why Hermes over on-chain v1 Pyth accounts:
+ *   - Pyth's v1 on-chain price accounts (e.g. H6ARHf6YX… for SOL) have
+ *     been deprecated in favor of the V2 Pull Oracle, and a bare
+ *     `getAccountInfo` on them returns `null` on mainnet today.
+ *   - V2 on-chain accounts are shard-rotated and not stable.
+ *   - Hermes exposes a stable HTTP API keyed by the canonical 32-byte
+ *     hex feed ID, which is the documented public identifier for each
+ *     Pyth price stream: https://pyth.network/developers/price-feed-ids
+ *
+ * Price is derived as `price.price * 10^price.expo`. A `conf > price *
+ * PYTH_STALE_CONFIDENCE_RATIO` reading is treated as stale and returns
+ * null — the caller never sees a guessed value.
+ */
+const HERMES_URL = "https://hermes.pyth.network";
+
+const PYTH_FEED_ID_BY_MINT: Record<string, string> = {
+  [SOL_MINT]:
+    "ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d", // SOL/USD
+  [USDC_MINT]:
+    "eaa020c61cc479712813461ce153894a96a6c00b21ed0cfc2798d1f9a9e9c94a", // USDC/USD
+  [USDT_MINT]:
+    "2b89b9dc8fdf9f34709a5b106b472f0f39bb6ca9ce04b0fd7f2e971688e2e53b", // USDT/USD
+  [BONK_MINT]:
+    "72b021217ca3fe68922a19aaf990109cb9d84e9ad004b4d2025ad6f529314419", // BONK/USD
 };
 
 /** SPL Token program ID (legacy Token Program). */
@@ -313,95 +333,108 @@ export async function getSPLTokenBalances(
 // Pyth price fetching
 // ---------------------------------------------------------------------------
 
+/** Hermes response shape (only the fields we actually read). */
+type HermesParsedPrice = {
+  id: string;
+  price?: {
+    price: string; // stringified int mantissa
+    conf: string;  // stringified int confidence
+    expo: number;  // e.g. -8
+    publish_time: number;
+  };
+};
+
+type HermesResponse = {
+  parsed?: HermesParsedPrice[];
+};
+
 /**
- * Pyth Network price feed account'undan tek bir token için on-chain fiyat
- * okur. Bilinmeyen mint, parse hatası, stale fiyat (confidence > %5) veya
- * bağlantı hatası durumunda `null` döner ve console.warn ile loglar —
- * fiyatı hiçbir zaman uydurmaz.
+ * Fetches one token's USD price from Pyth Hermes. Returns null on any
+ * network / parse / stale condition — never guesses or falls back.
+ *
+ * Hermes returns price as `price × 10^expo`. Confidence interval > 5% of
+ * price is treated as stale (per BLOK 5 discipline).
  */
 export async function getPythPrice(
   tokenMint: string,
 ): Promise<number | null> {
-  const feedAddress = PYTH_FEED_BY_MINT[tokenMint];
-  if (!feedAddress) {
-    // Bilinmeyen mint — Pyth feed'i yok. Uydurma, sessizce null dön.
+  const feedId = PYTH_FEED_ID_BY_MINT[tokenMint];
+  if (!feedId) {
+    // Unknown mint — no Pyth feed. Silent null.
     return null;
   }
 
-  let connection: Connection;
+  const url = `${HERMES_URL}/v2/updates/price/latest?ids[]=${feedId}`;
+  let response: Response;
   try {
-    connection = createConnection();
-  } catch {
-    console.warn(
-      `[LIMINAL] Pyth fiyat çekilemedi (${symbolFor(tokenMint)}): Quicknode endpoint yapılandırılmamış.`,
-    );
-    return null;
-  }
-
-  const feedPubkey = parsePublicKey(feedAddress, "Pyth feed adresi");
-
-  let accountInfo;
-  try {
-    accountInfo = await withTimeout(
-      connection.getAccountInfo(feedPubkey, COMMITMENT),
+    response = await withTimeout(
+      fetch(url, { method: "GET" }),
       RPC_TIMEOUT_MS,
-      `Pyth feed sorgusu (${symbolFor(tokenMint)})`,
+      `Pyth Hermes (${symbolFor(tokenMint)})`,
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.warn(
-      `[LIMINAL] Pyth bağlantı hatası (${symbolFor(tokenMint)}): ${message}`,
+      `[LIMINAL] Pyth Hermes request failed (${symbolFor(tokenMint)}): ${message}`,
     );
     return null;
   }
 
-  if (!accountInfo || !accountInfo.data) {
+  if (!response.ok) {
     console.warn(
-      `[LIMINAL] Pyth feed account bulunamadı (${symbolFor(tokenMint)}/${feedAddress}).`,
+      `[LIMINAL] Pyth Hermes non-OK (${symbolFor(tokenMint)}): ${response.status}`,
     );
     return null;
   }
 
-  let priceData;
+  let json: HermesResponse;
   try {
-    priceData = parsePriceData(accountInfo.data);
+    json = (await response.json()) as HermesResponse;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.warn(
-      `[LIMINAL] Pyth parse hatası (${symbolFor(tokenMint)}): ${message}`,
+      `[LIMINAL] Pyth Hermes parse error (${symbolFor(tokenMint)}): ${message}`,
     );
     return null;
   }
 
-  // Trading dışı durumlar (Halted, Auction, Unknown) → stale kabul et.
+  const match = json.parsed?.find((p) => p.id === feedId);
+  const p = match?.price;
+  if (!p) {
+    console.warn(
+      `[LIMINAL] Pyth Hermes no parsed price (${symbolFor(tokenMint)}).`,
+    );
+    return null;
+  }
+
+  const mantissa = Number(p.price);
+  const conf = Number(p.conf);
   if (
-    priceData.status !== undefined &&
-    priceData.status !== PriceStatus.Trading
+    !Number.isFinite(mantissa) ||
+    !Number.isFinite(p.expo) ||
+    mantissa <= 0
   ) {
     console.warn(
-      `[LIMINAL] Pyth feed trading durumunda değil (${symbolFor(tokenMint)}): status=${priceData.status}`,
+      `[LIMINAL] Pyth Hermes invalid price (${symbolFor(tokenMint)}): price=${p.price}`,
     );
     return null;
   }
 
-  const price = priceData.price;
-  const confidence = priceData.confidence;
+  const scale = Math.pow(10, p.expo);
+  const price = mantissa * scale;
+  const confidence = Number.isFinite(conf) ? conf * scale : 0;
 
-  if (typeof price !== "number" || !Number.isFinite(price) || price <= 0) {
+  if (!Number.isFinite(price) || price <= 0) {
     console.warn(
-      `[LIMINAL] Pyth geçerli fiyat döndürmedi (${symbolFor(tokenMint)}): price=${String(price)}`,
+      `[LIMINAL] Pyth Hermes computed non-positive price (${symbolFor(tokenMint)}): ${price}`,
     );
     return null;
   }
 
-  // Stale check: confidence interval fiyatın %5'inden geniş → güvenme.
-  if (
-    typeof confidence === "number" &&
-    Number.isFinite(confidence) &&
-    confidence > price * PYTH_STALE_CONFIDENCE_RATIO
-  ) {
+  // Stale check: confidence interval > PYTH_STALE_CONFIDENCE_RATIO of price.
+  if (confidence > 0 && confidence > price * PYTH_STALE_CONFIDENCE_RATIO) {
     console.warn(
-      `[LIMINAL] Pyth fiyat stale (${symbolFor(tokenMint)}): price=${price}, confidence=${confidence}`,
+      `[LIMINAL] Pyth Hermes stale (${symbolFor(tokenMint)}): price=${price}, conf=${confidence}`,
     );
     return null;
   }
