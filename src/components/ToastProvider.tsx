@@ -94,33 +94,46 @@ export const ToastContainer: FC = () => {
   if (toasts.length === 0) return null;
 
   return (
-    <div style={styles.container}>
+    <div style={styles.container} role="region" aria-label="Notifications">
       {toasts.map((t) => {
         const isExiting = exitingIds.has(t.id);
+        const accent =
+          t.type === "success"
+            ? "var(--color-success)"
+            : t.type === "warning"
+              ? "var(--color-warn)"
+              : "var(--color-5)";
+        const icon =
+          t.type === "success" ? "✓" : t.type === "warning" ? "!" : "i";
         return (
           <div
             key={t.id}
+            role={t.type === "warning" ? "alert" : "status"}
+            aria-live={t.type === "warning" ? "assertive" : "polite"}
             style={{
               ...styles.toast,
-              borderColor:
-                t.type === "success"
-                  ? "var(--color-5)"
-                  : t.type === "warning"
-                    ? "var(--color-warn)"
-                    : "var(--color-stroke)",
+              borderColor: accent,
               animation: isExiting
-                ? "liminal-slide-out 200ms ease-out forwards"
-                : "liminal-slide-in 300ms ease-out",
+                ? "liminal-slide-out 200ms var(--ease-out) forwards"
+                : "liminal-slide-in 300ms var(--ease-out)",
             }}
           >
+            <span
+              style={{ ...styles.iconBadge, color: accent, borderColor: accent }}
+              aria-hidden="true"
+            >
+              {icon}
+            </span>
             <span style={styles.message}>{t.message}</span>
             <button
               type="button"
               onClick={() => handleDismiss(t.id)}
               style={styles.dismissBtn}
-              aria-label="Dismiss"
+              aria-label="Dismiss notification"
             >
-              &times;
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                <path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
             </button>
           </div>
         );
@@ -136,14 +149,14 @@ export const ToastContainer: FC = () => {
 const styles: Record<string, CSSProperties> = {
   container: {
     position: "fixed",
-    top: 56,
+    top: "calc(var(--header-height) + 12px)",
     right: 16,
     display: "flex",
     flexDirection: "column",
     gap: 8,
     zIndex: 9999,
-    pointerEvents: "auto",
-    maxWidth: 340,
+    pointerEvents: "none",
+    maxWidth: 360,
   },
   toast: {
     pointerEvents: "auto",
@@ -155,11 +168,24 @@ const styles: Record<string, CSSProperties> = {
     WebkitBackdropFilter: "blur(12px)",
     border: "1px solid",
     borderRadius: "var(--radius-md)",
-    padding: "10px 16px",
+    padding: "10px 14px",
     boxShadow: "var(--shadow-raised)",
     display: "flex",
     alignItems: "center",
     gap: 10,
+  },
+  iconBadge: {
+    width: 18,
+    height: 18,
+    borderRadius: "50%",
+    border: "1px solid",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: 11,
+    fontWeight: 700,
+    flexShrink: 0,
+    lineHeight: 1,
   },
   message: {
     lineHeight: 1.5,
@@ -170,10 +196,7 @@ const styles: Record<string, CSSProperties> = {
     border: "none",
     color: "var(--color-text-muted)",
     cursor: "pointer",
-    fontSize: 16,
-    fontWeight: 700,
     padding: 0,
-    lineHeight: 1,
     flexShrink: 0,
     width: 20,
     height: 20,

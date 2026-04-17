@@ -67,10 +67,11 @@ function errorTitle(code: ErrorCode): string {
 }
 
 function formatTime(d: Date): string {
-  return d.toLocaleTimeString("tr-TR", {
+  return d.toLocaleTimeString("en-US", {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
+    hour12: false,
   });
 }
 
@@ -99,10 +100,10 @@ export const ErrorCard: FC<ErrorCardProps> = ({ error, onRetry, onReset }) => {
         ...styles.card,
         borderColor: error.retryable
           ? "var(--color-warn-border)"
-          : "var(--color-warn-border)",
+          : "var(--color-danger-border)",
         background: error.retryable
           ? "var(--color-warn-bg)"
-          : "var(--color-warn-bg)",
+          : "var(--color-danger-bg)",
       }}
       role="alert"
     >

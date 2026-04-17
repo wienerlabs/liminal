@@ -114,6 +114,13 @@ export const QuoteComparison: FC<QuoteComparisonProps> = ({
   const [refreshNotice, setRefreshNotice] = useState<boolean>(false);
   const refreshingRef = useRef<boolean>(false);
   const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mountedRef = useRef<boolean>(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   // Quote expiry check → onRefresh tetikle.
   useEffect(() => {
@@ -127,10 +134,11 @@ export const QuoteComparison: FC<QuoteComparisonProps> = ({
         await onRefresh();
       } finally {
         refreshingRef.current = false;
+        if (!mountedRef.current) return;
         setRefreshNotice(true);
         if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
         noticeTimerRef.current = setTimeout(() => {
-          setRefreshNotice(false);
+          if (mountedRef.current) setRefreshNotice(false);
         }, 3000);
       }
     })();
@@ -247,7 +255,7 @@ export const QuoteComparison: FC<QuoteComparisonProps> = ({
               color: isImprovement
                 ? THEME.success
                 : isLoss
-                  ? THEME.amber
+                  ? THEME.danger
                   : THEME.textMuted,
             }}
           >
@@ -260,7 +268,7 @@ export const QuoteComparison: FC<QuoteComparisonProps> = ({
               color: isImprovement
                 ? THEME.success
                 : isLoss
-                  ? THEME.amber
+                  ? THEME.danger
                   : THEME.textMuted,
             }}
           >
@@ -278,7 +286,11 @@ export const QuoteComparison: FC<QuoteComparisonProps> = ({
           <div
             style={{
               ...styles.dflowRate,
-              color: isImprovement ? THEME.success : THEME.accent,
+              color: isImprovement
+                ? THEME.success
+                : isLoss
+                  ? THEME.danger
+                  : THEME.accent,
             }}
           >
             {formatRate(dflowQuote)}

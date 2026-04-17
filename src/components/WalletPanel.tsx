@@ -125,6 +125,7 @@ export const WalletPanel: FC = () => {
   const [balanceLoading, setBalanceLoading] = useState(false);
   const [balanceError, setBalanceError] = useState<string | null>(null);
   const [connectError, setConnectError] = useState<string | null>(null);
+  const [confirmingDisconnect, setConfirmingDisconnect] = useState(false);
 
   // SOL USD fiyatı için canlı Pyth feed'i (BLOK 5 Senaryo 1).
   // Wallet bağlıyken poll eder; disconnect'te boş array ile idle kalır.
@@ -204,6 +205,7 @@ export const WalletPanel: FC = () => {
 
   const handleDisconnect = useCallback(async () => {
     await disconnectWallet();
+    setConfirmingDisconnect(false);
   }, []);
 
   const handleRetryBalances = useCallback(() => {
@@ -353,13 +355,34 @@ export const WalletPanel: FC = () => {
       <div style={styles.flexSpacer} />
 
       <section style={styles.footer}>
-        <button
-          type="button"
-          onClick={handleDisconnect}
-          style={styles.secondaryButton}
-        >
-          DISCONNECT
-        </button>
+        {confirmingDisconnect ? (
+          <div style={styles.disconnectConfirmRow}>
+            <button
+              type="button"
+              onClick={handleDisconnect}
+              style={styles.disconnectConfirmYes}
+              aria-label="Confirm disconnect"
+            >
+              DISCONNECT
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmingDisconnect(false)}
+              style={styles.secondaryButton}
+              aria-label="Cancel disconnect"
+            >
+              CANCEL
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setConfirmingDisconnect(true)}
+            style={styles.secondaryButton}
+          >
+            DISCONNECT
+          </button>
+        )}
       </section>
     </aside>
   );
@@ -501,7 +524,7 @@ const styles: Record<string, CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     width: "100%",
-    minHeight: 440,
+    minHeight: 600,
     background: "var(--color-2)",
     color: THEME.text,
     border: `1px solid ${THEME.border}`,
@@ -509,15 +532,15 @@ const styles: Record<string, CSSProperties> = {
     fontFamily: MONO,
     overflow: "hidden",
     boxShadow: "var(--shadow-component)",
-    transition: "border-color 200ms ease",
+    transition: "border-color var(--motion-base) var(--ease-out)",
   },
   header: {
     fontFamily: MONO,
-    fontSize: 9,
-    letterSpacing: 2.5,
+    fontSize: 10,
+    letterSpacing: "0.18em",
+    fontWeight: 600,
     color: THEME.textMuted,
-    opacity: 0.5,
-    padding: "12px 16px 10px",
+    padding: "14px 16px 12px",
     borderBottom: `1px solid ${THEME.border}`,
     textTransform: "uppercase",
   },
@@ -590,10 +613,10 @@ const styles: Record<string, CSSProperties> = {
   },
   sectionLabel: {
     fontFamily: MONO,
-    fontSize: 9,
+    fontSize: 10,
     color: THEME.textMuted,
-    opacity: 0.5,
-    letterSpacing: 2.5,
+    letterSpacing: "0.16em",
+    fontWeight: 600,
     marginBottom: 8,
     textTransform: "uppercase",
   },
@@ -677,9 +700,9 @@ const styles: Record<string, CSSProperties> = {
     flexDirection: "column",
     gap: 10,
     padding: "12px 14px",
-    background: "var(--color-warn-bg)",
-    border: `1px solid var(--color-warn-border)`,
-    borderRadius: 6,
+    background: "var(--color-danger-bg)",
+    border: `1px solid var(--color-danger-border)`,
+    borderRadius: "var(--radius-md)",
   },
   errorText: {
     fontFamily: MONO,
@@ -761,6 +784,25 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 11,
     fontWeight: 700,
     fontVariantNumeric: "tabular-nums",
+  },
+  disconnectConfirmRow: {
+    display: "flex",
+    gap: 8,
+    width: "100%",
+  },
+  disconnectConfirmYes: {
+    fontFamily: MONO,
+    fontSize: 11,
+    color: "#fff",
+    background: "var(--color-danger)",
+    border: "1px solid var(--color-danger)",
+    borderRadius: "var(--radius-sm)",
+    padding: "10px 16px",
+    flex: 1,
+    cursor: "pointer",
+    letterSpacing: "0.06em",
+    textTransform: "uppercase",
+    fontWeight: 600,
   },
 };
 

@@ -64,7 +64,7 @@ export const ProgressRing: FC<ProgressRingProps> = ({
         dominantBaseline="central"
         fill="var(--color-text)"
         fontFamily="var(--font-mono)"
-        fontSize={size * 0.22}
+        fontSize={Math.max(10, Math.round(size * 0.28))}
         fontWeight={600}
       >
         {completed}/{total || 0}

@@ -1,17 +1,13 @@
 /**
  * LIMINAL — Root Layout
  *
- * CLAUDE.md BLOK 7 "Ekran Yapisi: Uc Panel" + BLOK 6 "In-App Browser
- * Uyumlulugu" + mobil tab navigation. Uc breakpoint:
- *   - Desktop (>=1024): sol (280) + orta (flex) + sag (320)
- *   - Tablet (768-1023): sol gizli, orta + sag 50/50
- *   - Mobile (<768): tek sutun + alt tab bar + ust active execution bar
+ * Üç breakpoint:
+ *   - Desktop (>=1024): sol (300) + orta (flex) + sağ (300) — simetrik
+ *   - Tablet (768-1023): sol gizli, orta + sağ 50/50
+ *   - Mobile (<768): tek sutun + alt tab bar + üst active execution bar
  *
- * Solflare in-app browser: mount'ta otomatik baglanti, ustte "Solflare
- * uzerinden acildi" yesil banner.
- *
- * Includes: HeaderBar, ToastContainer, panel entrance animations,
- * network status, mobile tab badge.
+ * Solflare in-app browser: mount'ta otomatik bağlantı, üstte yeşil banner.
+ * Safe-area inset hem tab bar hem body padding'inde uygulanır.
  */
 
 import { useEffect, useState, type CSSProperties, type FC } from "react";
@@ -46,40 +42,9 @@ const THEME = {
   text: "var(--color-text)",
   textMuted: "var(--color-text-muted)",
   accent: "var(--color-5)",
-  activeBarBg: "var(--color-2)",
-  warn: "var(--color-warn)",
-  shadow: "var(--shadow-component)",
 } as const;
 
 const SANS = "var(--font-sans)";
-
-// ---------------------------------------------------------------------------
-// Google Fonts preconnect
-// ---------------------------------------------------------------------------
-
-const FONT_LINKS_ID = "liminal-google-fonts";
-if (typeof document !== "undefined" && !document.getElementById(FONT_LINKS_ID)) {
-  const preconnect1 = document.createElement("link");
-  preconnect1.id = `${FONT_LINKS_ID}-pc1`;
-  preconnect1.rel = "preconnect";
-  preconnect1.href = "https://fonts.googleapis.com";
-
-  const preconnect2 = document.createElement("link");
-  preconnect2.id = `${FONT_LINKS_ID}-pc2`;
-  preconnect2.rel = "preconnect";
-  preconnect2.href = "https://fonts.gstatic.com";
-  preconnect2.setAttribute("crossorigin", "anonymous");
-
-  const stylesheet = document.createElement("link");
-  stylesheet.id = FONT_LINKS_ID;
-  stylesheet.rel = "stylesheet";
-  stylesheet.href =
-    "https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&display=swap";
-
-  document.head.appendChild(preconnect1);
-  document.head.appendChild(preconnect2);
-  document.head.appendChild(stylesheet);
-}
 
 // ---------------------------------------------------------------------------
 // App component
@@ -118,7 +83,6 @@ export const App: FC = () => {
   const sliceN = state.currentSliceIndex + 1;
   const sliceM = state.slices.length;
 
-  // Mobile tab badge: show slice count on Execute tab during active execution
   const executeBadge = inFlight && sliceM > 0 ? `${sliceN}/${sliceM}` : undefined;
 
   // ------------------------------------------------------------------
@@ -132,25 +96,26 @@ export const App: FC = () => {
         <ToastContainer />
 
         {inFlight && (
-          <div style={{ position: "relative" }}>
+          <div style={{ position: "sticky", top: "var(--header-height)", zIndex: 40 }}>
             <button
               type="button"
               onClick={() => setMobileTab("execute")}
               style={styles.activeExecBar}
+              aria-label={`Execution active — slice ${sliceN} of ${sliceM}. Tap to view.`}
             >
-              <span style={styles.pulseDot} />
+              <span style={styles.pulseDot} aria-hidden="true" />
               <span style={styles.activeExecText}>
-                Execution active: Slice {sliceN}/{sliceM}
+                Slice {sliceN}/{sliceM}
               </span>
-              <span style={styles.activeExecUsd}>
-                $
+              <span style={styles.activeExecUsd} aria-label="Total gain">
+                +$
                 {state.totalPriceImprovementUsd.toLocaleString("en-US", {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })}
               </span>
             </button>
-            <div style={styles.progressTrack}>
+            <div style={styles.progressTrack} role="progressbar" aria-valuemin={0} aria-valuemax={sliceM} aria-valuenow={sliceN}>
               <div
                 style={{
                   ...styles.progressFill,
@@ -167,7 +132,7 @@ export const App: FC = () => {
           {mobileTab === "analytics" && <AnalyticsPanel />}
         </main>
 
-        <nav style={styles.mobileTabBar}>
+        <nav style={styles.mobileTabBar} role="tablist" aria-label="Main navigation">
           <MobileTabButton
             label="Wallet"
             active={mobileTab === "wallet"}
@@ -211,7 +176,7 @@ export const App: FC = () => {
   }
 
   // ------------------------------------------------------------------
-  // Desktop layout
+  // Desktop layout — simetrik 300/flex/300
   // ------------------------------------------------------------------
   return (
     <div className="liminal-root" style={styles.appRoot}>
@@ -219,19 +184,19 @@ export const App: FC = () => {
       {device.isSolflareInAppBrowser && <SolflareBanner />}
       <ToastContainer />
       <div style={styles.desktopLayout}>
-        <aside style={{ ...styles.leftCol, ...panelEntranceStyle(0) }}>
+        <aside style={{ ...styles.sideCol, ...panelEntranceStyle(0) }}>
           <WalletPanel />
         </aside>
         <main style={{ ...styles.middleCol, ...panelEntranceStyle(1) }}>
           <ExecutionPanel />
         </main>
-        <aside style={{ ...styles.rightCol, ...panelEntranceStyle(2) }}>
+        <aside style={{ ...styles.sideCol, ...panelEntranceStyle(2) }}>
           <AnalyticsPanel />
         </aside>
       </div>
       {!wallet.connected && !device.isSolflareInAppBrowser && (
         <div style={styles.desktopFooterHint}>
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ flexShrink: 0 }}>
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ flexShrink: 0 }} aria-hidden="true">
             <path d="M9 3L5 7l4 4" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
           Connect your Solflare wallet from the left panel to get started.
@@ -241,13 +206,9 @@ export const App: FC = () => {
   );
 };
 
-// ---------------------------------------------------------------------------
-// Panel entrance animation helper (Item 10)
-// ---------------------------------------------------------------------------
-
 function panelEntranceStyle(index: number): CSSProperties {
   return {
-    animation: `liminal-panel-enter 500ms ease-out ${index * 120}ms both`,
+    animation: `liminal-panel-enter 500ms var(--ease-out) ${index * 100}ms both`,
   };
 }
 
@@ -256,27 +217,27 @@ function panelEntranceStyle(index: number): CSSProperties {
 // ---------------------------------------------------------------------------
 
 const SolflareBanner: FC = () => (
-  <div style={styles.solflareBanner}>
-    <span style={styles.solflareDot} />
+  <div style={styles.solflareBanner} role="status">
+    <span style={styles.solflareDot} aria-hidden="true" />
     <span>Opened via Solflare</span>
   </div>
 );
 
 const tabIcons: Record<string, (color: string) => JSX.Element> = {
   Wallet: (color: string) => (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+    <svg width="18" height="18" viewBox="0 0 16 16" fill="none" aria-hidden="true">
       <rect x="1" y="4" width="14" height="10" rx="2" stroke={color} strokeWidth="1.5" />
       <path d="M1 7h14" stroke={color} strokeWidth="1.5" />
       <circle cx="12" cy="10" r="1" fill={color} />
     </svg>
   ),
   Execute: (color: string) => (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+    <svg width="18" height="18" viewBox="0 0 16 16" fill="none" aria-hidden="true">
       <polygon points="5,2 13,8 5,14" fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" />
     </svg>
   ),
   Analytics: (color: string) => (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+    <svg width="18" height="18" viewBox="0 0 16 16" fill="none" aria-hidden="true">
       <polyline points="1,12 5,6 9,9 15,3" fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   ),
@@ -293,23 +254,19 @@ const MobileTabButton: FC<{
   return (
     <button
       type="button"
+      role="tab"
+      aria-selected={active}
       onClick={onClick}
       style={{
         ...styles.mobileTabButton,
         color,
         borderTopColor: active ? THEME.accent : "transparent",
-        position: "relative",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 3,
       }}
     >
       {renderIcon && renderIcon(color)}
-      <span>{label}</span>
+      <span style={styles.mobileTabLabel}>{label}</span>
       {badge && (
-        <span style={styles.tabBadge}>{badge}</span>
+        <span style={styles.tabBadge} aria-label={`${badge} slices`}>{badge}</span>
       )}
     </button>
   );
@@ -331,14 +288,14 @@ const styles: Record<string, CSSProperties> = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    padding: "8px 16px",
+    gap: "var(--space-2)",
+    padding: "8px var(--space-4)",
     background: "var(--color-accent-bg-soft)",
     borderBottom: "1px solid var(--color-stroke)",
     fontFamily: SANS,
-    fontSize: 11,
+    fontSize: "var(--text-xs)",
     color: THEME.accent,
-    letterSpacing: 0.5,
+    letterSpacing: "0.04em",
   },
   solflareDot: {
     width: 8,
@@ -348,35 +305,37 @@ const styles: Record<string, CSSProperties> = {
     boxShadow: "0 0 8px var(--color-5)",
   },
 
-  // Desktop
+  // Desktop — simetrik 300/300
   desktopLayout: {
     flex: 1,
     display: "grid",
-    gridTemplateColumns: "280px 1fr 320px",
-    gap: 16,
-    padding: 16,
+    gridTemplateColumns: "300px 1fr 300px",
+    gap: "var(--space-4)",
+    padding: "var(--space-4)",
     minHeight: 0,
+    alignItems: "start",
   },
-  leftCol: {
+  sideCol: {
     minWidth: 0,
+    display: "flex",
+    flexDirection: "column",
   },
   middleCol: {
     minWidth: 0,
-  },
-  rightCol: {
-    minWidth: 0,
+    display: "flex",
+    flexDirection: "column",
   },
   desktopFooterHint: {
-    padding: "10px 16px",
+    padding: "10px var(--space-4)",
     textAlign: "center",
-    fontSize: 11,
+    fontSize: "var(--text-xs)",
     color: THEME.textMuted,
     borderTop: `1px solid ${THEME.border}`,
-    animation: "liminal-panel-enter 500ms ease-out",
+    animation: "liminal-panel-enter 500ms var(--ease-out)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
+    gap: "var(--space-2)",
   },
 
   // Tablet
@@ -384,9 +343,10 @@ const styles: Record<string, CSSProperties> = {
     flex: 1,
     display: "grid",
     gridTemplateColumns: "1fr 1fr",
-    gap: 12,
-    padding: 12,
+    gap: "var(--space-3)",
+    padding: "var(--space-3)",
     minHeight: 0,
+    alignItems: "start",
   },
   tabletPane: {
     minWidth: 0,
@@ -404,7 +364,8 @@ const styles: Record<string, CSSProperties> = {
   },
   mobileBody: {
     flex: 1,
-    padding: "10px 10px 76px",
+    padding: "var(--space-3)",
+    paddingBottom: "calc(var(--mobile-tab-height) + var(--space-3) + env(safe-area-inset-bottom, 0px))",
     overflowY: "auto",
     minHeight: 0,
   },
@@ -413,13 +374,13 @@ const styles: Record<string, CSSProperties> = {
     bottom: 0,
     left: 0,
     right: 0,
-    height: 64,
+    height: "calc(var(--mobile-tab-height) + env(safe-area-inset-bottom, 0px))",
     display: "grid",
     gridTemplateColumns: "1fr 1fr 1fr",
     background: THEME.panelBg,
     borderTop: `1px solid ${THEME.border}`,
     zIndex: 100,
-    paddingBottom: "env(safe-area-inset-bottom, 0)",
+    paddingBottom: "env(safe-area-inset-bottom, 0px)",
   },
   mobileTabButton: {
     background: "transparent",
@@ -428,18 +389,29 @@ const styles: Record<string, CSSProperties> = {
     cursor: "pointer",
     fontFamily: SANS,
     fontSize: 11,
-    fontWeight: 700,
-    letterSpacing: 1,
+    fontWeight: 600,
+    letterSpacing: "0.06em",
     textTransform: "uppercase",
-    padding: "10px 4px",
+    padding: "10px var(--space-1)",
+    position: "relative",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    minHeight: "var(--touch-min)",
+    transition: "color var(--motion-base) var(--ease-out)",
+  },
+  mobileTabLabel: {
+    lineHeight: 1,
   },
   tabBadge: {
     position: "absolute",
-    top: 4,
-    right: "calc(50% - 24px)",
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
+    top: 6,
+    right: "30%",
+    minWidth: 20,
+    height: 16,
+    borderRadius: 8,
     background: "var(--color-5)",
     color: "var(--color-text-inverse)",
     fontSize: 9,
@@ -447,24 +419,25 @@ const styles: Record<string, CSSProperties> = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    padding: "0 4px",
+    padding: "0 5px",
     lineHeight: 1,
     fontFamily: "var(--font-mono)",
+    fontVariantNumeric: "tabular-nums",
   },
 
   // Active execution bar (mobile)
   activeExecBar: {
     display: "flex",
     alignItems: "center",
-    gap: 10,
+    gap: "var(--space-3)",
     height: 40,
-    padding: "0 14px",
-    background: THEME.activeBarBg,
+    padding: "0 var(--space-4)",
+    background: "var(--color-2)",
     border: "none",
     borderBottom: `1px solid ${THEME.border}`,
     color: THEME.text,
     fontFamily: SANS,
-    fontSize: 11,
+    fontSize: "var(--text-xs)",
     cursor: "pointer",
     width: "100%",
     textAlign: "left",
@@ -475,13 +448,8 @@ const styles: Record<string, CSSProperties> = {
     borderRadius: "50%",
     background: THEME.accent,
     boxShadow: `0 0 8px ${THEME.accent}`,
-    animation: "liminal-active-pulse 1.4s ease-in-out infinite",
+    animation: "liminal-active-pulse 1.4s var(--ease-out) infinite",
     flexShrink: 0,
-  },
-  activeExecText: {
-    flex: 1,
-    color: THEME.text,
-    fontWeight: 600,
   },
   progressTrack: {
     height: 2,
@@ -491,11 +459,19 @@ const styles: Record<string, CSSProperties> = {
   progressFill: {
     height: 2,
     background: "var(--color-5)",
-    transition: "width 300ms ease",
+    transition: "width 300ms var(--ease-out)",
+  },
+  activeExecText: {
+    flex: 1,
+    color: THEME.text,
+    fontWeight: 600,
+    fontFamily: "var(--font-mono)",
+    fontVariantNumeric: "tabular-nums",
   },
   activeExecUsd: {
-    color: THEME.accent,
-    fontWeight: 800,
+    color: "var(--color-success)",
+    fontWeight: 700,
+    fontFamily: "var(--font-mono)",
     fontVariantNumeric: "tabular-nums",
   },
 };

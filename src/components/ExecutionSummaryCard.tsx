@@ -261,7 +261,7 @@ const styles: Record<string, CSSProperties> = {
     background: "var(--color-accent-bg-soft)",
     border: `1px solid var(--color-accent-border)`,
     borderRadius: "var(--radius-lg)",
-    margin: "16px 20px",
+    margin: "16px",
     fontFamily: MONO,
   },
   checkmark: {
