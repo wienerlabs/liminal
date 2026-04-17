@@ -121,6 +121,45 @@ const PARTNER_LOGOS: { name: string; logo: FC<{ size?: number; height?: number }
 ];
 
 // ---------------------------------------------------------------------------
+// BrandMark — six-blade spiral. Single source of truth, reused by favicon
+// and og-image (static SVG files in /public). Keeping a TSX component here
+// means the navbar renders without a network round-trip for /logo.svg.
+// ---------------------------------------------------------------------------
+
+const BrandMark: FC<{ size?: number }> = ({ size = 26 }) => {
+  // Unique id per render so multiple instances don't collide on grad refs.
+  const gradId = `brand-blade-${size}`;
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 200 200"
+      style={{ flexShrink: 0, display: "block" }}
+      aria-hidden="true"
+    >
+      <defs>
+        <radialGradient id={gradId} cx="50%" cy="50%" r="60%">
+          <stop offset="0%" stopColor="#1a1a1a" stopOpacity="1" />
+          <stop offset="65%" stopColor="#1a1a1a" stopOpacity="0.92" />
+          <stop offset="100%" stopColor="#1a1a1a" stopOpacity="0.18" />
+        </radialGradient>
+      </defs>
+      <g transform="translate(100 100)">
+        {[0, 60, 120, 180, 240, 300].map((deg) => (
+          <g key={deg} transform={`rotate(${deg})`}>
+            <path
+              d="M 0 -12 C 18 -30, 55 -35, 65 -8 C 68 8, 50 18, 30 14 C 16 11, 6 4, 0 -12 Z"
+              fill={`url(#${gradId})`}
+            />
+          </g>
+        ))}
+        <circle r="9" fill="#1a1a1a" />
+      </g>
+    </svg>
+  );
+};
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
@@ -161,22 +200,14 @@ export const HeaderBar: FC<HeaderBarProps> = ({ networkStatus }) => {
 
   return (
     <header style={styles.header}>
-      <div style={styles.left}>
-        <svg width="22" height="22" viewBox="0 0 32 32" style={{ flexShrink: 0, display: "block" }} aria-hidden="true">
-          <defs>
-            <linearGradient id="liminal-mark-grad" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stopColor="#f9b2d7" />
-              <stop offset="100%" stopColor="#f48cc4" />
-            </linearGradient>
-          </defs>
-          <rect width="32" height="32" rx="7" fill="url(#liminal-mark-grad)" />
-          <path
-            d="M9 23.5V8.5h3.5v11.5h9.5v3.5H9z"
-            fill="#1a1a1a"
-          />
-        </svg>
+      <a
+        href="/"
+        style={styles.brand}
+        aria-label="LIMINAL home"
+      >
+        <BrandMark size={26} />
         <span style={styles.wordmark}>LIMINAL</span>
-      </div>
+      </a>
 
       {/* Partner logoları — desktop + tablet, mobilde gizli */}
       <div style={styles.partners} aria-label="Powered by">
@@ -252,8 +283,10 @@ const styles: Record<string, CSSProperties> = {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: "0 var(--space-4)",
-    background: "var(--color-2)",
+    padding: "0 var(--space-5)",
+    // Frosted glass — translucent panel color, backdrop blur on top.
+    // Matches the pastel theme while staying legible on any scroll bg.
+    background: "rgba(255, 255, 255, 0.78)",
     borderBottom: "1px solid var(--color-stroke)",
     fontFamily: SANS,
     fontSize: "var(--text-xs)",
@@ -262,20 +295,26 @@ const styles: Record<string, CSSProperties> = {
     position: "sticky",
     top: 0,
     zIndex: 50,
-    backdropFilter: "blur(8px)",
-    WebkitBackdropFilter: "blur(8px)",
+    backdropFilter: "blur(14px) saturate(140%)",
+    WebkitBackdropFilter: "blur(14px) saturate(140%)",
   },
-  left: {
+  brand: {
     display: "flex",
     alignItems: "center",
     gap: "var(--space-2)",
     flexShrink: 0,
+    textDecoration: "none",
+    color: "inherit",
+    padding: "4px 6px",
+    marginLeft: "-6px",
+    borderRadius: "var(--radius-sm)",
+    transition: "background var(--motion-base) var(--ease-out)",
   },
   wordmark: {
     fontFamily: SANS,
     fontWeight: 700,
     fontSize: "var(--text-base)",
-    letterSpacing: "0.18em",
+    letterSpacing: "0.22em",
     color: "var(--color-text)",
     lineHeight: 1,
   },
