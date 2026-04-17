@@ -121,43 +121,30 @@ const PARTNER_LOGOS: { name: string; logo: FC<{ size?: number; height?: number }
 ];
 
 // ---------------------------------------------------------------------------
-// BrandMark — six-blade spiral. Single source of truth, reused by favicon
-// and og-image (static SVG files in /public). Keeping a TSX component here
-// means the navbar renders without a network round-trip for /logo.svg.
+// BrandMark — renders the official logo asset (public/logo.png). Kept as a
+// single-source component so future logo updates touch one place, and
+// `decoding="async"` + `loading="eager"` keep first-paint snappy for the
+// sticky navbar.
 // ---------------------------------------------------------------------------
 
-const BrandMark: FC<{ size?: number }> = ({ size = 26 }) => {
-  // Unique id per render so multiple instances don't collide on grad refs.
-  const gradId = `brand-blade-${size}`;
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 200 200"
-      style={{ flexShrink: 0, display: "block" }}
-      aria-hidden="true"
-    >
-      <defs>
-        <radialGradient id={gradId} cx="50%" cy="50%" r="60%">
-          <stop offset="0%" stopColor="#1a1a1a" stopOpacity="1" />
-          <stop offset="65%" stopColor="#1a1a1a" stopOpacity="0.92" />
-          <stop offset="100%" stopColor="#1a1a1a" stopOpacity="0.18" />
-        </radialGradient>
-      </defs>
-      <g transform="translate(100 100)">
-        {[0, 60, 120, 180, 240, 300].map((deg) => (
-          <g key={deg} transform={`rotate(${deg})`}>
-            <path
-              d="M 0 -12 C 18 -30, 55 -35, 65 -8 C 68 8, 50 18, 30 14 C 16 11, 6 4, 0 -12 Z"
-              fill={`url(#${gradId})`}
-            />
-          </g>
-        ))}
-        <circle r="9" fill="#1a1a1a" />
-      </g>
-    </svg>
-  );
-};
+const BrandMark: FC<{ size?: number }> = ({ size = 28 }) => (
+  <img
+    src="/logo.png"
+    alt=""
+    width={size}
+    height={size}
+    decoding="async"
+    loading="eager"
+    style={{
+      display: "block",
+      flexShrink: 0,
+      width: size,
+      height: size,
+      objectFit: "contain",
+    }}
+    aria-hidden="true"
+  />
+);
 
 // ---------------------------------------------------------------------------
 // Component
