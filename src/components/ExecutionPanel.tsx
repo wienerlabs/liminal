@@ -308,10 +308,20 @@ export const ExecutionPanel: FC = () => {
   }, [tokens, fromMint, toMint, isInFlight]);
 
   // --- Pyth price monitor -------------------------------------------------
-  const activeMints = useMemo(
-    () => [fromMint, toMint].filter((m): m is string => !!m),
-    [fromMint, toMint],
-  );
+  // Dedup fromMint / toMint — the swap-button flow can momentarily set both
+  // to the same mint, which would produce duplicate React keys in the
+  // price list and trigger a `Two children with the same key` warning.
+  const activeMints = useMemo(() => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const m of [fromMint, toMint]) {
+      if (m && !seen.has(m)) {
+        seen.add(m);
+        out.push(m);
+      }
+    }
+    return out;
+  }, [fromMint, toMint]);
   const priceMonitor = usePriceMonitor(activeMints, 5000);
   const { prices, lastUpdated: priceLastUpdated } = priceMonitor;
 
