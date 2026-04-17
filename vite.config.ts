@@ -3,6 +3,8 @@ import react from "@vitejs/plugin-react";
 import { nodePolyfills } from "vite-plugin-node-polyfills";
 import wasm from "vite-plugin-wasm";
 import topLevelAwait from "vite-plugin-top-level-await";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 // LIMINAL — Vite config.
 //
@@ -14,16 +16,16 @@ import topLevelAwait from "vite-plugin-top-level-await";
 //    integration proposal'ı desteklemiyor, bu plugin gerekli.
 // 3. `vite-plugin-top-level-await` — WASM modülleri genelde top-level
 //    await kullanır; bu plugin ES2022 altı target'lar için bunu polyfill'ler.
+// 4. `resolve.alias` için `@kamino-finance/kliquidity-sdk` — klend-sdk'nın
+//    transitive CLMM rebalancer'ı Orca Whirlpools WASM + top-level await
+//    içeriyor ve Vite'ın CJS-require-ESM zincirini kıramıyor. Yalnızca
+//    3 utility kullanıldığı için shim'e yönlendiriyoruz.
 //
 // Target ES2022: top-level await ve BigInt literals native destekli.
-//
-// Manual chunking:
-// - react vendor       → React + ReactDOM (kararlı, uzun cache).
-// - recharts vendor    → recharts + d3 alt-deps (büyük, sadece Analytics).
-// - confetti vendor    → canvas-confetti (sadece DONE state'te).
-// - solana vendor      → @solana/web3.js + spl-token + Kamino SDK (kritik).
-// Bu paylaşım initial bundle'ı yarıya indirir; recharts ve confetti lazy
-// path'lere taşındığında ek azalma elde edilir.
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 export default defineConfig({
   plugins: [
     react(),
@@ -38,6 +40,24 @@ export default defineConfig({
       },
     }),
   ],
+  resolve: {
+    alias: [
+      // Redirect the kliquidity-sdk root to a tiny shim that exposes only
+      // the helpers klend-sdk actually imports (batchFetch / chunks /
+      // aprToApy). Every other symbol throws an explicit "not implemented"
+      // error so we notice regressions instead of silent undefined calls.
+      {
+        find: /^@kamino-finance\/kliquidity-sdk$/,
+        replacement: path.resolve(__dirname, "src/stubs/kliquidity-shim.ts"),
+      },
+      // CreationParameters — the only sub-path import klend-sdk reaches
+      // into. Not used on our read paths; stub it the same way.
+      {
+        find: /^@kamino-finance\/kliquidity-sdk\/.*$/,
+        replacement: path.resolve(__dirname, "src/stubs/kliquidity-shim.ts"),
+      },
+    ],
+  },
   server: {
     port: 5173,
     host: true,
@@ -46,23 +66,20 @@ export default defineConfig({
     target: "es2022",
     sourcemap: true,
     chunkSizeWarningLimit: 800,
+    commonjsOptions: {
+      transformMixedEsModules: true,
+    },
     rollupOptions: {
       output: {
         manualChunks(id: string): string | undefined {
           if (!id.includes("node_modules")) return undefined;
-          // Independent dependency trees split off. React stays in main
-          // bundle to avoid circulars with Solana wallet adapters.
           if (id.includes("recharts") || /[\\/]d3-/.test(id)) {
             return "vendor-recharts";
           }
           if (id.includes("canvas-confetti")) {
             return "vendor-confetti";
           }
-          if (
-            id.includes("@kamino-finance") ||
-            id.includes("@orca-so") ||
-            id.includes("whirlpool")
-          ) {
+          if (id.includes("@kamino-finance") || id.includes("@orca-so")) {
             return "vendor-kamino";
           }
           return undefined;
@@ -71,13 +88,6 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    // Exclude the WASM-dependent and top-level-await carrying packages so
-    // esbuild's pre-bundler doesn't try to wrap them as CJS (which fails
-    // because of top-level await in the Orca Whirlpools WASM loader).
-    exclude: [
-      "@kamino-finance/kliquidity-sdk",
-      "@orca-so/whirlpools-core",
-    ],
     include: [
       "@kamino-finance/klend-sdk",
       "@kamino-finance/scope-sdk",
@@ -85,8 +95,16 @@ export default defineConfig({
       "bn.js",
       "decimal.js",
     ],
+    exclude: [
+      // These pull in the Orca WASM bundle we've aliased around anyway.
+      "@kamino-finance/kliquidity-sdk",
+      "@orca-so/whirlpools-core",
+    ],
     esbuildOptions: {
       target: "es2022",
+      supported: {
+        "top-level-await": true,
+      },
     },
   },
 });
