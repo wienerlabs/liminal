@@ -575,9 +575,16 @@ const BalanceSkeleton: FC = () => (
  * a new tab for manual withdrawal. Explicit "↗" affordance signals that
  * the action leaves LIMINAL.
  */
-const KaminoPositionRow: FC<{ position: ActiveKaminoPosition }> = ({
+/**
+ * Kamino position row — function declaration (not const arrow) so it is
+ * fully hoisted and survives Vite HMR partial reloads without "is not
+ * defined" TDZ errors.
+ */
+function KaminoPositionRow({
   position,
-}) => {
+}: {
+  position: ActiveKaminoPosition;
+}): JSX.Element {
   const [hovered, setHovered] = useState(false);
   return (
     <a
@@ -589,6 +596,10 @@ const KaminoPositionRow: FC<{ position: ActiveKaminoPosition }> = ({
       style={{
         ...styles.kaminoPositionRow,
         background: hovered ? "var(--surface-card-hover)" : "var(--surface-card)",
+        // Use explicit border longhands (no `border:` shorthand in base
+        // style) so React doesn't log a mixed-shorthand warning.
+        borderWidth: 1,
+        borderStyle: "solid",
         borderColor: hovered ? "var(--color-accent-border)" : THEME.border,
       }}
       aria-label={`Manage ${position.amount} ${position.symbol} on Kamino`}
@@ -612,7 +623,7 @@ const KaminoPositionRow: FC<{ position: ActiveKaminoPosition }> = ({
       </div>
     </a>
   );
-};
+}
 
 /**
  * Token avatar — shows logo image when available, otherwise renders a
@@ -965,7 +976,9 @@ const styles: Record<string, CSSProperties> = {
     flexDirection: "column",
     gap: 4,
     padding: "10px 12px",
-    border: `1px solid ${THEME.border}`,
+    // Border longhands only — inline style sets borderColor dynamically
+    // on hover; mixing with the `border` shorthand would trigger a
+    // React styling warning.
     borderRadius: "var(--radius-md)",
     textDecoration: "none",
     color: "inherit",
