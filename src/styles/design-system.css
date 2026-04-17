@@ -1,13 +1,15 @@
 /**
- * LIMINAL — Design System
+ * LIMINAL — Design System (v2)
  *
- * Tek truth source. Tüm renkler, tipografi, stroke'lar, shadow'lar, animation
- * keyframe'leri burada tanımlanır. Component'ler ve utility'ler yalnızca bu
- * CSS variable'larına referans verir — hardcoded hex değer kalmaz.
+ * Tek truth source. Tüm renkler, tipografi, spacing, radius, shadow ve
+ * animation keyframe'leri burada tanımlanır. Component'ler yalnızca bu CSS
+ * variable'larına referans verir — hardcoded hex/px değer kalmaz.
  *
  * Palette: Dark DeFi terminal aesthetic (Jupiter/Drift/Marginfi inspired).
- * Body zemini: dark base + subtle cyan/indigo radial glows, fixed attachment.
  * Typography: Bricolage Grotesque (sans) + JetBrains Mono (mono).
+ * Spacing scale: 4-8-12-16-20-24-32-48 (8pt grid).
+ * Radius scale: 4 / 8 / 12 — üç tier.
+ * Surface tier: panel < card < raised — üç tier, opacity netleştirildi.
  */
 
 @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
@@ -22,7 +24,8 @@
 
   /* ----- Metin -------------------------------------------------------- */
   --color-text: #e2e8f0;           /* primary text, light */
-  --color-text-muted: #64748b;     /* secondary text */
+  --color-text-muted: #94a3b8;     /* secondary text — yükseltildi (4.6:1 → 7.2:1) */
+  --color-text-subtle: #64748b;    /* tertiary — sadece dekoratif kullan */
   --color-text-inverse: #000000;   /* for accent-bg buttons */
 
   /* ----- Stroke sistemi ---------------------------------------------- */
@@ -37,7 +40,7 @@
   --shadow-raised:
     0 8px 24px rgba(0, 0, 0, 0.4),
     0 0 0 1px rgba(255, 255, 255, 0.06);
-  --shadow-accent-glow: 0 0 12px rgba(34, 209, 238, 0.1);
+  --shadow-accent-glow: 0 0 20px rgba(34, 209, 238, 0.25);
 
   /* ----- Semantic success / danger ------------------------------------- */
   --color-success: #22c55e;
@@ -45,54 +48,82 @@
 
   /* ----- Uyarı (paletten-dışı tek istisna) --------------------------- */
   --color-warn: #f59e0b;
-  --color-warn-bg: rgba(245, 158, 11, 0.1);
-  --color-warn-border: rgba(245, 158, 11, 0.3);
+  --color-warn-bg: rgba(245, 158, 11, 0.10);
+  --color-warn-border: rgba(245, 158, 11, 0.32);
 
   /* ----- Success/danger backgrounds ----------------------------------- */
-  --color-success-bg: rgba(34, 197, 94, 0.1);
-  --color-success-border: rgba(34, 197, 94, 0.3);
-  --color-danger-bg: rgba(239, 68, 68, 0.08);
-  --color-danger-border: rgba(239, 68, 68, 0.3);
+  --color-success-bg: rgba(34, 197, 94, 0.10);
+  --color-success-border: rgba(34, 197, 94, 0.32);
+  --color-danger-bg: rgba(239, 68, 68, 0.10);
+  --color-danger-border: rgba(239, 68, 68, 0.32);
 
-  /* ----- Accent derivatives (rgba türetmeler) ------------------------ */
+  /* ----- Accent derivatives ------------------------------------------ */
   --color-accent-bg-soft: rgba(34, 209, 238, 0.08);
   --color-accent-bg-strong: rgba(34, 209, 238, 0.15);
-  --color-accent-border: rgba(34, 209, 238, 0.3);
+  --color-accent-border: rgba(34, 209, 238, 0.32);
 
-  /* ----- Surface hierarchy ------------------------------------------- */
-  --surface-raised: rgba(255, 255, 255, 0.04);
-  --surface-raised-strong: rgba(255, 255, 255, 0.08);
-  --surface-panel: #0a0a0a;
-  --surface-card: rgba(255, 255, 255, 0.03);
+  /* ----- Surface hierarchy (3-tier net) ------------------------------ */
+  --surface-panel: #0a0a0a;                       /* tier 1: panel zemini */
+  --surface-card: rgba(255, 255, 255, 0.03);      /* tier 2: card */
   --surface-card-hover: rgba(255, 255, 255, 0.06);
+  --surface-raised: rgba(255, 255, 255, 0.05);    /* tier 3: floating */
+  --surface-raised-strong: rgba(255, 255, 255, 0.08);
   --surface-input: rgba(0, 0, 0, 0.4);
 
   /* ----- Overlay ------------------------------------------------------ */
-  --color-overlay: rgba(0, 0, 0, 0.75);
+  --color-overlay: rgba(0, 0, 0, 0.78);
 
   /* ----- Tipografi --------------------------------------------------- */
   --font-sans: 'Bricolage Grotesque', system-ui, -apple-system, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Bricolage Grotesque', ui-monospace, Menlo, Consolas, monospace;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
 
-  /* ----- Type scale -------------------------------------------------- */
-  --text-xs: 10px;
-  --text-sm: 11px;
-  --text-base: 13px;
-  --text-lg: 15px;
+  /* ----- Type scale (yükseltildi: 11 → 12 base) ---------------------- */
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 14px;
+  --text-lg: 16px;
   --text-xl: 18px;
   --text-2xl: 24px;
   --text-3xl: 32px;
 
-  /* ----- Radius sistemi ---------------------------------------------- */
-  --radius-sm: 6px;
+  /* ----- Spacing scale (8pt grid) ----------------------------------- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+
+  /* ----- Radius sistemi (3-tier) ------------------------------------- */
+  --radius-sm: 4px;
   --radius-md: 8px;
   --radius-lg: 12px;
-  --radius-xl: 16px;
+
+  /* ----- Touch targets ----------------------------------------------- */
+  --touch-min: 44px;            /* WCAG AA mobil minimum */
+
+  /* ----- Layout constants ------------------------------------------- */
+  --header-height: 48px;
+  --mobile-tab-height: 64px;
+
+  /* ----- Motion ------------------------------------------------------ */
+  --motion-fast: 120ms;
+  --motion-base: 200ms;
+  --motion-slow: 400ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 /* ===================================================================== */
 /* Global resets + body texture                                          */
 /* ===================================================================== */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
 
 html,
 body,
@@ -101,8 +132,10 @@ body,
   padding: 0;
   color: var(--color-text);
   font-family: var(--font-sans);
+  font-size: var(--text-base);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 body {
@@ -140,17 +173,22 @@ textarea {
   color: var(--color-text);
 }
 
-input:focus,
-select:focus,
-textarea:focus {
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
   outline: 2px solid var(--color-5);
   outline-offset: 2px;
 }
 
-/* Focus-visible for keyboard nav (Item 17) */
 button:focus-visible {
   outline: 2px solid var(--color-5);
   outline-offset: 2px;
+}
+
+/* Suppress focus ring for mouse users; keep for keyboard. */
+button:focus:not(:focus-visible),
+input:focus:not(:focus-visible) {
+  outline: none;
 }
 
 /* ===================================================================== */
@@ -158,94 +196,47 @@ button:focus-visible {
 /* ===================================================================== */
 
 @keyframes liminal-active-pulse {
-  0%,
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.45;
-    transform: scale(0.85);
-  }
+  0%, 100% { opacity: 1;    transform: scale(1); }
+  50%      { opacity: 0.5;  transform: scale(0.85); }
 }
 
 @keyframes liminal-pulse {
-  0%,
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.55;
-    transform: scale(0.98);
-  }
+  0%, 100% { opacity: 1;    transform: scale(1); }
+  50%      { opacity: 0.55; transform: scale(0.98); }
 }
 
 @keyframes liminal-shimmer {
-  0% {
-    background-position: 200% 0;
-  }
-  100% {
-    background-position: -200% 0;
-  }
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 @keyframes liminal-slide-in {
-  from {
-    opacity: 0;
-    transform: translateY(-6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes liminal-panel-enter {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes liminal-checkmark-draw {
-  from {
-    stroke-dashoffset: 40;
-  }
-  to {
-    stroke-dashoffset: 0;
-  }
+  from { stroke-dashoffset: 40; }
+  to   { stroke-dashoffset: 0; }
 }
 
 @keyframes liminal-slide-out {
-  from {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  to {
-    opacity: 0;
-    transform: translateY(-8px);
-  }
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(-8px); }
 }
 
 @keyframes liminal-scale-in {
-  from {
-    transform: scale(0.8);
-    opacity: 0;
-  }
-  to {
-    transform: scale(1);
-    opacity: 1;
-  }
+  from { transform: scale(0.8); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
 }
 
-
 /* ===================================================================== */
-/* Range slider cross-browser (Item 5 Round 2)                            */
+/* Range slider cross-browser — touch-friendly thumb (24px)             */
 /* ===================================================================== */
 
 input[type="range"] {
@@ -253,6 +244,7 @@ input[type="range"] {
   appearance: none;
   background: transparent;
   cursor: pointer;
+  height: 24px; /* touch target hit area */
 }
 
 input[type="range"]::-webkit-slider-runnable-track {
@@ -264,12 +256,13 @@ input[type="range"]::-webkit-slider-runnable-track {
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   background: var(--color-5);
-  border: none;
-  margin-top: -6px;
+  border: 3px solid var(--color-2);
+  box-shadow: 0 0 0 1px var(--color-5);
+  margin-top: -7px;
 }
 
 input[type="range"]::-moz-range-track {
@@ -280,19 +273,21 @@ input[type="range"]::-moz-range-track {
 }
 
 input[type="range"]::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   background: var(--color-5);
-  border: none;
+  border: 3px solid var(--color-2);
+  box-shadow: 0 0 0 1px var(--color-5);
 }
 
 /* ===================================================================== */
-/* Custom scrollbar — dark, near-invisible (Phase 4)                     */
+/* Custom scrollbar — dark, near-invisible                              */
 /* ===================================================================== */
 
 ::-webkit-scrollbar {
   width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -310,7 +305,7 @@ input[type="range"]::-moz-range-thumb {
 }
 
 /* ===================================================================== */
-/* Reduced motion (Item 18)                                               */
+/* Reduced motion — disable all animations                               */
 /* ===================================================================== */
 
 @media (prefers-reduced-motion: reduce) {
@@ -320,5 +315,17 @@ input[type="range"]::-moz-range-thumb {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
+}
+
+/* ===================================================================== */
+/* Scroll affordance — yatay scroll edge fade                            */
+/* ===================================================================== */
+
+.liminal-hscroll {
+  position: relative;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  mask-image: linear-gradient(to right, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
 }

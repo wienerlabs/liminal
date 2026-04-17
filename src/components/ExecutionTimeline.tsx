@@ -206,7 +206,7 @@ export const ExecutionTimeline: FC<ExecutionTimelineProps> = ({
                 state.totalPriceImprovementBps > 0
                   ? THEME.success
                   : state.totalPriceImprovementBps < 0
-                    ? THEME.amber
+                    ? THEME.danger
                     : THEME.textMuted,
             }}
           >
@@ -225,7 +225,7 @@ export const ExecutionTimeline: FC<ExecutionTimelineProps> = ({
                 state.totalPriceImprovementUsd > 0
                   ? THEME.success
                   : state.totalPriceImprovementUsd < 0
-                    ? THEME.amber
+                    ? THEME.danger
                     : THEME.textMuted,
             }}
           >
@@ -435,7 +435,7 @@ const CompletedDetails: FC<{
     result.priceImprovementBps > 0
       ? THEME.success
       : result.priceImprovementBps < 0
-        ? THEME.amber
+        ? THEME.danger
         : THEME.textMuted;
   return (
     <span>
@@ -479,10 +479,11 @@ const styles: Record<string, CSSProperties> = {
   },
   summaryBar: {
     display: "grid",
-    gridTemplateColumns: "1.4fr 0.8fr 1fr 1fr 0.9fr",
+    gridTemplateColumns: "1.4fr 0.7fr 1fr 1fr 1fr",
     gap: 8,
     padding: "10px 0",
     borderBottom: `1px solid ${THEME.border}`,
+    alignItems: "end",
   },
   summaryLeft: {
     display: "flex",
@@ -496,10 +497,10 @@ const styles: Record<string, CSSProperties> = {
     textAlign: "right",
   },
   summaryLabel: {
-    fontSize: 9,
+    fontSize: 10,
     color: THEME.textMuted,
-    opacity: 0.5,
-    letterSpacing: 2.5,
+    letterSpacing: "0.16em",
+    fontWeight: 600,
     textTransform: "uppercase",
   },
   summaryValue: {

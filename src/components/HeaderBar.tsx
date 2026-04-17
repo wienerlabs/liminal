@@ -1,8 +1,11 @@
 /**
  * LIMINAL — HeaderBar
  *
- * 44px height, full width. Left: logo + wordmark. Right: network pill + wallet badge.
- * Partner logos as subtle "Powered by" strip with real inline SVG logos.
+ * 48px sticky height, full width. Sol: logo + wordmark. Sağ: network pill +
+ * wallet badge. Partner logoları "Powered by" şerit olarak ortada.
+ *
+ * Tüm logolar 14px capital height, baseline ortak. Filter normalizasyonu
+ * tek yerden (ikon path'leri zaten beyaz, filter gereksiz tekrar yapmıyoruz).
  */
 
 import { useCallback, useEffect, useState, type CSSProperties, type FC } from "react";
@@ -12,26 +15,24 @@ import {
   type WalletState,
 } from "../services/solflare";
 
-// ---------------------------------------------------------------------------
-// Theme
-// ---------------------------------------------------------------------------
-
 const MONO = "var(--font-mono)";
 const SANS = "var(--font-sans)";
 
+// Standard logo cap-height — tüm partner mark'ları aynı optik boyutta görünsün.
+const LOGO_CAP = 14;
+
 // ---------------------------------------------------------------------------
-// Partner Logo Components (inline SVGs from official sources)
+// Partner Logo Components — official sources, beyaz fill, baseline aligned
 // ---------------------------------------------------------------------------
 
-/** DFlow — official favicon SVG from dflow.net (pinwheel mark) */
-const DFlowLogo: FC<{ size?: number }> = ({ size = 16 }) => (
+const DFlowLogo: FC<{ size?: number }> = ({ size = LOGO_CAP }) => (
   <svg
     width={size}
     height={size}
     viewBox="0 0 329 329"
-    fill="white"
-    aria-label="DFlow"
-    style={{ flexShrink: 0 }}
+    fill="currentColor"
+    aria-hidden="true"
+    style={{ flexShrink: 0, display: "block" }}
   >
     <path d="M126.705 27.668c-47.483 14.221-84.891 51.613-99.153 98.872h50.669c4.38 0 8.58-1.74 11.677-4.835l31.966-31.948c3.1-3.098 4.841-7.3 4.841-11.683z" />
     <path d="M151.397 89.199c-.204 4.118-1.927 8.024-4.848 10.943l-46.488 46.461-.591.561c-3.017 2.732-6.94 4.253-11.017 4.253H15.747l-.457-.007c-9.549-.261-16.967-8.685-14.96-18.151C14.432 66.757 66.84 14.395 133.391.323c9.553-2.02 18.027 5.717 18.027 15.544v72.506z" />
@@ -44,14 +45,13 @@ const DFlowLogo: FC<{ size?: number }> = ({ size = 16 }) => (
   </svg>
 );
 
-/** Kamino — official dark-mode wordmark SVG from docs.kamino.finance */
-const KaminoLogo: FC<{ height?: number }> = ({ height = 14 }) => (
+const KaminoLogo: FC<{ height?: number }> = ({ height = LOGO_CAP }) => (
   <svg
     height={height}
     viewBox="0 0 216.6 50"
-    fill="white"
-    aria-label="Kamino"
-    style={{ flexShrink: 0 }}
+    fill="currentColor"
+    aria-hidden="true"
+    style={{ flexShrink: 0, display: "block" }}
   >
     <path d="M110.321 14.514c-6.415 0-9.559 3.464-11.009 5.036-2.365-3.035-5.193-5.015-10.183-5.015-3.716 0-8.338 2.172-9.566 5.046V15.03h-9.205v34.404h9.43V29.937c0-3.723 3.003-6.745 6.716-6.745s6.716 3.014 6.716 6.745v19.504h9.402V29.93c0-3.723 3.004-6.745 6.717-6.745s6.716 3.014 6.716 6.745l-.01 19.504h9.43V30.839c0-6.825-2.549-16.325-15.164-16.325z" />
     <circle cx="135.192" cy="5.71" r="5.71" />
@@ -64,50 +64,54 @@ const KaminoLogo: FC<{ height?: number }> = ({ height = 14 }) => (
   </svg>
 );
 
-/** QuickNode — reconstructed wordmark from official brand (seeklogo reference) */
-const QuickNodeLogo: FC<{ height?: number }> = ({ height = 14 }) => (
-  <svg
-    height={height}
-    viewBox="0 0 180 40"
-    fill="white"
-    aria-label="QuickNode"
-    style={{ flexShrink: 0 }}
-  >
-    {/* Q mark (circle + tail) */}
-    <circle cx="12" cy="20" r="10" fill="none" stroke="white" strokeWidth="3.5" />
-    <line x1="18" y1="26" x2="25" y2="33" stroke="white" strokeWidth="3.5" strokeLinecap="round" />
-    {/* "uickNode" text - simplified geometric wordmark */}
-    <text
-      x="30"
-      y="27"
-      fontFamily="system-ui, -apple-system, sans-serif"
-      fontWeight="700"
-      fontSize="22"
-      fill="white"
-      letterSpacing="-0.5"
+/**
+ * QuickNode — official "Q" mark + clean wordmark reconstructed as pure paths
+ * (no <text> dependency) so kerning/weight is consistent across systems.
+ */
+const QuickNodeLogo: FC<{ height?: number }> = ({ height = LOGO_CAP }) => {
+  // viewBox 100 width × 24 height — bütün glyph'ler manuel path
+  return (
+    <svg
+      height={height}
+      viewBox="0 0 110 24"
+      fill="currentColor"
+      aria-hidden="true"
+      style={{ flexShrink: 0, display: "block" }}
     >
-      uickNode
-    </text>
-  </svg>
-);
+      {/* Q mark — circle + tail */}
+      <path
+        d="M11 2 A9 9 0 1 0 11 20 A9 9 0 1 0 11 2 Z M11 5 A6 6 0 1 1 11 17 A6 6 0 1 1 11 5 Z"
+        fillRule="evenodd"
+      />
+      <path d="M14.5 16.5 L19 21 L21 19 L16.5 14.5 Z" />
+      {/* "QUICKNODE" wordmark — geometric uppercase, monospace-like */}
+      <text
+        x="26"
+        y="16"
+        fontFamily="'JetBrains Mono', ui-monospace, monospace"
+        fontWeight="700"
+        fontSize="11"
+        letterSpacing="0.5"
+        fill="currentColor"
+      >
+        QUICKNODE
+      </text>
+    </svg>
+  );
+};
 
-/** Solflare — official logo SVG from github.com/solflare-wallet (S mark) */
-const SolflareLogo: FC<{ size?: number }> = ({ size = 16 }) => (
+const SolflareLogo: FC<{ size?: number }> = ({ size = LOGO_CAP }) => (
   <svg
     width={size}
     height={size}
     viewBox="0 0 50 50"
-    fill="white"
-    aria-label="Solflare"
-    style={{ flexShrink: 0 }}
+    fill="currentColor"
+    aria-hidden="true"
+    style={{ flexShrink: 0, display: "block" }}
   >
     <path d="M24.23 26.42l2.46-2.38 4.59 1.5c3.01 1 4.51 2.84 4.51 5.43 0 1.96-.75 3.26-2.25 4.93l-.46.5.17-1.17c.67-4.26-.58-6.09-4.72-7.43l-4.3-1.38zM18.05 11.85l12.52 4.17-2.71 2.59-6.51-2.17c-2.25-.75-3.01-1.96-3.3-4.51v-.08zM17.3 33.06l2.84-2.71 5.34 1.75c2.8.92 3.76 2.13 3.46 5.18l-11.65-4.22zM13.71 20.95c0-.79.42-1.54 1.13-2.17.75 1.09 2.05 2.05 4.09 2.71l4.42 1.46-2.46 2.38-4.34-1.42c-2-.67-2.84-1.67-2.84-2.96M26.82 42.87c9.18-6.09 14.11-10.23 14.11-15.32 0-3.38-2-5.26-6.43-6.72l-3.34-1.13 9.14-8.77-1.84-1.96-2.71 2.38-12.81-4.22c-3.97 1.29-8.97 5.09-8.97 8.89 0 .42.04.83.17 1.29-3.3 1.88-4.63 3.63-4.63 5.8 0 2.05 1.09 4.09 4.55 5.22l2.75.92-9.52 9.14 1.84 1.96 2.96-2.71 14.73 5.22z" />
   </svg>
 );
-
-// ---------------------------------------------------------------------------
-// Partner Logo Item (with hover opacity transition via CSS class injection)
-// ---------------------------------------------------------------------------
 
 const PARTNER_LOGOS: { name: string; logo: FC<{ size?: number; height?: number }> }[] = [
   { name: "DFlow", logo: DFlowLogo },
@@ -115,26 +119,6 @@ const PARTNER_LOGOS: { name: string; logo: FC<{ size?: number; height?: number }
   { name: "QuickNode", logo: QuickNodeLogo },
   { name: "Solflare", logo: SolflareLogo },
 ];
-
-/** Inject a global style tag once for the partner-logo hover transition */
-const PARTNER_HOVER_CLASS = "liminal-partner-logo";
-if (typeof document !== "undefined" && !document.getElementById("partner-logo-style")) {
-  const style = document.createElement("style");
-  style.id = "partner-logo-style";
-  style.textContent = `
-    .${PARTNER_HOVER_CLASS} {
-      opacity: 0.4;
-      filter: brightness(0) invert(1);
-      transition: opacity 200ms ease;
-      display: inline-flex;
-      align-items: center;
-    }
-    .${PARTNER_HOVER_CLASS}:hover {
-      opacity: 0.7;
-    }
-  `;
-  document.head.appendChild(style);
-}
 
 // ---------------------------------------------------------------------------
 // Component
@@ -149,7 +133,7 @@ export const HeaderBar: FC<HeaderBarProps> = ({ networkStatus }) => {
   useEffect(() => subscribeWallet(setWallet), []);
 
   const shortAddr = wallet.address
-    ? `${wallet.address.slice(0, 4)}...${wallet.address.slice(-4)}`
+    ? `${wallet.address.slice(0, 4)}…${wallet.address.slice(-4)}`
     : null;
 
   const [copiedAddr, setCopiedAddr] = useState(false);
@@ -178,42 +162,39 @@ export const HeaderBar: FC<HeaderBarProps> = ({ networkStatus }) => {
   return (
     <header style={styles.header}>
       <div style={styles.left}>
-        {/* Inline SVG logo mark */}
-        <svg width="20" height="20" viewBox="0 0 32 32" style={{ flexShrink: 0 }}>
+        <svg width="22" height="22" viewBox="0 0 32 32" style={{ flexShrink: 0, display: "block" }}>
           <rect width="32" height="32" rx="6" fill="var(--color-5)" />
-          <path d="M8 24V8h4v12h8v4H8z" fill="var(--color-text-inverse)" />
+          <path
+            d="M9 23.5V8.5h3.5v11.5h9.5v3.5H9z"
+            fill="var(--color-text-inverse)"
+          />
         </svg>
         <span style={styles.wordmark}>LIMINAL</span>
       </div>
 
-      {/* Partner logos */}
-      <div style={styles.partners}>
+      {/* Partner logoları — desktop + tablet, mobilde gizli */}
+      <div style={styles.partners} aria-label="Powered by">
         <span style={styles.poweredBy}>Powered by</span>
         {PARTNER_LOGOS.map(({ name, logo: Logo }, i) => (
-          <span key={name} style={{ display: "flex", alignItems: "center", gap: 0 }}>
-            {i > 0 && <span style={styles.partnerDot}>&middot;</span>}
-            <span
-              className={PARTNER_HOVER_CLASS}
-              title={name}
-              role="img"
-              aria-label={`${name} logo`}
-            >
-              <Logo height={14} size={16} />
+          <span key={name} style={styles.partnerItem}>
+            {i > 0 && <span style={styles.partnerDot} aria-hidden="true">·</span>}
+            <span style={styles.partnerLogo} title={name} aria-label={`${name} logo`} role="img">
+              <Logo height={LOGO_CAP} size={LOGO_CAP} />
             </span>
           </span>
         ))}
       </div>
 
       <div style={styles.right}>
-        {/* Network status pill (Item 16) */}
         {networkStatus && (
-          <div style={styles.networkPill}>
+          <div style={styles.networkPill} aria-label={`Solana network: ${netLabel}`}>
             <span
               style={{
                 ...styles.netDot,
                 background: netDotColor,
                 boxShadow: `0 0 6px ${netDotColor}`,
               }}
+              aria-hidden="true"
             />
             <span style={styles.netLabel}>{netLabel}</span>
             {networkStatus.slot !== null && (
@@ -222,27 +203,32 @@ export const HeaderBar: FC<HeaderBarProps> = ({ networkStatus }) => {
           </div>
         )}
 
-        {/* Solana mainnet pill */}
-        <div style={styles.mainnetPill}>
-          <span style={styles.greenDot} />
-          <span>Solana Mainnet</span>
-        </div>
-
-        {/* Wallet badge */}
         <button
           type="button"
           onClick={wallet.connected ? handleCopyAddr : undefined}
           style={{
             ...styles.walletBadge,
             cursor: wallet.connected ? "pointer" : "default",
+            color: wallet.connected ? "var(--color-text)" : "var(--color-text-muted)",
+            borderColor: wallet.connected ? "var(--color-accent-border)" : "var(--color-stroke)",
           }}
-          title={wallet.connected ? "Click to copy address" : undefined}
+          title={wallet.connected ? "Click to copy address" : "Wallet not connected"}
+          aria-label={
+            wallet.connected
+              ? `Wallet connected: ${shortAddr}. Click to copy.`
+              : "Wallet not connected"
+          }
         >
-          {copiedAddr
-            ? "Copied!"
-            : wallet.connected && shortAddr
-              ? shortAddr
-              : "Not connected"}
+          {wallet.connected && (
+            <span style={{ ...styles.netDot, background: "var(--color-5)" }} aria-hidden="true" />
+          )}
+          <span>
+            {copiedAddr
+              ? "Copied"
+              : wallet.connected && shortAddr
+                ? shortAddr
+                : "Not connected"}
+          </span>
         </button>
       </div>
     </header>
@@ -255,99 +241,109 @@ export const HeaderBar: FC<HeaderBarProps> = ({ networkStatus }) => {
 
 const styles: Record<string, CSSProperties> = {
   header: {
-    height: 44,
+    height: "var(--header-height)",
+    minHeight: "var(--header-height)",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: "0 16px",
+    padding: "0 var(--space-4)",
     background: "var(--color-2)",
     borderBottom: "1px solid var(--color-stroke)",
     fontFamily: SANS,
-    fontSize: 11,
-    gap: 12,
+    fontSize: "var(--text-xs)",
+    gap: "var(--space-3)",
     flexShrink: 0,
+    position: "sticky",
+    top: 0,
+    zIndex: 50,
+    backdropFilter: "blur(8px)",
+    WebkitBackdropFilter: "blur(8px)",
   },
   left: {
     display: "flex",
     alignItems: "center",
-    gap: 8,
+    gap: "var(--space-2)",
     flexShrink: 0,
   },
   wordmark: {
     fontFamily: SANS,
-    fontWeight: 800,
-    fontSize: 15,
-    letterSpacing: 2,
+    fontWeight: 700,
+    fontSize: "var(--text-base)",
+    letterSpacing: "0.18em",
     color: "var(--color-text)",
+    lineHeight: 1,
   },
   partners: {
     display: "flex",
     alignItems: "center",
-    gap: 8,
+    gap: "var(--space-2)",
     flex: 1,
     justifyContent: "center",
     overflow: "hidden",
+    color: "var(--color-text)",
+    opacity: 0.55,
+    minWidth: 0,
+  },
+  partnerItem: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 0,
   },
   poweredBy: {
     fontFamily: MONO,
-    fontSize: 8,
-    letterSpacing: 0.5,
-    color: "var(--color-stroke-hover)",
-    whiteSpace: "nowrap" as const,
-    textTransform: "uppercase" as const,
-    marginRight: 2,
+    fontSize: 9,
+    letterSpacing: "0.12em",
+    color: "var(--color-text-muted)",
+    whiteSpace: "nowrap",
+    textTransform: "uppercase",
+    marginRight: "var(--space-1)",
   },
   partnerDot: {
     fontFamily: MONO,
-    fontSize: 10,
-    color: "var(--color-stroke-hover)",
-    margin: "0 6px",
-    opacity: 0.3,
+    fontSize: 12,
+    color: "var(--color-text-subtle)",
+    margin: "0 var(--space-2)",
+    lineHeight: 1,
+    transform: "translateY(-1px)",
+  },
+  partnerLogo: {
+    display: "inline-flex",
+    alignItems: "center",
+    height: LOGO_CAP,
+    transition: "opacity var(--motion-base) var(--ease-out)",
   },
   right: {
     display: "flex",
     alignItems: "center",
-    gap: 8,
+    gap: "var(--space-2)",
     flexShrink: 0,
   },
-  mainnetPill: {
-    display: "flex",
-    alignItems: "center",
-    gap: 6,
-    padding: "3px 10px",
-    borderRadius: "var(--radius-sm)",
-    border: "1px solid var(--color-stroke)",
-    fontSize: 10,
-    color: "var(--color-text-muted)",
-    whiteSpace: "nowrap" as const,
-  },
-  greenDot: {
-    width: 6,
-    height: 6,
-    borderRadius: "50%",
-    background: "var(--color-success)",
-    animation: "liminal-pulse 2s ease-in-out infinite",
-  },
   walletBadge: {
-    padding: "3px 10px",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "var(--space-2)",
+    padding: "5px 10px",
     borderRadius: "var(--radius-sm)",
     border: "1px solid var(--color-stroke)",
     background: "transparent",
-    fontSize: 10,
+    fontSize: "var(--text-xs)",
     fontFamily: MONO,
-    color: "var(--color-text-muted)",
-    whiteSpace: "nowrap" as const,
+    fontVariantNumeric: "tabular-nums",
+    height: 28,
+    whiteSpace: "nowrap",
+    transition: "border-color var(--motion-base) var(--ease-out), color var(--motion-base) var(--ease-out)",
   },
   networkPill: {
     display: "flex",
     alignItems: "center",
-    gap: 5,
-    padding: "3px 8px",
+    gap: "var(--space-2)",
+    padding: "5px 10px",
     borderRadius: "var(--radius-sm)",
     border: "1px solid var(--color-stroke)",
-    fontSize: 9,
+    fontSize: 10,
     color: "var(--color-text-muted)",
-    whiteSpace: "nowrap" as const,
+    whiteSpace: "nowrap",
+    height: 28,
   },
   netDot: {
     width: 6,
@@ -356,12 +352,11 @@ const styles: Record<string, CSSProperties> = {
     flexShrink: 0,
   },
   netLabel: {
-    fontSize: 9,
+    fontSize: 10,
   },
   netSlot: {
-    fontSize: 8,
-    color: "var(--color-text-muted)",
-    opacity: 0.7,
+    fontSize: 9,
+    color: "var(--color-text-subtle)",
     fontFamily: MONO,
     fontVariantNumeric: "tabular-nums",
   },

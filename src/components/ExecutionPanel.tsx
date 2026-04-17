@@ -339,13 +339,16 @@ export const ExecutionPanel: FC = () => {
     isIdleOrConfigured;
 
   // --- Keyboard shortcut: Cmd/Ctrl + Enter to start ----------------------
+  // Guard: ignore when a modal/dialog is open or focus is inside an editable
+  // element other than this panel (prevents unintended triggers).
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-        if (canConfigure) {
-          e.preventDefault();
-          handleConfigureAndStartRef.current?.();
-        }
+      if (!((e.metaKey || e.ctrlKey) && e.key === "Enter")) return;
+      // Don't fire if a dialog (modal) is mounted anywhere.
+      if (document.querySelector('[role="dialog"]')) return;
+      if (canConfigure) {
+        e.preventDefault();
+        handleConfigureAndStartRef.current?.();
       }
     };
     window.addEventListener("keydown", handler);
@@ -487,7 +490,7 @@ export const ExecutionPanel: FC = () => {
           <div style={styles.section}>
             <div style={styles.sectionLabel}>TOKEN PAIR</div>
             {tokensLoading ? (
-              <div style={styles.row}>
+              <div style={styles.row} aria-busy="true" aria-label="Loading tokens">
                 <SkeletonBox width="48%" height={44} />
                 <SkeletonBox width="48%" height={44} />
               </div>
@@ -533,9 +536,10 @@ export const ExecutionPanel: FC = () => {
                   title="Swap tokens"
                   aria-label="Swap from and to tokens"
                 >
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <path d="M5 3v10M5 3L2 6M5 3l3 3" stroke="var(--color-5)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                    <path d="M11 13V3M11 13l3-3M11 13l-3-3" stroke="var(--color-5)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                    {/* Horizontal swap arrows — left/right exchange */}
+                    <path d="M3 6h10M10 3l3 3-3 3" stroke="var(--color-5)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M13 10H3M6 13l-3-3 3-3" stroke="var(--color-5)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </button>
                 <TokenSelect
@@ -587,16 +591,25 @@ export const ExecutionPanel: FC = () => {
                 inputMode="decimal"
                 placeholder="0.00"
                 value={amountStr}
-                onChange={(e) => !isInFlight && setAmountStr(e.target.value)}
+                onChange={(e) => {
+                  if (isInFlight) return;
+                  const v = e.target.value;
+                  // Sadece sayı + tek nokta + max 8 decimal kabul et.
+                  if (v === "" || /^\d*\.?\d{0,8}$/.test(v)) {
+                    setAmountStr(v);
+                  }
+                }}
                 disabled={isInFlight}
                 title={isInFlight ? lockedTooltip : undefined}
+                aria-invalid={amountExceedsBalance}
                 style={{
                   ...styles.numericInput,
                   borderColor: amountExceedsBalance
-                    ? THEME.danger
+                    ? "var(--color-danger)"
                     : THEME.border,
                   opacity: isInFlight ? 0.5 : 1,
                   cursor: isInFlight ? "not-allowed" : "text",
+                  paddingRight: fromToken && !isInFlight ? 56 : 12,
                 }}
               />
               {fromToken && !isInFlight && (
@@ -924,7 +937,7 @@ const PriceDisplay: FC<{
   }
   if (isLoading && lastUpdated === null) {
     return (
-      <div style={styles.priceList}>
+      <div style={styles.priceList} aria-busy="true" aria-label="Loading prices">
         {mints.map((m) => (
           <SkeletonBox key={m} width="100%" height={28} />
         ))}
@@ -932,7 +945,7 @@ const PriceDisplay: FC<{
     );
   }
   return (
-    <div style={styles.priceList}>
+    <div style={styles.priceList} aria-live="polite" aria-atomic="false">
       {mints.map((mint) => {
         const token = tokens.find((t) => t.mint === mint);
         const symbol = token?.symbol ?? mint.slice(0, 4);
@@ -1063,7 +1076,7 @@ const styles: Record<string, CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     width: "100%",
-    minHeight: 560,
+    minHeight: 600,
     background: "var(--color-2)",
     color: THEME.text,
     border: `1px solid ${THEME.border}`,
@@ -1071,15 +1084,15 @@ const styles: Record<string, CSSProperties> = {
     fontFamily: MONO,
     overflow: "hidden",
     boxShadow: "var(--shadow-component)",
-    transition: "border-color 200ms ease",
+    transition: "border-color var(--motion-base) var(--ease-out)",
   },
   header: {
     fontFamily: MONO,
-    fontSize: 9,
-    letterSpacing: 2.5,
+    fontSize: 10,
+    letterSpacing: "0.18em",
+    fontWeight: 600,
     color: THEME.textMuted,
-    opacity: 0.5,
-    padding: "12px 16px 10px",
+    padding: "14px 16px 12px",
     borderBottom: `1px solid ${THEME.border}`,
     textTransform: "uppercase",
   },
@@ -1099,14 +1112,14 @@ const styles: Record<string, CSSProperties> = {
     lineHeight: 1.6,
   },
   section: {
-    padding: "10px 16px",
+    padding: "12px 16px",
   },
   sectionLabel: {
     fontFamily: MONO,
-    fontSize: 9,
+    fontSize: 10,
     color: THEME.textMuted,
-    opacity: 0.5,
-    letterSpacing: 2.5,
+    letterSpacing: "0.16em",
+    fontWeight: 600,
     marginBottom: 8,
     textTransform: "uppercase",
   },
@@ -1186,17 +1199,21 @@ const styles: Record<string, CSSProperties> = {
   maxButton: {
     position: "absolute",
     right: 8,
+    top: "50%",
+    transform: "translateY(-50%)",
     fontFamily: MONO,
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: 700,
-    letterSpacing: 0.5,
+    letterSpacing: "0.06em",
     textTransform: "uppercase",
     color: "var(--color-5)",
-    background: "transparent",
-    border: "1px solid var(--color-stroke)",
+    background: "var(--color-accent-bg-soft)",
+    border: "1px solid var(--color-accent-border)",
     borderRadius: "var(--radius-sm)",
-    padding: "3px 8px",
+    padding: "4px 8px",
     cursor: "pointer",
+    lineHeight: 1,
+    transition: "background var(--motion-base) var(--ease-out)",
   },
   amountHint: {
     fontFamily: MONO,

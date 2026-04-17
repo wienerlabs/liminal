@@ -177,7 +177,7 @@ export const AnalyticsPanel: FC = () => {
     <aside style={styles.panel} aria-label="Analytics panel">
       <header style={styles.header}>ANALYTICS</header>
 
-      <nav style={styles.tabs}>
+      <nav style={styles.tabs} role="tablist" aria-label="Analytics views">
         <TabButton
           label="Live"
           active={activeTab === "live"}
@@ -219,6 +219,9 @@ const TabButton: FC<{
 }> = ({ label, active, onClick }) => (
   <button
     type="button"
+    role="tab"
+    aria-selected={active}
+    aria-controls={`analytics-panel-${label.toLowerCase()}`}
     onClick={onClick}
     style={{
       ...styles.tabButton,
@@ -254,17 +257,18 @@ const LiveTab: FC<{
     if (state.status === ExecutionStatus.DONE && !confettiFiredRef.current) {
       confettiFiredRef.current = true;
       try {
-        const colors = [
-          readCssVar("--color-5"),
-          readCssVar("--color-4"),
-          readCssVar("--color-3"),
-          readCssVar("--color-2"),
-        ].filter((c): c is string => !!c && c.length > 0);
+        // Karanlık zeminde görünür palette: cyan accent + success green + white
+        const palette = [
+          readCssVar("--color-5") || "#22d1ee",
+          readCssVar("--color-success") || "#22c55e",
+          "#ffffff",
+          "#a5f3fc",
+        ];
         confetti({
           particleCount: 140,
           spread: 70,
           origin: { y: 0.4 },
-          colors: colors.length > 0 ? colors : undefined,
+          colors: palette,
         });
       } catch {
         /* confetti failure fatal değil */
@@ -434,6 +438,7 @@ const DFlowBarChart: FC<{
     <div style={styles.chartCard}>
       <div style={styles.chartLabel}>DFLOW PRICE IMPROVEMENT</div>
       <div
+        className={isMobile ? "liminal-hscroll" : undefined}
         style={{
           ...styles.chartWrapper,
           overflowX: isMobile ? "auto" : undefined,
@@ -476,7 +481,7 @@ const DFlowBarChart: FC<{
               formatter={(_v: unknown, _n: unknown, item: { payload?: BarDatum }) => {
                 const d = item.payload;
                 if (!d) return ["", ""];
-                if (d.pending) return ["bekliyor", ""];
+                if (d.pending) return ["pending", ""];
                 return [
                   `${formatBps(d.bps)} bps (${formatUSD(d.usd)})`,
                   "improvement",
@@ -601,15 +606,15 @@ const KaminoYieldChart: FC<{
   if (series.length === 0) {
     return (
       <div style={styles.chartCard}>
-        <div style={styles.chartLabel}>KAMINO YIELD (CANLI)</div>
-        <div style={styles.yieldEmpty}>Yield verisi bekleniyor...</div>
+        <div style={styles.chartLabel}>KAMINO YIELD (LIVE)</div>
+        <div style={styles.yieldEmpty}>Waiting for yield data…</div>
       </div>
     );
   }
 
   return (
     <div style={styles.chartCard}>
-      <div style={styles.chartLabel}>KAMINO YIELD (CANLI)</div>
+      <div style={styles.chartLabel}>KAMINO YIELD (LIVE)</div>
       <div style={styles.chartWrapper}>
         <ResponsiveContainer width="100%" height={160}>
           <AreaChart
@@ -920,30 +925,82 @@ const HistoryDetailModal: FC<{
   onClose: () => void;
 }> = ({ execution, onClose }) => {
   const { summary, slices, inputSymbol, outputSymbol } = execution;
+  const modalRef = useRef<HTMLDivElement>(null);
+  const previouslyFocused = useRef<HTMLElement | null>(null);
 
-  // Escape key closes modal
+  // Escape key closes modal + focus trap + restore focus on unmount
   useEffect(() => {
+    previouslyFocused.current = document.activeElement as HTMLElement | null;
+    // Initial focus into the modal
+    modalRef.current?.focus();
+
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        onClose();
+        return;
+      }
+      // Focus trap on Tab
+      if (e.key === "Tab" && modalRef.current) {
+        const focusable = modalRef.current.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        );
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
     };
     window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
+
+    // Body scroll lock
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      window.removeEventListener("keydown", handler);
+      document.body.style.overflow = prevOverflow;
+      previouslyFocused.current?.focus();
+    };
   }, [onClose]);
 
+  const titleId = `history-modal-title-${execution.id}`;
+
   return (
-    <div style={styles.modalOverlay} onClick={onClose} role="dialog">
-      <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
+    <div style={styles.modalOverlay} onClick={onClose} role="presentation">
+      <div
+        ref={modalRef}
+        style={styles.modalCard}
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+      >
         <div style={styles.modalHeader}>
           <div>
-            <div style={styles.modalTitle}>
+            <div id={titleId} style={styles.modalTitle}>
               {inputSymbol} → {outputSymbol}
             </div>
             <div style={styles.modalSubtitle}>
               {formatDate(execution.createdAt)}
             </div>
           </div>
-          <button type="button" onClick={onClose} style={styles.modalClose}>
-            ×
+          <button
+            type="button"
+            onClick={onClose}
+            style={styles.modalClose}
+            aria-label="Close dialog"
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+              <path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
           </button>
         </div>
 
@@ -1632,14 +1689,18 @@ const styles: Record<string, CSSProperties> = {
   deleteBtn: {
     background: "transparent",
     border: `1px solid ${THEME.border}`,
-    borderRadius: 4,
+    borderRadius: "var(--radius-sm)",
     color: THEME.textMuted,
     cursor: "pointer",
-    fontSize: 14,
-    width: 22,
-    height: 22,
+    fontSize: 16,
+    width: 32,
+    height: 32,
     lineHeight: 1,
     padding: 0,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    transition: "color var(--motion-base) var(--ease-out), border-color var(--motion-base) var(--ease-out)",
   },
   confirmGroup: {
     display: "flex",
@@ -1714,17 +1775,20 @@ const styles: Record<string, CSSProperties> = {
   modalClose: {
     background: "transparent",
     border: `1px solid ${THEME.border}`,
-    borderRadius: 4,
+    borderRadius: "var(--radius-sm)",
     color: THEME.textMuted,
     cursor: "pointer",
-    fontSize: 18,
-    width: 28,
-    height: 28,
+    width: 36,
+    height: 36,
     padding: 0,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    transition: "color var(--motion-base) var(--ease-out), border-color var(--motion-base) var(--ease-out)",
   },
   modalSummaryGrid: {
     display: "grid",
-    gridTemplateColumns: "1fr 1fr",
+    gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
     gap: 12,
     marginBottom: 18,
   },
