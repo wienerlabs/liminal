@@ -31,6 +31,7 @@ import {
   isDFlowSlippageError,
   type DFlowQuote,
 } from "../services/dflow";
+import { DFlowLogo } from "./BrandLogos";
 
 // ---------------------------------------------------------------------------
 // Theme — CLAUDE.md BLOK 7 palet
@@ -282,7 +283,17 @@ export const QuoteComparison: FC<QuoteComparisonProps> = ({
 
         {/* DFlow — sağ, mor/yeşil */}
         <div style={styles.columnRight}>
-          <div style={styles.columnLabelAccent}>DFLOW</div>
+          <div
+            style={{
+              ...styles.columnLabelAccent,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <DFlowLogo size={13} />
+            <span>DFLOW</span>
+          </div>
           <div
             style={{
               ...styles.dflowRate,
