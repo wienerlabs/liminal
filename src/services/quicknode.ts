@@ -221,6 +221,50 @@ async function withTimeout<T>(
   });
 }
 
+/** Is an error a 429 Too Many Requests / rate-limit signal? */
+export function isRateLimitError(err: unknown): boolean {
+  if (!err) return false;
+  const msg = err instanceof Error ? err.message : String(err);
+  return (
+    /\b429\b|too many requests|rate ?limit|slow ?down|exceeded.*?(req|quota)/i.test(
+      msg,
+    )
+  );
+}
+
+/**
+ * Retries a promise-producing fn on 429 / rate-limit failures with
+ * exponential backoff + jitter. Never retries on timeouts or arbitrary
+ * errors — rate-limit is the only class of failure where re-running the
+ * same call with no input change is legitimate.
+ *
+ * Delays: 500ms → 1s → 2s → 4s, capped at 4 retries (~7.5s total).
+ */
+export async function withRateLimitRetry<T>(
+  fn: () => Promise<T>,
+  label: string,
+): Promise<T> {
+  const MAX_RETRIES = 4;
+  const BASE_DELAY_MS = 500;
+  let attempt = 0;
+  while (true) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (!isRateLimitError(err) || attempt >= MAX_RETRIES) {
+        throw err;
+      }
+      const delay =
+        BASE_DELAY_MS * Math.pow(2, attempt) + Math.random() * 200;
+      console.warn(
+        `[LIMINAL] ${label} rate-limited (attempt ${attempt + 1}/${MAX_RETRIES}), backing off ${Math.round(delay)}ms.`,
+      );
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      attempt++;
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
 // getSOLBalance
 // ---------------------------------------------------------------------------
@@ -234,10 +278,14 @@ export async function getSOLBalance(walletAddress: string): Promise<number> {
   const connection = createConnection();
 
   try {
-    const lamports = await withTimeout(
-      connection.getBalance(pubkey, COMMITMENT),
-      RPC_TIMEOUT_MS,
-      "SOL balance query",
+    const lamports = await withRateLimitRetry(
+      () =>
+        withTimeout(
+          connection.getBalance(pubkey, COMMITMENT),
+          RPC_TIMEOUT_MS,
+          "SOL balance query",
+        ),
+      "getBalance",
     );
     return lamports / LAMPORTS_PER_SOL;
   } catch (err) {
@@ -281,14 +329,18 @@ export async function getSPLTokenBalances(
 
   let accounts;
   try {
-    accounts = await withTimeout(
-      connection.getParsedTokenAccountsByOwner(
-        pubkey,
-        { programId: TOKEN_PROGRAM_ID },
-        COMMITMENT,
-      ),
-      RPC_TIMEOUT_MS,
-      "SPL token accounts query",
+    accounts = await withRateLimitRetry(
+      () =>
+        withTimeout(
+          connection.getParsedTokenAccountsByOwner(
+            pubkey,
+            { programId: TOKEN_PROGRAM_ID },
+            COMMITMENT,
+          ),
+          RPC_TIMEOUT_MS,
+          "SPL token accounts query",
+        ),
+      "getParsedTokenAccountsByOwner",
     );
   } catch (err) {
     if (err instanceof Error && /timed out/.test(err.message)) {
@@ -367,9 +419,13 @@ export async function getPythPrice(
   const url = `${HERMES_URL}/v2/updates/price/latest?ids[]=${feedId}`;
   let response: Response;
   try {
-    response = await withTimeout(
-      fetch(url, { method: "GET" }),
-      RPC_TIMEOUT_MS,
+    response = await withRateLimitRetry(
+      () =>
+        withTimeout(
+          fetch(url, { method: "GET" }),
+          RPC_TIMEOUT_MS,
+          `Pyth Hermes (${symbolFor(tokenMint)})`,
+        ),
       `Pyth Hermes (${symbolFor(tokenMint)})`,
     );
   } catch (err) {

@@ -321,6 +321,12 @@ export async function executeNextSlice(
 ): Promise<void> {
   const SLIPPAGE_DEFER_MS = 30_000;
   const TIME_WAIT_TICK_MS = 2_000; // zamana uyanma granülaritesi
+  // BLOK 3 slippage discipline still says "defer not error", but an
+  // unbounded loop lets a volatile market stall the entire execution
+  // window. Cap the number of consecutive defers per slice; past this,
+  // surface it as a real error so the user can widen slippage or skip.
+  const MAX_SLIPPAGE_DEFERS_PER_SLICE = 3;
+  const sliceDeferCounts = new Map<number, number>();
 
   // Döngü — her iterasyon bir dilim veya bir zaman beklemesi.
   // eslint-disable-next-line no-constant-condition
@@ -371,25 +377,42 @@ export async function executeNextSlice(
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
 
-      // BLOK 3 slippage disiplini: hata DEĞİL, defer.
+      // BLOK 3 slippage disiplini: hata DEĞİL, defer. Defer count'u tut —
+      // aynı dilim art arda MAX_SLIPPAGE_DEFERS_PER_SLICE kez ertelenmiş
+      // ise real error olarak yükseltelim ki kullanıcı cancel/widen karar
+      // alabilsin.
       if (isDFlowSlippageError(message)) {
+        const prevCount = sliceDeferCounts.get(idx) ?? 0;
+        const nextCount = prevCount + 1;
+        sliceDeferCounts.set(idx, nextCount);
+
+        if (nextCount > MAX_SLIPPAGE_DEFERS_PER_SLICE) {
+          setState((s) => ({
+            ...s,
+            status: ExecutionStatus.ERROR,
+            currentQuote: null,
+            error: {
+              code: ErrorCode.SLIPPAGE_EXCEEDED,
+              message:
+                `Slice ${idx + 1} kept exceeding the slippage limit for ${MAX_SLIPPAGE_DEFERS_PER_SLICE} consecutive attempts. ` +
+                "Either widen the slippage threshold or retry from a fresh configuration.",
+              sliceIndex: idx,
+              retryable: false,
+              timestamp: new Date(),
+            },
+          }));
+          return;
+        }
+
         const newTarget = new Date(nowMs() + SLIPPAGE_DEFER_MS);
         setState((s) => ({
           ...s,
           slices: s.slices.map((sl, i) =>
             i === idx ? { ...sl, targetExecutionTime: newTarget } : sl,
           ),
-          // error set edilmez — defer bir uyarıdır, state uyarıyı
-          // `currentQuote` yerine `error` field'ı dışındaki bir kanalla
-          // göstermek için currentQuote null bırakılır ve UI mesajı
-          // error ile değil status + slice.targetExecutionTime üzerinden
-          // çıkarır. Ancak "uyarı metnini" kaybetmemek için error alanına
-          // retryable=true + SLIPPAGE_EXCEEDED olarak yazıyoruz; timeline
-          // bileşeni bu kodu gördüğünde durumu "ertelendi" şeklinde render
-          // eder, execution akışı durmaz.
           error: {
             code: ErrorCode.SLIPPAGE_EXCEEDED,
-            message: `Dilim ${idx + 1} slippage limitini aştı. 30 saniye ertelendi.`,
+            message: `Slice ${idx + 1} slippage exceeded — deferred 30s (attempt ${nextCount}/${MAX_SLIPPAGE_DEFERS_PER_SLICE}).`,
             sliceIndex: idx,
             retryable: true,
             timestamp: new Date(),
@@ -397,7 +420,6 @@ export async function executeNextSlice(
           currentQuote: null,
         }));
         await sleep(SLIPPAGE_DEFER_MS);
-        // Defer sonrası error'u temizle, döngü devam etsin.
         setState((s) =>
           s.error?.code === ErrorCode.SLIPPAGE_EXCEEDED
             ? { ...s, error: null }
@@ -461,6 +483,38 @@ export async function executeNextSlice(
 
     // Cancellation check: instruction build sırasında reset gelmiş olabilir.
     if (getState().status !== ExecutionStatus.SLICE_WITHDRAWING) return;
+
+    // Pre-sign quote freshness guard (H-9). If the user lingered on the
+    // Solflare popup, the quote fetched above may be within seconds of
+    // its expiry by the time they finally sign. Re-fetch the quote if we
+    // have <10s left — this also refreshes Ultra's request ID so the
+    // server-side execute endpoint accepts it.
+    const msLeft = quote.dflowQuote.expiresAt - nowMs();
+    if (msLeft < 10_000) {
+      try {
+        const fresh = await dflowGetQuote(
+          current.config.inputMint,
+          current.config.outputMint,
+          slice.amount,
+          current.config.slippageBps,
+          current.config.walletPublicKey.toBase58(),
+        );
+        quote = fresh;
+        setState((s) => ({ ...s, currentQuote: fresh }));
+        // Instruction list uses the *fresh* quote's embedded transaction;
+        // re-derive the DFlow ix set so it matches requestId.
+        dflowIxs = await fetchSwapInstructions(
+          current.config.walletPublicKey,
+          fresh,
+        );
+      } catch (err) {
+        // If re-quote fails, fall through with the old quote — simulation
+        // will catch the staleness and we'll hit the standard error path.
+        console.warn(
+          `[LIMINAL] Pre-sign re-quote failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
 
     // SLICE_EXECUTING — batch broadcast aşamasındayız.
     setState((s) => ({ ...s, status: ExecutionStatus.SLICE_EXECUTING }));
