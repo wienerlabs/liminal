@@ -25,6 +25,7 @@ import {
   type FC,
 } from "react";
 import Button from "./Button";
+import { LiminalMark } from "./BrandLogos";
 
 const STORAGE_KEY = "liminal:disclaimer:v1";
 
@@ -109,6 +110,9 @@ export const DisclaimerModal: FC<DisclaimerModalProps> = ({ onAccept }) => {
         tabIndex={-1}
         style={styles.card}
       >
+        <div style={{ textAlign: "center", marginBottom: 8 }}>
+          <LiminalMark size={64} style={{ margin: "0 auto" }} />
+        </div>
         <h2 id="liminal-disclaimer-title" style={styles.title}>
           Before you continue
         </h2>

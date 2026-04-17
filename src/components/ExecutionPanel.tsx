@@ -35,6 +35,7 @@ import { usePriceMonitor } from "../hooks/usePriceMonitor";
 import { useExecutionMachine } from "../hooks/useExecutionMachine";
 import { useDeviceDetection } from "../hooks/useDeviceDetection";
 import { useTokenRegistry } from "../hooks/useTokenRegistry";
+import { DFlowLogo, LiminalMark } from "./BrandLogos";
 import { ExecutionStatus } from "../state/executionMachine";
 import VaultPreview from "./VaultPreview";
 import QuoteComparison from "./QuoteComparison";
@@ -473,6 +474,9 @@ export const ExecutionPanel: FC = () => {
       {!wallet.connected ? (
         <div style={styles.emptyBody}>
           <div style={styles.welcomeSection}>
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: 4 }}>
+              <LiminalMark size={88} />
+            </div>
             <div style={styles.welcomeTagline}>Intelligent Execution Terminal</div>
             <div style={styles.welcomeFeatures}>
               <WelcomeFeature
@@ -486,7 +490,7 @@ export const ExecutionPanel: FC = () => {
                 desc="Earn yield on idle capital while you wait"
               />
               <WelcomeFeature
-                icon={<ShieldIcon />}
+                icon={<DFlowLogo size={20} />}
                 title="DFlow MEV Protection"
                 desc="Every slice routed through MEV-protected paths"
               />

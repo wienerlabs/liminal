@@ -36,6 +36,7 @@ import {
 import { usePriceMonitor } from "../hooks/usePriceMonitor";
 import { useTokenRegistry } from "../hooks/useTokenRegistry";
 import { useActiveKaminoPositions } from "../hooks/useActiveKaminoPositions";
+import { LiminalMark } from "./BrandLogos";
 import type { ActiveKaminoPosition } from "../services/kamino";
 import {
   getHistory,
@@ -240,12 +241,7 @@ export const WalletPanel: FC = () => {
       >
         <header style={styles.header}>WALLET</header>
         <div style={styles.emptyBody}>
-          <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-            <rect x="4" y="12" width="40" height="28" rx="4" stroke="var(--color-5)" strokeWidth="2" fill="none" />
-            <path d="M4 20h40" stroke="var(--color-5)" strokeWidth="2" />
-            <circle cx="36" cy="28" r="3" stroke="var(--color-5)" strokeWidth="2" fill="none" />
-            <path d="M12 8h24" stroke="var(--color-5)" strokeWidth="1.5" strokeLinecap="round" opacity="0.5" />
-          </svg>
+          <LiminalMark size={96} style={{ marginBottom: 4 }} />
           <div style={styles.emptyHint}>
             Connect your Solflare wallet to start using LIMINAL.
           </div>
