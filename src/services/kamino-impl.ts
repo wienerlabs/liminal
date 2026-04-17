@@ -173,6 +173,41 @@ export function invalidateKaminoMarketCache(): void {
 // Reserve → public KaminoVault shape
 // ---------------------------------------------------------------------------
 
+/**
+ * Convert a Kamino `Position` (from `obligation.deposits` or `.borrows`)
+ * from its raw lamports amount into human token units.
+ *
+ * Kamino SDK v7 stores Position.amount in lamports (raw, pre-decimals)
+ * and exposes `mintFactor = 10^decimals` on the same object. Dividing
+ * by mintFactor gives the amount the user expects to see (e.g. 4.268
+ * SOL instead of 4_268_000_000 lamports).
+ *
+ * Defensive: tolerates missing fields by returning 0 rather than NaN so
+ * UI never shows "NaN" or reads a raw lamports figure by accident.
+ */
+function decimalToTokenUnits(position: unknown): number {
+  if (!position || typeof position !== "object") return 0;
+  const p = position as { amount?: unknown; mintFactor?: unknown };
+  const amount = toNumber(p.amount);
+  const factor = toNumber(p.mintFactor);
+  if (!Number.isFinite(amount) || amount <= 0) return 0;
+  if (!Number.isFinite(factor) || factor <= 0) return amount; // fall back to raw if factor missing
+  return amount / factor;
+}
+
+function toNumber(value: unknown): number {
+  if (typeof value === "number") return value;
+  if (value && typeof (value as Decimal).toNumber === "function") {
+    try {
+      return (value as Decimal).toNumber();
+    } catch {
+      return NaN;
+    }
+  }
+  if (typeof value === "string") return Number(value);
+  return NaN;
+}
+
 function reserveToVault(reserve: KaminoReserve, currentSlot: bigint): KaminoVault {
   const symbol = reserve.symbol;
   const mint = reserve.getLiquidityMint().toString();
@@ -325,14 +360,11 @@ export async function getPositionValue(
       };
     }
 
-    // v7 deposit.amount → Decimal. Use toNumber() defensively.
-    const rawAmount = (deposit as { amount?: unknown }).amount;
-    let tokenValue = 0;
-    if (rawAmount && typeof (rawAmount as Decimal).toNumber === "function") {
-      tokenValue = (rawAmount as Decimal).toNumber();
-    } else if (typeof rawAmount === "number") {
-      tokenValue = rawAmount;
-    }
+    // v7 Position.amount is in LAMPORTS (raw, not human units). The SDK
+    // docs state: "Amount of tokens in lamports, including decimal places
+    // for interest accrued". position.mintFactor is the decimals factor
+    // (10^decimals) — divide by it to get human token units.
+    const tokenValue = decimalToTokenUnits(deposit);
     const kTokenBalance = tokenValue; // v7 vanilla obligation stores token-denominated deposit
     const yieldAccrued = Math.max(0, tokenValue - principal);
 
@@ -381,13 +413,9 @@ export async function getActivePositions(
       const reserve = market.reserves.get(reserveAddr);
       if (!reserve) continue;
 
-      const rawAmount = (deposit as { amount?: unknown }).amount;
-      let amount = 0;
-      if (rawAmount && typeof (rawAmount as Decimal).toNumber === "function") {
-        amount = (rawAmount as Decimal).toNumber();
-      } else if (typeof rawAmount === "number") {
-        amount = rawAmount;
-      }
+      // v7 Position.amount is LAMPORTS — divide by mintFactor to get
+      // human token units before displaying to the user.
+      const amount = decimalToTokenUnits(deposit);
       if (amount <= 0) continue;
 
       let supplyAPY = 0;
