@@ -272,7 +272,7 @@ const styles: Record<string, CSSProperties> = {
     justifyContent: "center",
   },
   title: {
-    fontSize: 14,
+    fontSize: 17,
     fontWeight: 700,
     color: THEME.success,
     letterSpacing: 1.5,
@@ -282,17 +282,17 @@ const styles: Record<string, CSSProperties> = {
     marginTop: 6,
   },
   pairText: {
-    fontSize: 16,
+    fontSize: 19,
     fontWeight: 600,
     color: THEME.text,
   },
   amountRow: {
-    fontSize: 13,
+    fontSize: 16,
     color: THEME.textMuted,
     fontVariantNumeric: "tabular-nums",
   },
   durationRow: {
-    fontSize: 11,
+    fontSize: 14,
     color: THEME.textMuted,
     fontVariantNumeric: "tabular-nums",
   },
@@ -316,30 +316,30 @@ const styles: Record<string, CSSProperties> = {
     textAlign: "center",
   },
   metricLabel: {
-    fontSize: 9,
+    fontSize: 12,
     color: THEME.textMuted,
     letterSpacing: 0.5,
     textTransform: "uppercase",
   },
   metricValue: {
-    fontSize: 14,
+    fontSize: 17,
     fontWeight: 700,
     fontVariantNumeric: "tabular-nums",
   },
   metricSub: {
-    fontSize: 9,
+    fontSize: 12,
     color: THEME.textMuted,
     fontVariantNumeric: "tabular-nums",
   },
   valueCaptureLabel: {
-    fontSize: 10,
+    fontSize: 13,
     color: THEME.textMuted,
     letterSpacing: 1.5,
     textTransform: "uppercase",
     marginTop: 8,
   },
   valueCaptureValue: {
-    fontSize: 32,
+    fontSize: 36,
     fontWeight: 700,
     fontVariantNumeric: "tabular-nums",
     marginTop: 2,
@@ -347,7 +347,7 @@ const styles: Record<string, CSSProperties> = {
     animation: "liminal-scale-in 600ms ease-out",
   },
   valueCaptureHint: {
-    fontSize: 9,
+    fontSize: 12,
     color: THEME.textMuted,
     textAlign: "center",
     maxWidth: 280,
@@ -363,7 +363,7 @@ const styles: Record<string, CSSProperties> = {
   },
   primaryButton: {
     fontFamily: MONO,
-    fontSize: 12,
+    fontSize: 15,
     fontWeight: 700,
     color: "var(--color-text-inverse)",
     background: THEME.accent,
@@ -377,7 +377,7 @@ const styles: Record<string, CSSProperties> = {
   },
   secondaryButton: {
     fontFamily: MONO,
-    fontSize: 11,
+    fontSize: 14,
     fontWeight: 600,
     color: THEME.text,
     background: "transparent",

@@ -199,7 +199,7 @@ const styles: Record<string, CSSProperties> = {
   },
   label: {
     fontFamily: MONO,
-    fontSize: 9,
+    fontSize: 12,
     color: THEME.accent,
     letterSpacing: 1.5,
     textTransform: "uppercase",
@@ -207,7 +207,7 @@ const styles: Record<string, CSSProperties> = {
   },
   vaultName: {
     fontFamily: MONO,
-    fontSize: 13,
+    fontSize: 16,
     color: THEME.text,
     marginBottom: 10,
   },
@@ -222,14 +222,14 @@ const styles: Record<string, CSSProperties> = {
   },
   apyLabel: {
     fontFamily: MONO,
-    fontSize: 10,
+    fontSize: 13,
     color: THEME.textMuted,
     letterSpacing: 1,
     textTransform: "uppercase",
   },
   apyValue: {
     fontFamily: MONO,
-    fontSize: 22,
+    fontSize: 25,
     fontWeight: 700,
     color: THEME.success,
     fontVariantNumeric: "tabular-nums",
@@ -241,7 +241,7 @@ const styles: Record<string, CSSProperties> = {
   },
   yieldLabel: {
     fontFamily: MONO,
-    fontSize: 10,
+    fontSize: 13,
     color: THEME.textMuted,
     letterSpacing: 0.5,
     marginTop: 8,
@@ -249,7 +249,7 @@ const styles: Record<string, CSSProperties> = {
   },
   yieldValue: {
     fontFamily: MONO,
-    fontSize: 18,
+    fontSize: 21,
     fontWeight: 600,
     color: THEME.text,
     fontVariantNumeric: "tabular-nums",
@@ -259,14 +259,14 @@ const styles: Record<string, CSSProperties> = {
   },
   warningTitle: {
     fontFamily: MONO,
-    fontSize: 10,
+    fontSize: 13,
     color: THEME.amber,
     letterSpacing: 1.5,
     textTransform: "uppercase",
   },
   warningText: {
     fontFamily: MONO,
-    fontSize: 12,
+    fontSize: 15,
     color: THEME.amber,
     lineHeight: 1.5,
   },

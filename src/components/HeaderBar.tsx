@@ -87,11 +87,11 @@ const QuickNodeLogo: FC<{ height?: number }> = ({ height = LOGO_CAP }) => {
       {/* "QUICKNODE" wordmark — geometric uppercase, monospace-like */}
       <text
         x="26"
-        y="16"
-        fontFamily="'JetBrains Mono', ui-monospace, monospace"
+        y="17"
+        fontFamily="'Space Grotesk', system-ui, sans-serif"
         fontWeight="700"
-        fontSize="11"
-        letterSpacing="0.5"
+        fontSize="13"
+        letterSpacing="0.3"
         fill="currentColor"
       >
         QUICKNODE
@@ -162,11 +162,17 @@ export const HeaderBar: FC<HeaderBarProps> = ({ networkStatus }) => {
   return (
     <header style={styles.header}>
       <div style={styles.left}>
-        <svg width="22" height="22" viewBox="0 0 32 32" style={{ flexShrink: 0, display: "block" }}>
-          <rect width="32" height="32" rx="6" fill="var(--color-5)" />
+        <svg width="22" height="22" viewBox="0 0 32 32" style={{ flexShrink: 0, display: "block" }} aria-hidden="true">
+          <defs>
+            <linearGradient id="liminal-mark-grad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stopColor="#f9b2d7" />
+              <stop offset="100%" stopColor="#f48cc4" />
+            </linearGradient>
+          </defs>
+          <rect width="32" height="32" rx="7" fill="url(#liminal-mark-grad)" />
           <path
             d="M9 23.5V8.5h3.5v11.5h9.5v3.5H9z"
-            fill="var(--color-text-inverse)"
+            fill="#1a1a1a"
           />
         </svg>
         <span style={styles.wordmark}>LIMINAL</span>
@@ -281,7 +287,7 @@ const styles: Record<string, CSSProperties> = {
     justifyContent: "center",
     overflow: "hidden",
     color: "var(--color-text)",
-    opacity: 0.55,
+    opacity: 0.45,
     minWidth: 0,
   },
   partnerItem: {
@@ -291,7 +297,7 @@ const styles: Record<string, CSSProperties> = {
   },
   poweredBy: {
     fontFamily: MONO,
-    fontSize: 9,
+    fontSize: 12,
     letterSpacing: "0.12em",
     color: "var(--color-text-muted)",
     whiteSpace: "nowrap",
@@ -300,7 +306,7 @@ const styles: Record<string, CSSProperties> = {
   },
   partnerDot: {
     fontFamily: MONO,
-    fontSize: 12,
+    fontSize: 15,
     color: "var(--color-text-subtle)",
     margin: "0 var(--space-2)",
     lineHeight: 1,
@@ -340,7 +346,7 @@ const styles: Record<string, CSSProperties> = {
     padding: "5px 10px",
     borderRadius: "var(--radius-sm)",
     border: "1px solid var(--color-stroke)",
-    fontSize: 10,
+    fontSize: 13,
     color: "var(--color-text-muted)",
     whiteSpace: "nowrap",
     height: 28,
@@ -352,10 +358,10 @@ const styles: Record<string, CSSProperties> = {
     flexShrink: 0,
   },
   netLabel: {
-    fontSize: 10,
+    fontSize: 13,
   },
   netSlot: {
-    fontSize: 9,
+    fontSize: 12,
     color: "var(--color-text-subtle)",
     fontFamily: MONO,
     fontVariantNumeric: "tabular-nums",

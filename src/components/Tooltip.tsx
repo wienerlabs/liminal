@@ -74,7 +74,7 @@ const styles: Record<string, CSSProperties> = {
     boxShadow: "var(--shadow-raised)",
     borderRadius: "var(--radius-sm)",
     fontFamily: "var(--font-sans)",
-    fontSize: 11,
+    fontSize: 14,
     color: "var(--color-text)",
     maxWidth: 220,
     padding: "6px 10px",

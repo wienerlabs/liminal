@@ -24,9 +24,14 @@ import { parsePriceData, PriceStatus } from "@pythnetwork/client";
 // ---------------------------------------------------------------------------
 // Endpoint configuration
 // ---------------------------------------------------------------------------
+//
+// RPC URL kaynağı: `.env.local` içindeki `VITE_QUICKNODE_RPC_URL`.
+// Vite `import.meta.env` üzerinden compile-time'da inject edilir.
+// Setup: `.env.example` dosyasını `.env.local`'a kopyala, URL'yi doldur.
+// `.env.local` gitignore'lı — token git'e sızmaz.
 
-// QUICKNODE DASHBOARD > SOLANA MAINNET > HTTP PROVIDER URL BURAYA
-export const QUICKNODE_RPC_ENDPOINT = "";
+export const QUICKNODE_RPC_ENDPOINT: string =
+  (import.meta.env.VITE_QUICKNODE_RPC_URL as string | undefined) ?? "";
 
 const COMMITMENT: Commitment = "confirmed";
 const RPC_TIMEOUT_MS = 15_000;
@@ -35,17 +40,17 @@ const PYTH_STALE_CONFIDENCE_RATIO = 0.05; // confidence > 5% of price → stale
 // Module-load-time safety: never fail silently if the developer forgets it.
 if (typeof console !== "undefined" && !QUICKNODE_RPC_ENDPOINT) {
   console.error(
-    "[LIMINAL] WARNING: QUICKNODE_RPC_ENDPOINT is empty. All RPC calls will throw. " +
-      "Fill the constant at the top of src/services/quicknode.ts with " +
-      "your Quicknode dashboard > Solana Mainnet > HTTP Provider URL.",
+    "[LIMINAL] WARNING: VITE_QUICKNODE_RPC_URL is empty. All RPC calls will throw. " +
+      "Copy `.env.example` to `.env.local` and fill in your QuickNode " +
+      "dashboard > Endpoints > HTTP Provider URL.",
   );
 }
 
 function requireEndpoint(): string {
   if (!QUICKNODE_RPC_ENDPOINT) {
     throw new Error(
-      "Quicknode RPC endpoint is not configured. " +
-        "Fill the QUICKNODE_RPC_ENDPOINT constant at the top of src/services/quicknode.ts.",
+      "QuickNode RPC endpoint is not configured. " +
+        "Set VITE_QUICKNODE_RPC_URL in `.env.local` and restart the dev server.",
     );
   }
   return QUICKNODE_RPC_ENDPOINT;
@@ -132,11 +137,20 @@ export function createConnection(): Connection {
 
 function shortMint(mint: string): string {
   if (mint.length <= 10) return mint;
-  return `${mint.slice(0, 4)}...${mint.slice(-4)}`;
+  return `${mint.slice(0, 4)}…${mint.slice(-4)}`;
 }
 
+// Registry-aware symbol resolver. Order:
+//   1. Statik canonical mapping (SOL/USDC/USDT/BONK) — instant
+//   2. Jupiter token registry (lazy loaded, cached) — async warmup
+//   3. Shortened mint fallback
+import { lookupToken as registryLookup } from "./tokenRegistry";
+
 function symbolFor(mint: string): string {
-  return MINT_TO_SYMBOL[mint] ?? shortMint(mint);
+  if (MINT_TO_SYMBOL[mint]) return MINT_TO_SYMBOL[mint];
+  const reg = registryLookup(mint);
+  if (reg?.symbol) return reg.symbol;
+  return shortMint(mint);
 }
 
 /**
