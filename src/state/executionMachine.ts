@@ -52,6 +52,11 @@ import {
   type PreSignedPlan,
   type SignAllFn,
 } from "./preSignPlan";
+import {
+  notifyExecutionDone,
+  notifyExecutionError,
+  notifySliceReady,
+} from "../services/notifications";
 
 // ---------------------------------------------------------------------------
 // Enums
@@ -816,6 +821,11 @@ async function executePreSignedSlice(
   // --- Step 3: JIT swap (popup) ---
   setState((s) => ({ ...s, status: ExecutionStatus.SLICE_EXECUTING }));
 
+  // Level 2: Notify the user BEFORE the Solflare popup opens so they
+  // can return to the tab from wherever they were. Notification is
+  // silent if the tab is already focused (no redundant alert).
+  notifySliceReady(idx, config.sliceCount);
+
   let swapResult: ExecutionResult;
   try {
     swapResult = await dflowExecuteSwap(
@@ -824,10 +834,12 @@ async function executePreSignedSlice(
       config.signTransaction,
     );
   } catch (err) {
+    const parsed = parseError(err, idx, "dflow-swap");
+    notifyExecutionError(parsed.message);
     setState((s) => ({
       ...s,
       status: ExecutionStatus.ERROR,
-      error: parseError(err, idx, "dflow-swap"),
+      error: parsed,
       slices: s.slices.map((sl, i) =>
         i === idx ? { ...sl, status: "pending" } : sl,
       ),
@@ -958,6 +970,11 @@ export async function completeEffect(
     // preSignedPlan kept through DONE so cleanup telemetry can surface
     // cleanup tx sig later; reset() clears it along with the rest of state.
   }));
+
+  // Level 2: Final user-facing notification so they know execution
+  // wrapped while they were away. Silent if the tab is currently
+  // focused.
+  notifyExecutionDone(s0.totalPriceImprovementUsd + s0.totalYieldEarned);
 }
 
 // ---------------------------------------------------------------------------
