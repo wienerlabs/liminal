@@ -35,7 +35,7 @@ import { usePriceMonitor } from "../hooks/usePriceMonitor";
 import { useExecutionMachine } from "../hooks/useExecutionMachine";
 import { useDeviceDetection } from "../hooks/useDeviceDetection";
 import { useTokenRegistry } from "../hooks/useTokenRegistry";
-import { DFlowLogo, LiminalMark } from "./BrandLogos";
+import { DFlowLogo, KaminoLogo, LiminalMark } from "./BrandLogos";
 import { ExecutionStatus } from "../state/executionMachine";
 import VaultPreview from "./VaultPreview";
 import QuoteComparison from "./QuoteComparison";
@@ -485,7 +485,17 @@ export const ExecutionPanel: FC = () => {
                 desc="Split large swaps into optimal slices"
               />
               <WelcomeFeature
-                icon={<YieldIcon />}
+                icon={
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      color: "var(--color-text)",
+                    }}
+                  >
+                    <KaminoLogo height={16} />
+                  </span>
+                }
                 title="Kamino Yield"
                 desc="Earn yield on idle capital while you wait"
               />
