@@ -176,6 +176,39 @@ export async function buildPartialWithdrawInstructions(
   );
 }
 
+/**
+ * Unsigned deposit ixs for the durable-nonce pre-signing path. Mirrors
+ * `deposit()` but returns ixs instead of broadcasting. Consumers wrap
+ * the output with `buildDurableTx` and request a single
+ * `signAllTransactions` popup alongside every other plan tx.
+ */
+export async function buildDepositInstructions(
+  walletPublicKey: PublicKey,
+  tokenMint: string,
+  amount: number,
+): Promise<{
+  instructions: TransactionInstruction[];
+  lookupTables: AddressLookupTableAccount[];
+}> {
+  const m = await loadImpl();
+  return m.buildDepositInstructions(walletPublicKey, tokenMint, amount);
+}
+
+/**
+ * Unsigned final-withdraw ixs (U64_MAX drain) for the durable-nonce
+ * pre-signing path. Caller wraps in `buildDurableTx`.
+ */
+export async function buildFinalWithdrawInstructions(
+  walletPublicKey: PublicKey,
+  tokenMint: string,
+): Promise<{
+  instructions: TransactionInstruction[];
+  lookupTables: AddressLookupTableAccount[];
+}> {
+  const m = await loadImpl();
+  return m.buildFinalWithdrawInstructions(walletPublicKey, tokenMint);
+}
+
 // Re-export the program ID for Solana Explorer link building. Accessing
 // it eagerly would defeat the lazy-load point, so callers that need the
 // raw string await this promise once and cache it.
