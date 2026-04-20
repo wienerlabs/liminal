@@ -14,10 +14,15 @@
  * - Commitment `confirmed`, timeout 60s (BLOK 6 kural 6-7).
  * - Quote expiry kontrolü her execute öncesi — stale quote ile execute YASAK.
  *
- * Transport: Bu dosya DFlow endorsement server'ına (pond.dflow.net) HTTP POST
- * ile bağlanır. @dflow-protocol/client SDK paketi peer bağımlılık olarak
- * kuruludur ve ileride SDK metotları tercih edildiğinde `fetchQuoteFromDFlow`
- * ve `fetchSwapFromDFlow` fonksiyonları tek noktada değiştirilebilir.
+ * Transport: Jupiter Ultra REST API (lite-api.jup.ag/ultra/v1). Ultra's
+ * RFQ pool carries DFlow-endorsed private paths, so the MEV-protection
+ * invariant survives without a DFlow-specific SDK in our dep tree.
+ *
+ * Historical note: `@dflow-protocol/client` was a peer dep in earlier
+ * iterations when we planned to hit pond.dflow.net directly. That
+ * endpoint was never publicly swap-capable (CORS-blocked + intent-based
+ * behind a Turnstile CAPTCHA) and the SDK has since been removed — it
+ * carried five critical `protobufjs` CVEs via the Cosmos bridge tree.
  */
 
 import {
