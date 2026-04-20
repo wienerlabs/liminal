@@ -41,6 +41,7 @@ import { estimatePopups } from "../state/preSignPlan";
 import VaultPreview from "./VaultPreview";
 import QuoteComparison from "./QuoteComparison";
 import ExecutionTimeline from "./ExecutionTimeline";
+import NotificationBanner from "./NotificationBanner";
 import ExecutionSummaryCard from "./ExecutionSummaryCard";
 import StepIndicator from "./StepIndicator";
 import Sparkline from "./Sparkline";
@@ -873,6 +874,11 @@ export const ExecutionPanel: FC = () => {
               </span>
             </label>
           )}
+
+          {/* Level 2: notification permission prompt, shown only when
+              Autopilot is on so the user understands why they'd want
+              the permission. */}
+          <NotificationBanner visible={canConfigure && preSignEnabled} />
 
           {/* Transaction count preview — CLAUDE.md BLOK 6 Pre-approval UX.
               Popup count diverges between autopilot vs. JIT modes. */}
