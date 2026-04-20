@@ -723,3 +723,74 @@ export async function buildPartialWithdrawInstructions(
   return { instructions, lookupTables: [] };
 }
 
+// ---------------------------------------------------------------------------
+// buildDepositInstructions — unsigned ix list for pre-signed durable-nonce
+// deposit. Mirrors `deposit()` but returns the ixs instead of broadcasting.
+// ---------------------------------------------------------------------------
+//
+// Used by the durable-nonce pre-signing path: executionMachine builds the
+// full tx plan up front, wraps each ix set into a durable tx via
+// `buildDurableTx`, and asks Solflare for a single `signAllTransactions`
+// approval. The legacy `deposit()` path (single JIT popup) remains for
+// callers that don't opt into pre-signing.
+
+export async function buildDepositInstructions(
+  walletPublicKey: PublicKey,
+  tokenMint: string,
+  amount: number,
+): Promise<{
+  instructions: TransactionInstruction[];
+  lookupTables: AddressLookupTableAccount[];
+}> {
+  const { market, reserve } = await loadReserveByMint(tokenMint);
+  const decimals = reserveDecimals(reserve);
+  const raw = toRawAmount(amount, decimals);
+
+  const owner = createNoopSigner(address(walletPublicKey.toBase58()));
+  const action = await KaminoAction.buildDepositTxns(
+    market,
+    raw,
+    address(tokenMint),
+    owner,
+    new VanillaObligation(address(DEFAULT_KLEND_PROGRAM_ID)),
+    false,
+    undefined,
+    400_000,
+    true,
+  );
+
+  const instructions = collectKaminoActionIxs(action);
+  return { instructions, lookupTables: [] };
+}
+
+// ---------------------------------------------------------------------------
+// buildFinalWithdrawInstructions — unsigned ix list for pre-signed durable
+// nonce final withdraw (drains the whole position with U64_MAX).
+// ---------------------------------------------------------------------------
+
+export async function buildFinalWithdrawInstructions(
+  walletPublicKey: PublicKey,
+  tokenMint: string,
+): Promise<{
+  instructions: TransactionInstruction[];
+  lookupTables: AddressLookupTableAccount[];
+}> {
+  const { market } = await loadReserveByMint(tokenMint);
+
+  const owner = createNoopSigner(address(walletPublicKey.toBase58()));
+  const action = await KaminoAction.buildWithdrawTxns(
+    market,
+    U64_MAX_BN,
+    address(tokenMint),
+    owner,
+    new VanillaObligation(address(DEFAULT_KLEND_PROGRAM_ID)),
+    false,
+    undefined,
+    400_000,
+    true,
+  );
+
+  const instructions = collectKaminoActionIxs(action);
+  return { instructions, lookupTables: [] };
+}
+
