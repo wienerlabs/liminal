@@ -227,6 +227,53 @@ class SolflareService {
     }
   }
 
+  /**
+   * Solflare'in tek popup'ta N transaction imzalatma API'si. Durable-
+   * nonce pre-signing akışı için kritik: TWAP'ın tüm Kamino tx'lerini
+   * (deposit + N withdraw + final + cleanup) tek approve ile toplar.
+   *
+   * Provider `signAllTransactions` desteklemiyorsa sessizce tek-tek
+   * sign'a düşeriz — bu N ayrı popup açar ama akış durmaz.
+   */
+  async signAllTransactions<T>(txs: T[]): Promise<T[]> {
+    if (txs.length === 0) return [];
+    const provider = this.getProvider();
+    if (!provider) {
+      throw new Error(
+        "Solflare wallet not found. Please install the Solflare extension and connect.",
+      );
+    }
+    if (!provider.isConnected || !this.state.connected) {
+      throw new Error(
+        "Solflare not connected. Connect your wallet before signing transactions.",
+      );
+    }
+
+    if (getIsMobileGlobal()) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+
+    try {
+      if (typeof provider.signAllTransactions === "function") {
+        return await provider.signAllTransactions(txs);
+      }
+      // Fallback — older Solflare builds only expose signTransaction.
+      // Sequential sign keeps the flow alive at the cost of N popups.
+      if (typeof provider.signTransaction !== "function") {
+        throw new Error(
+          "Your Solflare version does not support transaction signing. Please update Solflare.",
+        );
+      }
+      const signed: T[] = [];
+      for (const tx of txs) {
+        signed.push(await provider.signTransaction(tx));
+      }
+      return signed;
+    } catch (err: unknown) {
+      throw normalizeSignError(err);
+    }
+  }
+
   /** Bağlantıyı kes ve local state'i temizle. */
   async disconnectWallet(): Promise<void> {
     const provider = this.getProvider();
@@ -312,6 +359,15 @@ export function getWalletState(): WalletState {
  */
 export function signTransactionWithSolflare<T>(tx: T): Promise<T> {
   return solflareService.signTransaction(tx);
+}
+
+/**
+ * Solflare üzerinden N tx'i tek popup'ta imzalatır. Durable-nonce
+ * pre-signing flow'u için bu callback kullanılır (executionMachine
+ * plan build aşaması).
+ */
+export function signAllTransactionsWithSolflare<T>(txs: T[]): Promise<T[]> {
+  return solflareService.signAllTransactions(txs);
 }
 
 // ---------------------------------------------------------------------------

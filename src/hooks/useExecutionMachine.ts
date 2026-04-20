@@ -40,6 +40,7 @@ import {
 } from "../state/executionMachine";
 import {
   getWalletState,
+  signAllTransactionsWithSolflare,
   signTransactionWithSolflare,
 } from "../services/solflare";
 import { getPythPrice, resolveTokenSymbol } from "../services/quicknode";
@@ -52,7 +53,7 @@ const STORAGE_KEY = "liminal:execution:state";
 
 export type ConfigureInput = Omit<
   ExecutionConfig,
-  "walletPublicKey" | "signTransaction"
+  "walletPublicKey" | "signTransaction" | "signAllTransactions"
 >;
 
 export type RecoveryPrompt = {
@@ -260,6 +261,9 @@ function configureAction(input: ConfigureInput): void {
     ...input,
     walletPublicKey: new PublicKey(wallet.address),
     signTransaction: signTransactionWithSolflare,
+    // Pre-sign plan'ını Solflare'in multi-tx API'si üzerinden imzalar.
+    // JIT modunda da zararsız — config.preSignEnabled false'sa hiç çağrılmaz.
+    signAllTransactions: signAllTransactionsWithSolflare,
   };
   setState((prev) => machineConfigure(prev, fullConfig));
 }
