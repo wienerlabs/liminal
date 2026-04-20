@@ -29,6 +29,7 @@ import {
 import {
   buildExecutionResultFromQuote,
   calculateTWAPSlices,
+  executeSwap as dflowExecuteSwap,
   fetchSwapInstructions,
   getQuote as dflowGetQuote,
   isDFlowSlippageError,
@@ -44,6 +45,13 @@ import {
   type BatchResult,
 } from "../utils/transactionBatcher";
 import { parseError } from "../utils/errorHandler";
+import {
+  broadcastPreSigned,
+  buildAndSignPlan,
+  closeNoncePool,
+  type PreSignedPlan,
+  type SignAllFn,
+} from "./preSignPlan";
 
 // ---------------------------------------------------------------------------
 // Enums
@@ -52,6 +60,12 @@ import { parseError } from "../utils/errorHandler";
 export enum ExecutionStatus {
   IDLE = "IDLE",
   CONFIGURED = "CONFIGURED",
+  /**
+   * Pre-sign planını oluşturuyoruz: nonce hesapları açılıyor, durable tx
+   * plan'ı inşa ediliyor, `signAllTransactions` popup'ı kullanıcıdan
+   * onay bekliyor. Sadece `preSignEnabled=true` modunda geçilir.
+   */
+  PREPARING = "PREPARING",
   DEPOSITING = "DEPOSITING",
   ACTIVE = "ACTIVE",
   SLICE_WITHDRAWING = "SLICE_WITHDRAWING",
@@ -89,6 +103,20 @@ export type ExecutionConfig = {
   walletPublicKey: PublicKey;
   signTransaction: SignTransactionFn;
   kaminoVaultAddress: string;
+  /**
+   * Level 1 durable-nonce pre-sign mode. When true, the full Kamino tx
+   * plan (deposit + per-slice withdraw + final withdraw) is built and
+   * signed in a single Solflare `signAllTransactions` popup before the
+   * first slice. Per-slice the user only needs to JIT-sign the Ultra
+   * swap. Defaults to false (legacy JIT path), opt-in per execution.
+   */
+  preSignEnabled?: boolean;
+  /**
+   * Required iff `preSignEnabled = true`. Solflare's multi-tx signer;
+   * injected from the wallet adapter so `preSignPlan.buildAndSignPlan`
+   * can ask for a single popup covering the whole plan.
+   */
+  signAllTransactions?: SignAllFn;
 };
 
 export type ExecutionError = {
@@ -123,6 +151,12 @@ export type ExecutionState = {
   startedAt: Date | null;
   completedAt: Date | null;
   estimatedCompletionAt: Date | null;
+  /**
+   * Pre-sign plan — populated by `depositEffect` when `config.preSignEnabled`
+   * is true. NOT serialized: on refresh the in-memory tx payloads are
+   * lost, so recovery falls back to the JIT hot path.
+   */
+  preSignedPlan: PreSignedPlan | null;
 };
 
 export type SetStateFn = (
@@ -154,6 +188,7 @@ export const initialState: ExecutionState = {
   startedAt: null,
   completedAt: null,
   estimatedCompletionAt: null,
+  preSignedPlan: null,
 };
 
 // ---------------------------------------------------------------------------
@@ -162,6 +197,7 @@ export const initialState: ExecutionState = {
 
 /** Execution in-flight olarak sayılan status'lar — reset yasak, recovery evet. */
 export const IN_FLIGHT_STATUSES: ReadonlySet<ExecutionStatus> = new Set([
+  ExecutionStatus.PREPARING,
   ExecutionStatus.DEPOSITING,
   ExecutionStatus.ACTIVE,
   ExecutionStatus.SLICE_WITHDRAWING,
@@ -256,6 +292,18 @@ export async function depositEffect(
   setState: SetStateFn,
   getState: GetStateFn,
 ): Promise<void> {
+  // ------------------------------------------------------------------
+  // Pre-sign path: plan inşa et (popup #1 + #2) → deposit'i broadcast et.
+  // ------------------------------------------------------------------
+  if (config.preSignEnabled && config.signAllTransactions) {
+    const planBuilt = await buildPreSignPlanAndReport(
+      config,
+      setState,
+      getState,
+    );
+    if (!planBuilt) return; // hata veya cancel — state zaten ERROR'a çekildi
+  }
+
   setState((s) => ({
     ...s,
     status: ExecutionStatus.DEPOSITING,
@@ -264,13 +312,24 @@ export async function depositEffect(
   }));
 
   try {
-    await kaminoDeposit(
-      config.walletPublicKey,
-      config.kaminoVaultAddress,
-      config.inputMint,
-      config.totalAmount,
-      config.signTransaction,
-    );
+    if (config.preSignEnabled) {
+      const plan = getState().preSignedPlan;
+      if (!plan) {
+        throw new Error(
+          "Pre-sign planı beklenmedik şekilde kaybolmuş. Lütfen CONFIGURED'dan tekrar başlatın.",
+        );
+      }
+      const connection = createConnection();
+      await broadcastPreSigned(plan.deposit, connection);
+    } else {
+      await kaminoDeposit(
+        config.walletPublicKey,
+        config.kaminoVaultAddress,
+        config.inputMint,
+        config.totalAmount,
+        config.signTransaction,
+      );
+    }
   } catch (err) {
     setState((s) => ({
       ...s,
@@ -292,12 +351,81 @@ export async function depositEffect(
     startedAt,
   }));
 
-  // kaminoDeposit return'ünden signature'ı yakalamak istiyorsak ikinci setState:
-  // (deposit sonucu try bloğunda atılsaydı kaybolurdu; alttaki pattern daha güvenli)
-  // Not: kamino.deposit fonksiyonu { signature, kTokenAmount } döndürüyor;
-  // signature aşağıda yeniden yakalanmak yerine withdraw aşamasında invalide.
-
   await executeNextSlice(getState(), setState, getState);
+}
+
+// ---------------------------------------------------------------------------
+// Pre-sign plan orchestration (Level 1)
+// ---------------------------------------------------------------------------
+
+/**
+ * Builds the pre-sign plan (popup #1: nonce setup tx; popup #2:
+ * signAllTransactions for the full Kamino operational plan) and stores
+ * it on state. Returns true on success; on failure sets the state to
+ * ERROR with a user-meaningful message and returns false.
+ *
+ * Success-case side effects:
+ *   - `state.status` transitions IDLE/CONFIGURED → PREPARING → (caller
+ *     transitions to DEPOSITING).
+ *   - `state.preSignedPlan` populated.
+ */
+async function buildPreSignPlanAndReport(
+  config: ExecutionConfig,
+  setState: SetStateFn,
+  getState: GetStateFn,
+): Promise<boolean> {
+  if (!config.signAllTransactions) {
+    setState((s) => ({
+      ...s,
+      status: ExecutionStatus.ERROR,
+      error: {
+        code: ErrorCode.UNKNOWN,
+        message:
+          "Otopilot modu için `signAllTransactions` bağlı değil. Solflare sürümünüzü güncelleyin veya klasik moda geçin.",
+        sliceIndex: null,
+        retryable: false,
+        timestamp: new Date(),
+      },
+    }));
+    return false;
+  }
+
+  setState((s) => ({
+    ...s,
+    status: ExecutionStatus.PREPARING,
+    error: null,
+    kaminoVaultAddress: config.kaminoVaultAddress,
+  }));
+
+  // Dilim miktarlarını hesapla — preSignPlan tarafı TWAP dilimlerini bilmez,
+  // her slice için ayrı Kamino withdraw ix'i gerekli.
+  const perSlice = config.totalAmount / config.sliceCount;
+  const sliceAmounts: number[] = new Array(config.sliceCount).fill(perSlice);
+
+  try {
+    const connection = createConnection();
+    const plan = await buildAndSignPlan({
+      connection,
+      walletPublicKey: config.walletPublicKey,
+      inputMint: config.inputMint,
+      totalAmount: config.totalAmount,
+      sliceAmounts,
+      signOne: config.signTransaction,
+      signAll: config.signAllTransactions,
+    });
+    setState((s) => ({ ...s, preSignedPlan: plan }));
+  } catch (err) {
+    setState((s) => ({
+      ...s,
+      status: ExecutionStatus.ERROR,
+      error: parseError(err, null, "kamino-deposit"),
+    }));
+    return false;
+  }
+
+  // Dış iptal kontrolü — PREPARING sırasında reset gelmiş olabilir.
+  if (getState().status !== ExecutionStatus.PREPARING) return false;
+  return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -441,7 +569,9 @@ export async function executeNextSlice(
     setState((s) => ({ ...s, currentQuote: quote }));
 
     // --- Batched Kamino withdraw + DFlow swap (BLOK 4 sıralama + BLOK 6
-    //     transaction count minimization). Tek imza, tek atomic transaction.
+    //     transaction count minimization). Tek imza, tek atomic transaction
+    //     (klasik JIT mod); pre-sign modda withdraw pre-signed broadcast +
+    //     swap JIT signed.
     setState((s) => ({
       ...s,
       status: ExecutionStatus.SLICE_WITHDRAWING,
@@ -449,6 +579,22 @@ export async function executeNextSlice(
         i === idx ? { ...sl, status: "executing" } : sl,
       ),
     }));
+
+    // ------------------------------------------------------------------
+    // Pre-sign path — withdraw pre-signed, swap JIT. Delegates to a
+    // dedicated helper so this function keeps one concern per branch.
+    // ------------------------------------------------------------------
+    if (current.config.preSignEnabled) {
+      const handled = await executePreSignedSlice(
+        idx,
+        quote,
+        current.config,
+        setState,
+        getState,
+      );
+      if (!handled) return; // ERROR state set inside helper
+      continue; // loop → next slice or completeEffect
+    }
 
     let kaminoIxs: Awaited<ReturnType<typeof buildPartialWithdrawInstructions>>;
     let dflowIxs: Awaited<ReturnType<typeof fetchSwapInstructions>>;
@@ -607,6 +753,131 @@ export async function executeNextSlice(
 }
 
 // ---------------------------------------------------------------------------
+// Pre-sign slice execution helper
+// ---------------------------------------------------------------------------
+//
+// For the pre-sign path, each slice proceeds as:
+//   1. Broadcast pre-signed Kamino withdraw (no popup).
+//   2. Wait for confirm.
+//   3. JIT-sign the Ultra swap via existing executeSwap (one popup).
+//   4. Build the ExecutionResult from the fresh quote + confirmation.
+//
+// Atomicity cost: we split what was one versioned batch into two
+// sequential txs. In the window between step 2 and step 4, a failure
+// leaves the withdrawn tokens sitting in the wallet (not catastrophic —
+// user can re-deposit or cancel execution). The upside: user never had
+// to sit in front of the Solflare popup waiting.
+
+async function executePreSignedSlice(
+  idx: number,
+  quote: DFlowQuote,
+  config: ExecutionConfig,
+  setState: SetStateFn,
+  getState: GetStateFn,
+): Promise<boolean> {
+  const connection = createConnection();
+  const plan = getState().preSignedPlan;
+  if (!plan) {
+    setState((s) => ({
+      ...s,
+      status: ExecutionStatus.ERROR,
+      error: {
+        code: ErrorCode.UNKNOWN,
+        message:
+          "Pre-sign planı durumdan kayboldu (muhtemelen sayfa yenilendi). Klasik moda geçip dilimi tekrar deneyin.",
+        sliceIndex: idx,
+        retryable: false,
+        timestamp: new Date(),
+      },
+      slices: s.slices.map((sl, i) =>
+        i === idx ? { ...sl, status: "pending" } : sl,
+      ),
+    }));
+    return false;
+  }
+
+  // --- Step 1+2: broadcast pre-signed withdraw + confirm ---
+  try {
+    await broadcastPreSigned(plan.slices[idx], connection);
+  } catch (err) {
+    setState((s) => ({
+      ...s,
+      status: ExecutionStatus.ERROR,
+      error: parseError(err, idx, "kamino-withdraw"),
+      slices: s.slices.map((sl, i) =>
+        i === idx ? { ...sl, status: "pending" } : sl,
+      ),
+    }));
+    return false;
+  }
+
+  if (getState().status !== ExecutionStatus.SLICE_WITHDRAWING) return false;
+
+  // --- Step 3: JIT swap (popup) ---
+  setState((s) => ({ ...s, status: ExecutionStatus.SLICE_EXECUTING }));
+
+  let swapResult: ExecutionResult;
+  try {
+    swapResult = await dflowExecuteSwap(
+      config.walletPublicKey,
+      quote,
+      config.signTransaction,
+    );
+  } catch (err) {
+    setState((s) => ({
+      ...s,
+      status: ExecutionStatus.ERROR,
+      error: parseError(err, idx, "dflow-swap"),
+      slices: s.slices.map((sl, i) =>
+        i === idx ? { ...sl, status: "pending" } : sl,
+      ),
+    }));
+    return false;
+  }
+
+  // Network fee post-confirmation
+  let swapFee = 0;
+  try {
+    const txInfo = await connection.getTransaction(swapResult.signature, {
+      commitment: "confirmed",
+      maxSupportedTransactionVersion: 0,
+    });
+    if (txInfo?.meta?.fee) {
+      swapFee = txInfo.meta.fee / LAMPORTS_PER_SOL;
+    }
+  } catch {
+    /* fee opsiyonel */
+  }
+
+  const enriched: ExecutionResult = buildExecutionResultFromQuote(
+    quote,
+    swapResult.signature,
+    swapResult.confirmedAt,
+    swapFee,
+    config.inputMint,
+    config.outputMint,
+  );
+
+  setState((s) => {
+    const newResults = [...s.executionResults, enriched];
+    const { weightedBps, totalUsd } = recomputeAggregates(newResults);
+    return {
+      ...s,
+      status: ExecutionStatus.ACTIVE,
+      currentSliceIndex: s.currentSliceIndex + 1,
+      currentQuote: null,
+      executionResults: newResults,
+      totalPriceImprovementBps: weightedBps,
+      totalPriceImprovementUsd: totalUsd,
+      slices: s.slices.map((sl, i) =>
+        i === idx ? { ...sl, status: "completed", result: enriched } : sl,
+      ),
+    };
+  });
+  return true;
+}
+
+// ---------------------------------------------------------------------------
 // Effect: complete
 // ---------------------------------------------------------------------------
 
@@ -624,24 +895,58 @@ export async function completeEffect(
 
   setState((s) => ({ ...s, status: ExecutionStatus.COMPLETING, error: null }));
 
-  let finalResult: { totalAmount: number; yieldEarned: number };
-  try {
-    finalResult = await kaminoFinalWithdraw(
-      s0.config.walletPublicKey,
-      s0.config.kaminoVaultAddress,
-      s0.config.signTransaction,
-      {
-        tokenMint: s0.config.inputMint,
-        trackedDepositedAmount: s0.kaminoDepositedAmount,
-      },
-    );
-  } catch (err) {
-    setState((s) => ({
-      ...s,
-      status: ExecutionStatus.ERROR,
-      error: parseError(err, null, "kamino-final"),
-    }));
-    return;
+  let finalResult: { totalAmount: number; yieldEarned: number } = {
+    totalAmount: s0.kaminoDepositedAmount,
+    yieldEarned: 0,
+  };
+
+  if (s0.config.preSignEnabled && s0.preSignedPlan) {
+    // Pre-sign path: broadcast pre-signed final → then cleanup (popup).
+    try {
+      const connection = createConnection();
+      await broadcastPreSigned(s0.preSignedPlan.finalWithdraw, connection);
+      // Cleanup: one popup for rent refund. Non-fatal if the user
+      // cancels — the user still holds the SOL in dormant nonce accts
+      // and can reclaim later with nonceWithdraw.
+      try {
+        await closeNoncePool(
+          s0.preSignedPlan,
+          connection,
+          s0.config.signTransaction,
+          s0.config.walletPublicKey,
+        );
+      } catch (cleanupErr) {
+        console.warn(
+          `[LIMINAL] Nonce cleanup skipped: ${cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr)}`,
+        );
+      }
+    } catch (err) {
+      setState((s) => ({
+        ...s,
+        status: ExecutionStatus.ERROR,
+        error: parseError(err, null, "kamino-final"),
+      }));
+      return;
+    }
+  } else {
+    try {
+      finalResult = await kaminoFinalWithdraw(
+        s0.config.walletPublicKey,
+        s0.config.kaminoVaultAddress,
+        s0.config.signTransaction,
+        {
+          tokenMint: s0.config.inputMint,
+          trackedDepositedAmount: s0.kaminoDepositedAmount,
+        },
+      );
+    } catch (err) {
+      setState((s) => ({
+        ...s,
+        status: ExecutionStatus.ERROR,
+        error: parseError(err, null, "kamino-final"),
+      }));
+      return;
+    }
   }
 
   setState((s) => ({
@@ -650,6 +955,8 @@ export async function completeEffect(
     totalYieldEarned: finalResult.yieldEarned,
     completedAt: new Date(),
     currentQuote: null,
+    // preSignedPlan kept through DONE so cleanup telemetry can surface
+    // cleanup tx sig later; reset() clears it along with the rest of state.
   }));
 }
 
@@ -853,6 +1160,11 @@ export function deserializeState(
         walletPublicKey: new PublicKey(persisted.config.walletPublicKey),
         signTransaction,
         kaminoVaultAddress: persisted.config.kaminoVaultAddress,
+        // Pre-sign plan'ı VersionedTransaction payload'ı + ephemeral
+        // nonce keypair'leri içeriyor — ikisi de serialize edilemez. Resume
+        // sırasında plan yok, o yüzden config'i JIT'e düşürürüz. Kullanıcı
+        // kalan dilimler için teker teker Solflare popup'larını onaylayacak.
+        preSignEnabled: false,
       }
     : null;
 
@@ -884,6 +1196,11 @@ export function deserializeState(
     estimatedCompletionAt: persisted.estimatedCompletionAt
       ? new Date(persisted.estimatedCompletionAt)
       : null,
+    // Pre-signed plan is always lost on refresh (VersionedTransaction
+    // payloads + nonce keypairs live only in-memory). Recovery drops
+    // back to the JIT path — the user will see individual popups for
+    // the remaining slices instead of the otopilot experience.
+    preSignedPlan: null,
   };
 }
 

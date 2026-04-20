@@ -37,6 +37,7 @@ import { useDeviceDetection } from "../hooks/useDeviceDetection";
 import { useTokenRegistry } from "../hooks/useTokenRegistry";
 import { DFlowLogo, KaminoLogo, LiminalMark } from "./BrandLogos";
 import { ExecutionStatus } from "../state/executionMachine";
+import { estimatePopups } from "../state/preSignPlan";
 import VaultPreview from "./VaultPreview";
 import QuoteComparison from "./QuoteComparison";
 import ExecutionTimeline from "./ExecutionTimeline";
@@ -291,6 +292,13 @@ export const ExecutionPanel: FC = () => {
     WINDOW_PRESETS[1].suggestedSlices,
   );
   const [slippageBps, setSlippageBps] = useState<number>(DEFAULT_SLIPPAGE_BPS);
+  /**
+   * Otopilot modu (Level 1 durable-nonce pre-sign). True iken plan
+   * Solflare'in `signAllTransactions` popup'ıyla tek seferde imzalanır —
+   * slice popup'ları Kamino için yok, sadece swap için JIT kalır. Default
+   * true, kullanıcı klasik moda her zaman geri dönebilir.
+   */
+  const [preSignEnabled, setPreSignEnabled] = useState<boolean>(true);
 
   // Wallet değiştiğinde form'u temizle (sadece in-flight değilse).
   useEffect(() => {
@@ -394,6 +402,7 @@ export const ExecutionPanel: FC = () => {
         windowDurationMs: windowMs,
         slippageBps,
         kaminoVaultAddress: optimalVault.marketAddress,
+        preSignEnabled,
       });
       // configure senkron — bir sonraki tick'te state CONFIGURED olacak.
       // useEffect ile start'ı tetikleyemeyeceğimiz için burada kısa bir
@@ -415,6 +424,7 @@ export const ExecutionPanel: FC = () => {
     sliceCount,
     windowMs,
     slippageBps,
+    preSignEnabled,
   ]);
 
   handleConfigureAndStartRef.current = handleConfigureAndStart;
@@ -839,17 +849,66 @@ export const ExecutionPanel: FC = () => {
 
           <div style={styles.flexSpacer} />
 
-          {/* Transaction count preview — CLAUDE.md BLOK 6 Pre-approval UX */}
-          {canConfigure && sliceCount > 0 && (
-            <div style={styles.txPreview}>
-              You will sign{" "}
-              <span style={styles.txPreviewValue}>
-                {1 + sliceCount + 1} transactions
-              </span>{" "}
-              total (1 deposit + {sliceCount} batched slices + 1 final
-              withdraw).
-            </div>
+          {/* Autopilot (durable-nonce pre-sign) toggle — headline UX
+              feature. Sits right above the tx preview so the user sees
+              the popup-count impact in real time. */}
+          {canConfigure && (
+            <label style={styles.autopilotRow}>
+              <input
+                type="checkbox"
+                checked={preSignEnabled}
+                onChange={(e) => setPreSignEnabled(e.target.checked)}
+                style={styles.autopilotCheckbox}
+                aria-label="Toggle autopilot mode"
+              />
+              <span style={styles.autopilotCopy}>
+                <span style={styles.autopilotTitle}>
+                  🤖 Autopilot mode
+                </span>
+                <span style={styles.autopilotSub}>
+                  Sign the whole Kamino plan upfront in one Solflare popup.
+                  Only swap popups open at slice time — no more screen
+                  babysitting.
+                </span>
+              </span>
+            </label>
           )}
+
+          {/* Transaction count preview — CLAUDE.md BLOK 6 Pre-approval UX.
+              Popup count diverges between autopilot vs. JIT modes. */}
+          {canConfigure && sliceCount > 0 && (() => {
+            const est = estimatePopups(sliceCount, preSignEnabled);
+            return (
+              <div style={styles.txPreview}>
+                {preSignEnabled ? (
+                  <>
+                    You&apos;ll sign{" "}
+                    <span style={styles.txPreviewValue}>
+                      {est.upfrontPopups} popups upfront
+                    </span>{" "}
+                    (nonce setup + full plan), then{" "}
+                    <span style={styles.txPreviewValue}>
+                      {est.jitSwapPopups} JIT swap popups
+                    </span>{" "}
+                    as slices fire, and{" "}
+                    <span style={styles.txPreviewValue}>1 cleanup popup</span>{" "}
+                    at the end — <strong>{est.total} total</strong>. Kamino
+                    deposit + withdraws run hands-off in between.
+                  </>
+                ) : (
+                  <>
+                    You&apos;ll sign{" "}
+                    <span style={styles.txPreviewValue}>
+                      {est.total} transactions
+                    </span>{" "}
+                    total (1 deposit + {sliceCount} batched slices + 1 final
+                    withdraw) — each one requires you to be at the screen
+                    when its time comes.
+                  </>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Start button */}
           <div style={styles.footer}>
@@ -1449,6 +1508,40 @@ const styles: Record<string, CSSProperties> = {
   txPreviewValue: {
     color: THEME.accent,
     fontWeight: 700,
+  },
+  autopilotRow: {
+    display: "flex",
+    gap: 12,
+    alignItems: "flex-start",
+    padding: "10px 16px 0",
+    cursor: "pointer",
+    userSelect: "none",
+  },
+  autopilotCheckbox: {
+    width: 18,
+    height: 18,
+    accentColor: THEME.accent,
+    marginTop: 2,
+    flexShrink: 0,
+    cursor: "pointer",
+  },
+  autopilotCopy: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 3,
+  },
+  autopilotTitle: {
+    fontFamily: MONO,
+    fontSize: 13,
+    fontWeight: 700,
+    color: THEME.text,
+    letterSpacing: 0.4,
+  },
+  autopilotSub: {
+    fontFamily: MONO,
+    fontSize: 12,
+    color: THEME.textMuted,
+    lineHeight: 1.5,
   },
   footer: {
     padding: "12px 16px",

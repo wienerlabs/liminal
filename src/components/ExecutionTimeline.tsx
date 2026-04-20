@@ -97,6 +97,8 @@ function statusLabel(state: ExecutionState): string {
       return "Ready";
     case ExecutionStatus.CONFIGURED:
       return "Configured";
+    case ExecutionStatus.PREPARING:
+      return "Preparing pre-signed plan...";
     case ExecutionStatus.DEPOSITING:
       return "Depositing to Kamino...";
     case ExecutionStatus.ACTIVE:
