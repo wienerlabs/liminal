@@ -59,6 +59,7 @@ import {
   type AnalyticsTab,
 } from "../state/analyticsNav";
 import AnimatedNumber from "./AnimatedNumber";
+import { getMevStrategy, type MevLayer } from "../services/mevProtection";
 
 // ---------------------------------------------------------------------------
 // Theme (CLAUDE.md BLOK 7 palet)
@@ -1345,6 +1346,7 @@ const ProtocolTab: FC<{ isMobile: boolean }> = ({ isMobile }) => {
           <ProtocolMetric label="Most used pair" value="—" />
           <ProtocolMetric label="Best single execution" value="—" />
         </div>
+        <MevProtectionCard />
       </div>
     );
   }
@@ -1452,9 +1454,80 @@ const ProtocolTab: FC<{ isMobile: boolean }> = ({ isMobile }) => {
           </div>
         </div>
       )}
+
+      {/* MEV protection — explains the two-layer defense stack (Jupiter
+          Ultra today, Constellation-ready for tomorrow). */}
+      <MevProtectionCard />
     </div>
   );
 };
+
+/**
+ * MEV Protection card — surfaces the two-layer defense stack on the
+ * Protocol tab. Reads from services/mevProtection so the copy stays in
+ * lockstep with the env-driven strategy (today jupiter-ultra, later
+ * hybrid once Constellation ships).
+ */
+const MevProtectionCard: FC = () => {
+  const strategy = getMevStrategy();
+  return (
+    <section
+      style={styles.mevCard}
+      aria-label="MEV protection strategy"
+    >
+      <div style={styles.mevHeader}>
+        <div style={styles.mevTitleRow}>
+          <span style={styles.mevBadgeDot} aria-hidden="true" />
+          <span style={styles.mevTitle}>MEV PROTECTION</span>
+        </div>
+        <span style={styles.mevMode}>{strategy.label}</span>
+      </div>
+      <div style={styles.mevLayers}>
+        {strategy.layers.map((layer) => (
+          <MevLayerRow key={layer.name} layer={layer} />
+        ))}
+      </div>
+      {!strategy.constellationActive && (
+        <p style={styles.mevFooter}>
+          Constellation plumbing is in place. Client-side proposer hints
+          activate automatically once the SIMD lands on mainnet — no
+          redeploy needed for existing users.
+        </p>
+      )}
+    </section>
+  );
+};
+
+const MevLayerRow: FC<{ layer: MevLayer }> = ({ layer }) => (
+  <a
+    href={layer.referenceUrl}
+    target="_blank"
+    rel="noopener noreferrer"
+    style={{
+      ...styles.mevLayerRow,
+      opacity: layer.active ? 1 : 0.72,
+    }}
+  >
+    <span
+      style={{
+        ...styles.mevLayerStatus,
+        background: layer.active
+          ? "var(--color-success)"
+          : "var(--color-warn)",
+      }}
+      aria-hidden="true"
+    >
+      {layer.active ? "Active" : "Ready"}
+    </span>
+    <div style={styles.mevLayerText}>
+      <div style={styles.mevLayerName}>{layer.name}</div>
+      <div style={styles.mevLayerDesc}>{layer.description}</div>
+    </div>
+    <span style={styles.mevLayerArrow} aria-hidden="true">
+      ↗
+    </span>
+  </a>
+);
 
 const ProtocolMetric: FC<{
   label: string;
@@ -2047,6 +2120,109 @@ const styles: Record<string, CSSProperties> = {
   protocolValue: {
     fontWeight: 700,
     fontVariantNumeric: "tabular-nums",
+  },
+
+  // MEV protection card
+  mevCard: {
+    background: "var(--surface-card)",
+    border: "1px solid var(--color-accent-border)",
+    borderRadius: "var(--radius-md)",
+    padding: "14px 14px 12px",
+    display: "flex",
+    flexDirection: "column",
+    gap: 12,
+  },
+  mevHeader: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    flexWrap: "wrap",
+  },
+  mevTitleRow: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 8,
+  },
+  mevBadgeDot: {
+    width: 7,
+    height: 7,
+    borderRadius: "50%",
+    background: "var(--color-5)",
+    boxShadow: "0 0 8px var(--color-5)",
+    animation: "liminal-pulse 2.2s ease-in-out infinite",
+    display: "inline-block",
+  },
+  mevTitle: {
+    fontSize: 12,
+    fontWeight: 700,
+    letterSpacing: "0.16em",
+    color: "var(--color-5-strong)",
+    textTransform: "uppercase",
+  },
+  mevMode: {
+    fontSize: 12,
+    color: THEME.textMuted,
+    letterSpacing: 0.3,
+  },
+  mevLayers: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+  },
+  mevLayerRow: {
+    display: "grid",
+    gridTemplateColumns: "auto 1fr auto",
+    gap: 10,
+    alignItems: "flex-start",
+    padding: "10px 12px",
+    borderRadius: "var(--radius-sm)",
+    background: "var(--surface-raised)",
+    textDecoration: "none",
+    color: "inherit",
+    transition: "opacity var(--motion-base) var(--ease-out)",
+  },
+  mevLayerStatus: {
+    minWidth: 54,
+    padding: "3px 8px",
+    borderRadius: 999,
+    fontSize: 10,
+    fontWeight: 700,
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+    color: "#ffffff",
+    textAlign: "center",
+    alignSelf: "flex-start",
+    marginTop: 2,
+  },
+  mevLayerText: {
+    minWidth: 0,
+  },
+  mevLayerName: {
+    fontSize: 13,
+    fontWeight: 600,
+    color: THEME.text,
+    marginBottom: 3,
+  },
+  mevLayerDesc: {
+    fontSize: 12,
+    color: THEME.textMuted,
+    lineHeight: 1.5,
+  },
+  mevLayerArrow: {
+    color: "var(--color-5-strong)",
+    fontSize: 14,
+    fontWeight: 700,
+    alignSelf: "flex-start",
+    marginTop: 2,
+  },
+  mevFooter: {
+    fontSize: 11,
+    color: THEME.textMuted,
+    lineHeight: 1.5,
+    margin: 0,
+    paddingTop: 8,
+    borderTop: `1px solid ${THEME.border}`,
   },
 };
 

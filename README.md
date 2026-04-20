@@ -265,18 +265,30 @@ Three breakpoints driven by `useDeviceDetection`:
 
 ## Roadmap
 
-### Kamino write path
+### Constellation (Anza Multiple Concurrent Proposers)
 
-`@kamino-finance/klend-sdk@7` returns `KaminoAction` objects populated with `@solana/kit` `Instruction[]` arrays. To actually submit a deposit/withdraw through Solflare, each instruction needs to be converted to a `@solana/web3.js` `TransactionInstruction` (pubkey and data byte-preserving), assembled into a `VersionedTransaction`, signed by Solflare, broadcast through our existing QuickNode connection, and confirmed. This bridge layer is the last piece standing between read-only analytics and end-to-end mainnet execution.
+LIMINAL is architected so MEV defense lives at two independent layers and each can be upgraded without touching the other:
 
-Reference: `services/kamino.ts` — `deposit` / `partialWithdraw` / `finalWithdraw` / `buildPartialWithdrawInstructions` currently throw a descriptive pending error. The read path (`getAvailableVaults`, `selectOptimalVault`, `getPositionValue`) is fully wired.
+1. **Routing (active today)** — every slice clears through Jupiter Ultra's RFQ pool, which includes DFlow-endorsed market-maker quotes. Fills settle against committed inventory so sandwich and backrun opportunities don't exist at the route level. See `services/dflow.ts`.
+
+2. **Slot (Constellation-ready)** — Anza's [Constellation SIMD](https://www.anza.xyz/blog/introducing-constellation) replaces the single-leader monopoly on block construction with multiple concurrent proposers per slot. When the proposal lands on mainnet, `transactionBatcher.ts` + the Kamino/DFlow broadcast calls will add a proposer-selection hint on `sendRawTransaction` so slices land on the least-censoring proposer of the epoch. The quote/build/simulate pipeline stays unchanged.
+
+The current strategy is driven by `VITE_MEV_PROTECTION_MODE`:
+
+| Value | Meaning |
+|---|---|
+| `jupiter-ultra` (default) | Today's production path — routing-only defense |
+| `jupiter-ultra+constellation` | Hybrid — both layers active once Constellation is live |
+| `constellation-only` | Slot-level only (used for measurement / ablation) |
+
+The Analytics **Protocol** tab renders a live "MEV Protection" card describing which layers are active and which are ready. A small `MEV: …` chip in the navbar surfaces the same state at a glance.
 
 ### Other improvements tracked
 
-- **Bundle size** — `vendor-kamino` is 1.4 MB gzip. A dynamic `import()` at the panel level could defer the chunk until a user actually connects and picks a token.
-- **Onchain activity** — once the write path lands, hit the BLOK 8 target (5+ wallets × 50 txs on mainnet before submission).
-- **USDC mint address sanity check** — replace the spec-supplied string (which does not round-trip through base58 decoders) with the canonical mint before any real USDC trade.
-- **DFlow REST paths** — `/api/quote` and `/api/swap` are assumed from aggregator convention. Verify against the current endorsement-server contract before mainnet usage.
+- **Onchain activity** — hit the BLOK 8 target (5+ wallets × 50 txs on mainnet) before the hackathon submission deadline.
+- **WalletConnect deep-link** — mobile onboarding via `solflare://browse?url=liminal.app` (spec'd in BLOK 6, not yet implemented).
+- **Token allowlist / rug filter** — surface a warning when the destination mint is unverified (Jupiter `isVerified` flag, Rugcheck risk score).
+- **On-chain history rebuild** — today analytics history lives in `localStorage` (FIFO 50). Reconstruct past executions from wallet signatures + our program IDs so users don't lose history when switching devices.
 
 ---
 

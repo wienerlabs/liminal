@@ -19,6 +19,7 @@ import {
   LiminalMark,
   PARTNER_LOGOS,
 } from "./BrandLogos";
+import { getMevStrategy } from "../services/mevProtection";
 
 const MONO = "var(--font-mono)";
 const SANS = "var(--font-sans)";
@@ -87,6 +88,7 @@ export const HeaderBar: FC<HeaderBarProps> = ({ networkStatus }) => {
       </div>
 
       <div style={styles.right}>
+        <MevBadge />
         {networkStatus && (
           <div style={styles.networkPill} aria-label={`Solana network: ${netLabel}`}>
             <span
@@ -135,6 +137,41 @@ export const HeaderBar: FC<HeaderBarProps> = ({ networkStatus }) => {
     </header>
   );
 };
+
+// ---------------------------------------------------------------------------
+// MEV protection badge — subtle chip next to the network pill that signals
+// the active MEV-protection stack. Links to the Analytics Protocol tab
+// where the full explanation lives.
+// ---------------------------------------------------------------------------
+
+function MevBadge() {
+  const strategy = getMevStrategy();
+  const [hovered, setHovered] = useState(false);
+  const activeCount = strategy.layers.filter((l) => l.active).length;
+  const short =
+    activeCount === 2 ? "MEV: Hybrid" : `MEV: ${activeCount}/2`;
+  return (
+    <span
+      style={{
+        ...styles.mevBadge,
+        background: hovered
+          ? "var(--color-accent-bg-strong)"
+          : "var(--color-accent-bg-soft)",
+      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      title={`${strategy.label}${
+        strategy.constellationReady && !strategy.constellationActive
+          ? " · Constellation-ready"
+          : ""
+      }`}
+      aria-label={`MEV protection: ${strategy.label}`}
+    >
+      <span style={styles.mevBadgeDot} aria-hidden="true" />
+      <span>{short}</span>
+    </span>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Styles
@@ -241,6 +278,33 @@ const styles: Record<string, CSSProperties> = {
     height: 28,
     whiteSpace: "nowrap",
     transition: "border-color var(--motion-base) var(--ease-out), color var(--motion-base) var(--ease-out)",
+  },
+  mevBadge: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    padding: "4px 10px",
+    borderRadius: 999,
+    border: "1px solid var(--color-accent-border)",
+    fontFamily: MONO,
+    fontSize: 11,
+    fontWeight: 600,
+    letterSpacing: "0.06em",
+    color: "var(--color-5-strong)",
+    textTransform: "uppercase",
+    whiteSpace: "nowrap",
+    height: 28,
+    cursor: "help",
+    transition: "background var(--motion-base) var(--ease-out)",
+  },
+  mevBadgeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: "50%",
+    background: "var(--color-5)",
+    boxShadow: "0 0 6px var(--color-5)",
+    animation: "liminal-pulse 2.2s ease-in-out infinite",
+    flexShrink: 0,
   },
   networkPill: {
     display: "flex",

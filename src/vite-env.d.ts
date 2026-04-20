@@ -31,6 +31,16 @@ interface ImportMetaEnv {
   readonly VITE_SENTRY_DSN?: string;
   /** Aggregator base URL (defaults to Jupiter Ultra). */
   readonly VITE_DFLOW_API_URL?: string;
+  /**
+   * MEV protection stack. Defaults to `jupiter-ultra` (current
+   * production path — DFlow-endorsed RFQs via Jupiter Ultra). When
+   * Anza's Constellation SIMD lands on mainnet, flip to `hybrid`
+   * (both layers) or `constellation-only`.
+   */
+  readonly VITE_MEV_PROTECTION_MODE?:
+    | "jupiter-ultra"
+    | "jupiter-ultra+constellation"
+    | "constellation-only";
 }
 
 interface ImportMeta {
