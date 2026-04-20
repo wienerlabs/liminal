@@ -505,14 +505,20 @@ const styles: Record<string, CSSProperties> = {
     flexShrink: 0,
   },
   progressTrack: {
-    height: 2,
-    background: "var(--color-stroke)",
+    position: "relative",
+    height: 4,
+    background: "var(--color-accent-bg-soft)",
     width: "100%",
+    overflow: "hidden",
   },
   progressFill: {
-    height: 2,
-    background: "var(--color-5)",
-    transition: "width 300ms var(--ease-out)",
+    height: 4,
+    // Gradient from deeper to lighter accent → reads as forward motion
+    // even when the bar hasn't moved for a few seconds.
+    background:
+      "linear-gradient(90deg, var(--color-5-strong) 0%, var(--color-5) 100%)",
+    boxShadow: "0 0 10px rgba(249, 178, 215, 0.6)",
+    transition: "width var(--motion-slow) var(--ease-out)",
   },
   activeExecText: {
     flex: 1,

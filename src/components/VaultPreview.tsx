@@ -21,6 +21,7 @@
 
 import type { CSSProperties, FC } from "react";
 import type { KaminoVault } from "../services/kamino";
+import { KaminoLogo } from "./BrandLogos";
 
 // ---------------------------------------------------------------------------
 // Theme — CLAUDE.md BLOK 7 palet
@@ -101,7 +102,12 @@ export const VaultPreview: FC<VaultPreviewProps> = ({
   if (isLoading) {
     return (
       <div style={styles.card} aria-busy="true">
-        <div style={styles.label}>KAMINO VAULT</div>
+        <div style={styles.labelWithLogo}>
+        <span style={{ color: "var(--color-text)" }}>
+          <KaminoLogo height={13} />
+        </span>
+        <span style={styles.label}>VAULT</span>
+      </div>
         <SkeletonBox width="70%" height={18} />
         <div style={styles.gap} />
         <SkeletonBox width="40%" height={28} />
@@ -132,7 +138,12 @@ export const VaultPreview: FC<VaultPreviewProps> = ({
 
   return (
     <div style={styles.card}>
-      <div style={styles.label}>KAMINO VAULT</div>
+      <div style={styles.labelWithLogo}>
+        <span style={{ color: "var(--color-text)" }}>
+          <KaminoLogo height={13} />
+        </span>
+        <span style={styles.label}>VAULT</span>
+      </div>
 
       <div style={styles.vaultName}>
         {vault.marketName}{" "}
@@ -203,6 +214,11 @@ const styles: Record<string, CSSProperties> = {
     color: THEME.accent,
     letterSpacing: 1.5,
     textTransform: "uppercase",
+  },
+  labelWithLogo: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 8,
     marginBottom: 10,
   },
   vaultName: {

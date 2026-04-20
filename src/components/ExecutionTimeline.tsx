@@ -254,16 +254,21 @@ export const ExecutionTimeline: FC<ExecutionTimelineProps> = ({
         <div style={styles.slicesList}>
           {state.slices.map((slice, idx) => (
             <div key={slice.sliceIndex} style={{ position: "relative" }}>
-              {/* Vertical connector line */}
+              {/* Vertical connector to the next slice — border longhands
+                  (no shorthand) so React doesn't warn about mixed style
+                  properties. Matches the slicesList gap (8px) exactly. */}
               {idx < state.slices.length - 1 && (
                 <div
+                  aria-hidden="true"
                   style={{
                     position: "absolute",
                     left: 22,
                     top: "100%",
                     width: 0,
                     height: 8,
-                    borderLeft: `2px ${slice.status === "completed" ? "solid" : "dashed"}`,
+                    borderLeftWidth: 2,
+                    borderLeftStyle:
+                      slice.status === "completed" ? "solid" : "dashed",
                     borderLeftColor:
                       slice.status === "completed"
                         ? "var(--color-5)"
