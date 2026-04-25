@@ -25,6 +25,7 @@ import {
   buildPartialWithdrawInstructions,
   deposit as kaminoDeposit,
   finalWithdraw as kaminoFinalWithdraw,
+  getPositionValue as kaminoGetPositionValue,
 } from "../services/kamino";
 import {
   buildExecutionResultFromQuote,
@@ -914,8 +915,30 @@ export async function completeEffect(
 
   if (s0.config.preSignEnabled && s0.preSignedPlan) {
     // Pre-sign path: broadcast pre-signed final → then cleanup (popup).
+    // BUG FIX: capture position value (incl. accrued yield) BEFORE
+    // broadcasting the final withdraw — once it lands, the obligation
+    // is drained and getPositionValue would return 0. Best-effort: if
+    // the read fails we accept yield=0 rather than blocking the path.
     try {
       const connection = createConnection();
+      if (s0.kaminoVaultAddress) {
+        try {
+          const pos = await kaminoGetPositionValue(
+            s0.config.walletPublicKey,
+            s0.kaminoVaultAddress,
+            s0.config.inputMint,
+            s0.kaminoDepositedAmount,
+          );
+          finalResult = {
+            totalAmount: s0.kaminoDepositedAmount + pos.yieldAccrued,
+            yieldEarned: pos.yieldAccrued,
+          };
+        } catch (yieldErr) {
+          console.warn(
+            `[LIMINAL] Pre-final yield read skipped: ${yieldErr instanceof Error ? yieldErr.message : String(yieldErr)}`,
+          );
+        }
+      }
       await broadcastPreSigned(s0.preSignedPlan.finalWithdraw, connection);
       // Cleanup: one popup for rent refund. Non-fatal if the user
       // cancels — the user still holds the SOL in dormant nonce accts
@@ -974,7 +997,15 @@ export async function completeEffect(
   // Level 2: Final user-facing notification so they know execution
   // wrapped while they were away. Silent if the tab is currently
   // focused.
-  notifyExecutionDone(s0.totalPriceImprovementUsd + s0.totalYieldEarned);
+  // BUG FIX: read the *post-setState* totals via getState() — using
+  // the stale `s0` snapshot from the function entry would always
+  // notify yieldEarned = 0 because finalResult hadn't been computed
+  // yet at that point. Price improvement also drifts during execution,
+  // so prefer the latest tally.
+  const final = getState();
+  notifyExecutionDone(
+    final.totalPriceImprovementUsd + final.totalYieldEarned,
+  );
 }
 
 // ---------------------------------------------------------------------------

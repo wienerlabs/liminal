@@ -24,6 +24,7 @@ import {
   completeEffect,
   depositEffect,
   deserializeState,
+  ErrorCode,
   executeNextSlice,
   ExecutionStatus,
   IN_FLIGHT_STATUSES,
@@ -307,7 +308,32 @@ function resumeRecoveryAction(): void {
   notifyRecoveryListeners();
 
   const status = rehydrated.status;
-  if (status === ExecutionStatus.DEPOSITING && rehydrated.config) {
+  if (status === ExecutionStatus.PREPARING) {
+    // Pre-sign plan was being built when the tab refreshed. The
+    // signed VersionedTransaction payloads + ephemeral nonce keypairs
+    // lived only in-memory, so we cannot resume the autopilot path.
+    // Drop the user back to CONFIGURED with a soft error so they can
+    // retry — `deserializeState` already forced `preSignEnabled=false`
+    // on the rehydrated config, so the next `start()` runs the JIT
+    // hot path. Without this branch the state machine would sit in
+    // PREPARING forever (reset is blocked by IN_FLIGHT, and no other
+    // resume case applies).
+    setState((s) => ({
+      ...s,
+      status: ExecutionStatus.CONFIGURED,
+      preSignedPlan: null,
+      error: {
+        code: ErrorCode.UNKNOWN,
+        message:
+          "Page refreshed before the autopilot plan finished signing. " +
+          "Click Start again — execution will run in classic JIT mode " +
+          "(autopilot pre-sign payloads are not recoverable).",
+        sliceIndex: null,
+        retryable: false,
+        timestamp: new Date(),
+      },
+    }));
+  } else if (status === ExecutionStatus.DEPOSITING && rehydrated.config) {
     void depositEffect(rehydrated.config, setState, getState);
   } else if (
     status === ExecutionStatus.ACTIVE ||
