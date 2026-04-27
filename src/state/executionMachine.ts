@@ -300,14 +300,24 @@ export async function depositEffect(
 ): Promise<void> {
   // ------------------------------------------------------------------
   // Pre-sign path: plan inşa et (popup #1 + #2) → deposit'i broadcast et.
+  //
+  // BUG FIX: only build a fresh plan if we don't already have one. Without
+  // this guard, retryEffect → depositEffect after a network-glitch
+  // failure would re-pop both Solflare popups and abandon the existing
+  // nonce accounts (~$2 of rent locked on chain that the user has to
+  // manually reclaim). Reusing the existing plan keeps the retry cheap
+  // and idempotent — the pre-signed deposit tx is still valid because
+  // its durable nonce hasn't been consumed yet.
   // ------------------------------------------------------------------
   if (config.preSignEnabled && config.signAllTransactions) {
-    const planBuilt = await buildPreSignPlanAndReport(
-      config,
-      setState,
-      getState,
-    );
-    if (!planBuilt) return; // hata veya cancel — state zaten ERROR'a çekildi
+    if (!getState().preSignedPlan) {
+      const planBuilt = await buildPreSignPlanAndReport(
+        config,
+        setState,
+        getState,
+      );
+      if (!planBuilt) return; // hata veya cancel — state zaten ERROR'a çekildi
+    }
   }
 
   setState((s) => ({
