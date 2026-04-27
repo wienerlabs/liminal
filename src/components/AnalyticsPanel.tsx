@@ -261,7 +261,15 @@ const LiveTab: FC<{
   state: ReturnType<typeof useExecutionMachine>["state"];
   isMobile: boolean;
 }> = ({ state, isMobile }) => {
+  // Show the live analytics surface for every status that represents
+  // an in-flight or completed run. PREPARING (autopilot plan signing)
+  // and DEPOSITING are part of "this run is happening" too — without
+  // them the user briefly sees the empty hero card during the first
+  // popup window, which feels like the app forgot what they were
+  // doing.
   const hasData =
+    state.status === ExecutionStatus.PREPARING ||
+    state.status === ExecutionStatus.DEPOSITING ||
     state.status === ExecutionStatus.ACTIVE ||
     state.status === ExecutionStatus.SLICE_WITHDRAWING ||
     state.status === ExecutionStatus.SLICE_EXECUTING ||
@@ -614,7 +622,10 @@ function useLiveKaminoYield(
     setSeries([]);
   }, [activeKey]);
 
-  // ACTIVE benzeri durumlarda 15s'de bir sample al.
+  // ACTIVE benzeri durumlarda 15s'de bir sample al. PREPARING ve
+  // DEPOSITING bilinçli olarak listede DEĞİL — bu fazlarda kullanıcı
+  // henüz Kamino'ya deposit yapmamış olabilir, on-chain pozisyon
+  // okuyacak bir şey yok. Sample ACTIVE'le başlar.
   useEffect(() => {
     const isLive =
       state.status === ExecutionStatus.ACTIVE ||

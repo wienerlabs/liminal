@@ -36,7 +36,7 @@ import { useExecutionMachine } from "../hooks/useExecutionMachine";
 import { useDeviceDetection } from "../hooks/useDeviceDetection";
 import { useTokenRegistry } from "../hooks/useTokenRegistry";
 import { DFlowLogo, KaminoLogo, LiminalMark } from "./BrandLogos";
-import { ExecutionStatus } from "../state/executionMachine";
+import { ExecutionStatus, IN_FLIGHT_STATUSES } from "../state/executionMachine";
 import { estimatePopups, MAX_AUTOPILOT_SLICES } from "../state/preSignPlan";
 import VaultPreview from "./VaultPreview";
 import QuoteComparison from "./QuoteComparison";
@@ -275,19 +275,11 @@ export const ExecutionPanel: FC = () => {
   const isIdleOrConfigured =
     state.status === ExecutionStatus.IDLE ||
     state.status === ExecutionStatus.CONFIGURED;
-  // BUG FIX: PREPARING was missing from the inline list. During
-  // autopilot plan signing (between popup #1 and popup #2) the form
-  // was momentarily editable, which let the user mutate sliceCount
-  // / windowMs / etc. while the plan was being built against the
-  // original values. Adding PREPARING locks the form for the full
-  // in-flight lifecycle, matching IN_FLIGHT_STATUSES in the machine.
-  const isInFlight =
-    state.status === ExecutionStatus.PREPARING ||
-    state.status === ExecutionStatus.DEPOSITING ||
-    state.status === ExecutionStatus.ACTIVE ||
-    state.status === ExecutionStatus.SLICE_WITHDRAWING ||
-    state.status === ExecutionStatus.SLICE_EXECUTING ||
-    state.status === ExecutionStatus.COMPLETING;
+  // Single source of truth lives in executionMachine — derive from
+  // it instead of maintaining a parallel inline list. Earlier audits
+  // caught two drift bugs (PR #20 added PREPARING but ExecutionPanel
+  // missed it for a release; same risk every time a status is added).
+  const isInFlight = IN_FLIGHT_STATUSES.has(state.status);
 
   const lockedTooltip = "Cannot be changed during active execution.";
 
