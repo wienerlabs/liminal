@@ -803,18 +803,25 @@ async function executePreSignedSlice(
   }
 
   // --- Step 1+2: broadcast pre-signed withdraw + confirm ---
-  try {
-    await broadcastPreSigned(plan.slices[idx], connection);
-  } catch (err) {
-    setState((s) => ({
-      ...s,
-      status: ExecutionStatus.ERROR,
-      error: parseError(err, idx, "kamino-withdraw"),
-      slices: s.slices.map((sl, i) =>
-        i === idx ? { ...sl, status: "pending" } : sl,
-      ),
-    }));
-    return false;
+  // BUG FIX: retry-after-mid-flight-failure protection. If a previous
+  // attempt already broadcast the withdraw but the swap failed, the
+  // entry's `broadcasted` flag is set. broadcastPreSigned would throw
+  // "refusing double-send" — instead we skip directly to the swap step,
+  // since the withdrawn tokens are already in the wallet.
+  if (!plan.slices[idx].broadcasted) {
+    try {
+      await broadcastPreSigned(plan.slices[idx], connection);
+    } catch (err) {
+      setState((s) => ({
+        ...s,
+        status: ExecutionStatus.ERROR,
+        error: parseError(err, idx, "kamino-withdraw"),
+        slices: s.slices.map((sl, i) =>
+          i === idx ? { ...sl, status: "pending" } : sl,
+        ),
+      }));
+      return false;
+    }
   }
 
   if (getState().status !== ExecutionStatus.SLICE_WITHDRAWING) return false;
@@ -827,11 +834,39 @@ async function executePreSignedSlice(
   // silent if the tab is already focused (no redundant alert).
   notifySliceReady(idx, config.sliceCount);
 
+  // BUG FIX: Quote freshness guard mirroring the JIT path. The quote
+  // we received from the outer loop was fetched before the durable-
+  // nonce withdraw broadcast (~5-10s) and before any user delay in
+  // returning to the tab to sign. If <10s of validity left, re-fetch
+  // so Ultra's `requestId` is fresh; otherwise /execute will reject
+  // the swap with a stale-quote error.
+  let liveQuote: DFlowQuote = quote;
+  const msLeft = liveQuote.dflowQuote.expiresAt - nowMs();
+  if (msLeft < 10_000) {
+    try {
+      liveQuote = await dflowGetQuote(
+        config.inputMint,
+        config.outputMint,
+        config.totalAmount / config.sliceCount,
+        config.slippageBps,
+        config.walletPublicKey.toBase58(),
+      );
+      setState((s) => ({ ...s, currentQuote: liveQuote }));
+    } catch (refreshErr) {
+      // Falling through with the stale quote — dflowExecuteSwap will
+      // surface a clear error if /execute rejects. Logging the refresh
+      // attempt gives diagnostic context.
+      console.warn(
+        `[LIMINAL] Autopilot pre-swap re-quote failed: ${refreshErr instanceof Error ? refreshErr.message : String(refreshErr)}`,
+      );
+    }
+  }
+
   let swapResult: ExecutionResult;
   try {
     swapResult = await dflowExecuteSwap(
       config.walletPublicKey,
-      quote,
+      liveQuote,
       config.signTransaction,
     );
   } catch (err) {
@@ -862,8 +897,11 @@ async function executePreSignedSlice(
     /* fee opsiyonel */
   }
 
+  // Use the *liveQuote* (re-fetched if necessary) to compute bps savings
+  // — buildExecutionResultFromQuote diff'i `dflowQuote` vs `marketQuote`
+  // ile hesaplar, eski stale quote yanıltıcı sonuç verir.
   const enriched: ExecutionResult = buildExecutionResultFromQuote(
-    quote,
+    liveQuote,
     swapResult.signature,
     swapResult.confirmedAt,
     swapFee,

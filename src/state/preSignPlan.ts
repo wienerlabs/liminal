@@ -34,9 +34,20 @@ import {
   estimateNoncePoolRent,
   fetchNonceValues,
   generateNoncePool,
+  MAX_NONCES_PER_SETUP_TX,
   type NoncePoolEntry,
   type NonceValue,
 } from "../services/durableNonce";
+
+/**
+ * Maximum slice count compatible with autopilot mode. The setup tx
+ * creates `sliceCount + 2` nonce accounts (deposit + slices + final),
+ * which must all fit in a single V0 transaction (capped by
+ * MAX_NONCES_PER_SETUP_TX). Beyond this the user must either disable
+ * autopilot (JIT mode has no such ceiling) or split — splitting is
+ * out of scope for now.
+ */
+export const MAX_AUTOPILOT_SLICES: number = MAX_NONCES_PER_SETUP_TX - 2;
 import { buildDurableTx } from "../utils/durableTx";
 import {
   buildDepositInstructions,
@@ -98,6 +109,24 @@ export type BuildPlanArgs = {
 // Helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * Detect Solana RPC errors that indicate the tx's `recentBlockhash` is
+ * stale and the tx must be rebuilt. Solana cluster, RPC providers, and
+ * Solflare's signing layer each phrase this differently — match
+ * loosely on the canonical strings.
+ */
+function isStaleBlockhashError(err: unknown): boolean {
+  const msg =
+    err instanceof Error
+      ? err.message
+      : typeof err === "string"
+        ? err
+        : "";
+  return /BlockhashNotFound|block height exceeded|blockhash.*expired/i.test(
+    msg,
+  );
+}
+
 async function broadcastAndConfirm(
   tx: VersionedTransaction,
   connection: Connection,
@@ -154,19 +183,43 @@ export async function buildAndSignPlan(
       "preSignPlan: sliceAmounts must contain at least 1 slice.",
     );
   }
+  if (sliceAmounts.length > MAX_AUTOPILOT_SLICES) {
+    throw new Error(
+      `Autopilot mode supports at most ${MAX_AUTOPILOT_SLICES} slices ` +
+        `(current: ${sliceAmounts.length}). Either reduce the slice count or ` +
+        `turn off autopilot to use the classic JIT path.`,
+    );
+  }
 
   const poolSize = sliceAmounts.length + 2; // deposit + N slices + final
   const pool = generateNoncePool(poolSize);
 
   // --- Popup #1: setup tx ---------------------------------------------------
-  const setupTx = await buildCreateNonceAccountsTx(
-    walletPublicKey,
-    pool,
-    connection,
-  );
+  // The setup tx uses a regular recentBlockhash (the nonce accounts
+  // don't exist yet, so they can't durable-nonce themselves). If the
+  // user lingers in the Solflare popup for >60s, the blockhash will
+  // be stale and broadcast will fail with `BlockhashNotFound`. We
+  // retry once with a freshly built tx (the ephemeral keypairs sign
+  // the new message hash via their stored secret keys) before giving
+  // up.
   const rentLamports = await estimateNoncePoolRent(poolSize, connection);
-  const signedSetup = await signOne(setupTx);
-  await broadcastAndConfirm(signedSetup, connection);
+  const signedSetup = await signOne(
+    await buildCreateNonceAccountsTx(walletPublicKey, pool, connection),
+  );
+  try {
+    await broadcastAndConfirm(signedSetup, connection);
+  } catch (err) {
+    if (!isStaleBlockhashError(err)) throw err;
+    // Rebuild + re-sign once (the original signature is invalid because
+    // the message bytes changed with the new blockhash).
+    const freshTx = await buildCreateNonceAccountsTx(
+      walletPublicKey,
+      pool,
+      connection,
+    );
+    const freshSigned = await signOne(freshTx);
+    await broadcastAndConfirm(freshSigned, connection);
+  }
 
   const nonceValues = await fetchNonceValues(connection, pool);
   if (nonceValues.length !== poolSize) {
