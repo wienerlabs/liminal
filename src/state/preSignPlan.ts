@@ -221,84 +221,131 @@ export async function buildAndSignPlan(
     await broadcastAndConfirm(freshSigned, connection);
   }
 
-  const nonceValues = await fetchNonceValues(connection, pool);
-  if (nonceValues.length !== poolSize) {
-    throw new Error(
-      `preSignPlan: expected ${poolSize} nonce values, got ${nonceValues.length}.`,
+  // BUG FIX (HH): from this point onward the setup tx has confirmed
+  // and N+2 nonce accounts hold our rent on chain. Any failure between
+  // here and the successful return would otherwise abandon them — the
+  // ephemeral keypairs only existed in this function's scope so we'd
+  // lose the ability to authorize a future cleanup. Wrap the rest of
+  // the build in a try/catch that runs a best-effort closeNoncePool
+  // before re-throwing. User sees one extra Solflare popup but reclaims
+  // ~$2 of rent. If they reject the cleanup popup too, log the loss
+  // (still recoverable manually with `nonceWithdraw`).
+  try {
+    const nonceValues = await fetchNonceValues(connection, pool);
+    if (nonceValues.length !== poolSize) {
+      throw new Error(
+        `preSignPlan: expected ${poolSize} nonce values, got ${nonceValues.length}.`,
+      );
+    }
+
+    // --- Build all operational txs ------------------------------------
+    const depositIxs = await buildDepositInstructions(
+      walletPublicKey,
+      inputMint,
+      totalAmount,
     );
-  }
+    const sliceIxs = await Promise.all(
+      sliceAmounts.map((amount) =>
+        buildPartialWithdrawInstructions(
+          walletPublicKey,
+          "",
+          inputMint,
+          amount,
+        ),
+      ),
+    );
+    const finalIxs = await buildFinalWithdrawInstructions(
+      walletPublicKey,
+      inputMint,
+    );
 
-  // --- Build all operational txs --------------------------------------------
-  const depositIxs = await buildDepositInstructions(
-    walletPublicKey,
-    inputMint,
-    totalAmount,
-  );
-  const sliceIxs = await Promise.all(
-    sliceAmounts.map((amount) =>
-      buildPartialWithdrawInstructions(walletPublicKey, "", inputMint, amount),
-    ),
-  );
-  const finalIxs = await buildFinalWithdrawInstructions(
-    walletPublicKey,
-    inputMint,
-  );
-
-  const depositTx = buildDurableTx({
-    payer: walletPublicKey,
-    nonceAccount: pool[0].publicKey,
-    nonceAuthority: walletPublicKey,
-    nonceValue: nonceValues[0].value,
-    instructions: depositIxs.instructions,
-    lookupTables: depositIxs.lookupTables,
-  });
-
-  const sliceTxs = sliceIxs.map((ixSet, i) =>
-    buildDurableTx({
+    const depositTx = buildDurableTx({
       payer: walletPublicKey,
-      nonceAccount: pool[i + 1].publicKey,
+      nonceAccount: pool[0].publicKey,
       nonceAuthority: walletPublicKey,
-      nonceValue: nonceValues[i + 1].value,
-      instructions: ixSet.instructions,
-      lookupTables: ixSet.lookupTables,
-    }),
-  );
+      nonceValue: nonceValues[0].value,
+      instructions: depositIxs.instructions,
+      lookupTables: depositIxs.lookupTables,
+    });
 
-  const finalTx = buildDurableTx({
-    payer: walletPublicKey,
-    nonceAccount: pool[poolSize - 1].publicKey,
-    nonceAuthority: walletPublicKey,
-    nonceValue: nonceValues[poolSize - 1].value,
-    instructions: finalIxs.instructions,
-    lookupTables: finalIxs.lookupTables,
-  });
-
-  // --- Popup #2: signAllTransactions ---------------------------------------
-  const all: VersionedTransaction[] = [depositTx, ...sliceTxs, finalTx];
-  const signed = await signAll(all);
-  if (signed.length !== all.length) {
-    throw new Error(
-      `preSignPlan: signAll returned ${signed.length} txs, expected ${all.length}. ` +
-        "Solflare signing API anomaly — abort and retry.",
+    const sliceTxs = sliceIxs.map((ixSet, i) =>
+      buildDurableTx({
+        payer: walletPublicKey,
+        nonceAccount: pool[i + 1].publicKey,
+        nonceAuthority: walletPublicKey,
+        nonceValue: nonceValues[i + 1].value,
+        instructions: ixSet.instructions,
+        lookupTables: ixSet.lookupTables,
+      }),
     );
-  }
 
-  return {
-    pool,
-    nonceValues,
-    deposit: { tx: signed[0], noncePubkey: pool[0].publicKey, broadcasted: false },
-    slices: signed.slice(1, 1 + sliceAmounts.length).map((tx, i) => ({
-      tx,
-      noncePubkey: pool[i + 1].publicKey,
-      broadcasted: false,
-    })),
-    finalWithdraw: {
-      tx: signed[signed.length - 1],
-      noncePubkey: pool[poolSize - 1].publicKey,
-      broadcasted: false,
-    },
-    rentLamports,
-  };
+    const finalTx = buildDurableTx({
+      payer: walletPublicKey,
+      nonceAccount: pool[poolSize - 1].publicKey,
+      nonceAuthority: walletPublicKey,
+      nonceValue: nonceValues[poolSize - 1].value,
+      instructions: finalIxs.instructions,
+      lookupTables: finalIxs.lookupTables,
+    });
+
+    // --- Popup #2: signAllTransactions -------------------------------
+    const all: VersionedTransaction[] = [depositTx, ...sliceTxs, finalTx];
+    const signed = await signAll(all);
+    if (signed.length !== all.length) {
+      throw new Error(
+        `preSignPlan: signAll returned ${signed.length} txs, expected ${all.length}. ` +
+          "Solflare signing API anomaly — abort and retry.",
+      );
+    }
+
+    return {
+      pool,
+      nonceValues,
+      deposit: {
+        tx: signed[0],
+        noncePubkey: pool[0].publicKey,
+        broadcasted: false,
+      },
+      slices: signed.slice(1, 1 + sliceAmounts.length).map((tx, i) => ({
+        tx,
+        noncePubkey: pool[i + 1].publicKey,
+        broadcasted: false,
+      })),
+      finalWithdraw: {
+        tx: signed[signed.length - 1],
+        noncePubkey: pool[poolSize - 1].publicKey,
+        broadcasted: false,
+      },
+      rentLamports,
+    };
+  } catch (err) {
+    // Plan build failed AFTER setup confirmed → reclaim the abandoned
+    // nonce rent before propagating. Best-effort: every step is
+    // wrapped so a cleanup-time failure never masks the original
+    // build error (which is what the user actually needs to see).
+    console.warn(
+      `[LIMINAL] Plan build failed after setup confirmed (${err instanceof Error ? err.message : String(err)}); ` +
+        "attempting to reclaim ~$2 of nonce rent...",
+    );
+    try {
+      const closeTx = await buildCloseNonceAccountsTx(
+        walletPublicKey,
+        pool,
+        connection,
+      );
+      const signedClose = await signOne(closeTx);
+      await broadcastAndConfirm(signedClose, connection);
+      console.warn(
+        "[LIMINAL] Auto-reclaim succeeded — nonce accounts closed, rent refunded.",
+      );
+    } catch (cleanupErr) {
+      console.warn(
+        `[LIMINAL] Auto-reclaim failed: ${cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr)}. ` +
+          `${pool.length} nonce account(s) hold rent on chain — recoverable manually with nonceWithdraw.`,
+      );
+    }
+    throw err;
+  }
 }
 
 /**
