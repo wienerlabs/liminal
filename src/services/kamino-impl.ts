@@ -661,6 +661,29 @@ export async function finalWithdraw(
   );
 
   const instructions = collectKaminoActionIxs(action);
+
+  // BUG FIX: capture yield BEFORE the withdraw. Once U64_MAX drains the
+  // obligation the on-chain reserve state shows zero deposit, and a
+  // post-withdraw `getPositionValue` would return yieldAccrued=0 — the
+  // user's gains would silently disappear from analytics. Best-effort:
+  // if the read fails we accept yieldEarned=0 rather than blocking the
+  // path (the withdraw itself should still proceed).
+  const principal = Math.max(0, options.trackedDepositedAmount ?? 0);
+  let preWithdrawYield = 0;
+  try {
+    const pos = await getPositionValue(
+      walletPublicKey,
+      reserve.address.toString(),
+      options.tokenMint,
+      principal,
+    );
+    preWithdrawYield = pos.yieldAccrued;
+  } catch (yieldErr) {
+    console.warn(
+      `[LIMINAL] Pre-final yield read skipped: ${yieldErr instanceof Error ? yieldErr.message : String(yieldErr)}`,
+    );
+  }
+
   const signature = await executeKaminoAction(
     walletPublicKey,
     instructions,
@@ -668,20 +691,10 @@ export async function finalWithdraw(
     "final withdraw",
   );
 
-  // Best-effort yield accounting: read obligation _before_ this call is
-  // tricky (we'd need a pre-simulation snapshot). For now, caller's
-  // tracked principal + any residual poll result is the source of truth.
-  const principal = Math.max(0, options.trackedDepositedAmount ?? 0);
-  const pos = await getPositionValue(
-    walletPublicKey,
-    reserve.address.toString(),
-    options.tokenMint,
-    principal,
-  );
   return {
     signature,
-    totalAmount: principal + pos.yieldAccrued,
-    yieldEarned: pos.yieldAccrued,
+    totalAmount: principal + preWithdrawYield,
+    yieldEarned: preWithdrawYield,
   };
 }
 

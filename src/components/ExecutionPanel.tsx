@@ -37,7 +37,7 @@ import { useDeviceDetection } from "../hooks/useDeviceDetection";
 import { useTokenRegistry } from "../hooks/useTokenRegistry";
 import { DFlowLogo, KaminoLogo, LiminalMark } from "./BrandLogos";
 import { ExecutionStatus } from "../state/executionMachine";
-import { estimatePopups } from "../state/preSignPlan";
+import { estimatePopups, MAX_AUTOPILOT_SLICES } from "../state/preSignPlan";
 import VaultPreview from "./VaultPreview";
 import QuoteComparison from "./QuoteComparison";
 import ExecutionTimeline from "./ExecutionTimeline";
@@ -300,6 +300,17 @@ export const ExecutionPanel: FC = () => {
    * true, kullanıcı klasik moda her zaman geri dönebilir.
    */
   const [preSignEnabled, setPreSignEnabled] = useState<boolean>(true);
+
+  // Autopilot toggle reactive clamp: if the user had a sliceCount > the
+  // autopilot ceiling (e.g. picked 8 in JIT mode then turned autopilot
+  // ON), bring the count down to the ceiling so the START button isn't
+  // silently disabled. Also re-applies on initial mount.
+  useEffect(() => {
+    if (isInFlight) return;
+    if (preSignEnabled && sliceCount > MAX_AUTOPILOT_SLICES) {
+      setSliceCount(MAX_AUTOPILOT_SLICES);
+    }
+  }, [preSignEnabled, sliceCount, isInFlight]);
 
   // Wallet değiştiğinde form'u temizle (sadece in-flight değilse).
   useEffect(() => {
@@ -725,18 +736,28 @@ export const ExecutionPanel: FC = () => {
             </div>
           </div>
 
-          {/* Slice count */}
+          {/* Slice count — capped at MAX_AUTOPILOT_SLICES when autopilot
+              is on (the setup tx can only fit so many nonce accounts).
+              JIT mode has no such ceiling, so we relax to 20. */}
           <div style={styles.section}>
-            <div style={styles.sectionLabel}>SLICE COUNT</div>
+            <div style={styles.sectionLabel}>
+              SLICE COUNT
+              {preSignEnabled && (
+                <span style={styles.sectionHint}>
+                  {" "}(max {MAX_AUTOPILOT_SLICES} in autopilot)
+                </span>
+              )}
+            </div>
             <input
               type="number"
               min={1}
-              max={20}
+              max={preSignEnabled ? MAX_AUTOPILOT_SLICES : 20}
               value={sliceCount}
               onChange={(e) => {
                 if (isInFlight) return;
                 const n = parseInt(e.target.value, 10);
-                if (Number.isFinite(n) && n >= 1 && n <= 20) setSliceCount(n);
+                const cap = preSignEnabled ? MAX_AUTOPILOT_SLICES : 20;
+                if (Number.isFinite(n) && n >= 1 && n <= cap) setSliceCount(n);
               }}
               disabled={isInFlight}
               title={isInFlight ? lockedTooltip : undefined}
@@ -1299,6 +1320,15 @@ const styles: Record<string, CSSProperties> = {
     fontWeight: 600,
     marginBottom: 8,
     textTransform: "uppercase",
+  },
+  sectionHint: {
+    fontFamily: MONO,
+    fontSize: 11,
+    color: THEME.textMuted,
+    letterSpacing: "0.06em",
+    fontWeight: 400,
+    textTransform: "none",
+    opacity: 0.75,
   },
   divider: {
     height: 1,
