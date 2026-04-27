@@ -275,7 +275,14 @@ export const ExecutionPanel: FC = () => {
   const isIdleOrConfigured =
     state.status === ExecutionStatus.IDLE ||
     state.status === ExecutionStatus.CONFIGURED;
+  // BUG FIX: PREPARING was missing from the inline list. During
+  // autopilot plan signing (between popup #1 and popup #2) the form
+  // was momentarily editable, which let the user mutate sliceCount
+  // / windowMs / etc. while the plan was being built against the
+  // original values. Adding PREPARING locks the form for the full
+  // in-flight lifecycle, matching IN_FLIGHT_STATUSES in the machine.
   const isInFlight =
+    state.status === ExecutionStatus.PREPARING ||
     state.status === ExecutionStatus.DEPOSITING ||
     state.status === ExecutionStatus.ACTIVE ||
     state.status === ExecutionStatus.SLICE_WITHDRAWING ||

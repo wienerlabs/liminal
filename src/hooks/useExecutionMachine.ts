@@ -43,6 +43,7 @@ import {
   getWalletState,
   signAllTransactionsWithSolflare,
   signTransactionWithSolflare,
+  subscribeWallet,
 } from "../services/solflare";
 import { getPythPrice, resolveTokenSymbol } from "../services/quicknode";
 import {
@@ -258,6 +259,19 @@ function configureAction(input: ConfigureInput): void {
       "Solflare bağlı değil. Configure için önce cüzdanınızı bağlayın.",
     );
   }
+  // BUG FIX: refuse re-configure during an in-flight execution.
+  // Without this guard, a rapid double-click on START would call
+  // configureAction twice — and machineConfigure (a pure transition)
+  // returns `{ ...initialState, status: CONFIGURED, ... }`. That blasts
+  // away an already-DEPOSITING/PREPARING/ACTIVE state along with the
+  // pre-signed plan, while the original async effect is still
+  // broadcasting on chain. Catastrophic. The guard keeps the running
+  // execution intact.
+  if (IN_FLIGHT_STATUSES.has(moduleState.status)) {
+    throw new Error(
+      "Cannot reconfigure during an active execution. Wait for it to finish or reset.",
+    );
+  }
   const fullConfig: ExecutionConfig = {
     ...input,
     walletPublicKey: new PublicKey(wallet.address),
@@ -285,6 +299,17 @@ function retryAction(): void {
 }
 
 function resetAction(): void {
+  // BUG FIX: machineReset() throws if the state is in-flight. Without
+  // the guard, calling reset() during DEPOSITING/PREPARING (e.g. from
+  // a stale UI button or a keyboard shortcut) would throw inside the
+  // setState callback — which crashes the React tree because setState
+  // updaters are not catch-recoverable. Pre-check + log instead.
+  if (IN_FLIGHT_STATUSES.has(moduleState.status)) {
+    console.warn(
+      "[LIMINAL] reset() blocked — execution is in-flight. Wait for it to settle or hit a terminal state.",
+    );
+    return;
+  }
   setState((prev) => machineReset(prev));
   clearPersisted();
 }
@@ -396,6 +421,42 @@ export function useExecutionMachine(): UseExecutionMachineResult {
     };
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
+  }, []);
+
+  // BUG FIX: detect wallet account change mid-execution. Solflare's
+  // `accountChanged` event fires when the user switches accounts inside
+  // the wallet. The state machine's config still references the
+  // original wallet — every pre-signed tx is signed by the old key,
+  // every JIT swap popup would target the old key as taker. Cleanup
+  // tx authority would mismatch the new wallet → cleanup popup
+  // rejected. We push the user into ERROR with a clear message so
+  // they can either reconnect the original wallet or reset and
+  // reconfigure with the new one.
+  useEffect(() => {
+    return subscribeWallet((nextWallet) => {
+      const current = moduleState;
+      if (!IN_FLIGHT_STATUSES.has(current.status) || !current.config) return;
+      const expected = current.config.walletPublicKey.toBase58();
+      const actual = nextWallet.connected ? nextWallet.address : null;
+      if (actual === expected) return;
+      // Wallet diverged from the one that started this execution.
+      setState((s) => ({
+        ...s,
+        status: ExecutionStatus.ERROR,
+        error: {
+          code: ErrorCode.WALLET_REJECTED,
+          message: actual
+            ? `Wallet changed mid-execution (now ${actual.slice(0, 4)}…${actual.slice(-4)}). ` +
+              `Reconnect the original wallet (${expected.slice(0, 4)}…${expected.slice(-4)}) ` +
+              "to keep going, or Reset and start over."
+            : `Wallet disconnected mid-execution. Reconnect ${expected.slice(0, 4)}…${expected.slice(-4)} ` +
+              "to resume or Reset to start over.",
+          sliceIndex: null,
+          retryable: false,
+          timestamp: new Date(),
+        },
+      }));
+    });
   }, []);
 
   return {
