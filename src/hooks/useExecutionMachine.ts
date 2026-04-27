@@ -465,11 +465,16 @@ function resumeRecoveryAction(): void {
 }
 
 function discardRecoveryAction(): void {
+  // BUG FIX (LL): use setState() instead of mutating moduleState
+  // directly. Direct assignment bypasses persist(), DONE→analytics
+  // hook, and any future setState side-effects — currently harmless
+  // (initialState wouldn't trigger analytics save) but a regression
+  // tripwire. Going through the canonical pipeline keeps recovery
+  // discard symmetric with reset() and any user action.
   clearPersisted();
   moduleRecovery = null;
-  moduleState = initialState;
+  setState(() => initialState);
   notifyRecoveryListeners();
-  notifyStateListeners();
 }
 
 // ---------------------------------------------------------------------------
