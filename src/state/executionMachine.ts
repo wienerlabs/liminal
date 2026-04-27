@@ -211,8 +211,37 @@ export const IN_FLIGHT_STATUSES: ReadonlySet<ExecutionStatus> = new Set([
   ExecutionStatus.COMPLETING,
 ]);
 
+/**
+ * Wakeable sleep — resolves after `ms` OR when the document becomes
+ * visible again, whichever comes first.
+ *
+ * BUG FIX motivation: Chrome's "intensive throttling" caps background
+ * setTimeout firings to ~1/min after 5 minutes of background. A 4h
+ * TWAP whose user has the tab in the background would fire each
+ * slice up to 60s late — even after returning to the tab, the next
+ * iteration's setTimeout(2s) might still be on a 60s schedule. Hook
+ * `visibilitychange` to short-circuit the sleep so the loop re-checks
+ * slice timing the moment the user returns.
+ */
 function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+  if (typeof document === "undefined") {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = (): void => {
+      if (done) return;
+      done = true;
+      clearTimeout(timeoutId);
+      document.removeEventListener("visibilitychange", onVisible);
+      resolve();
+    };
+    const onVisible = (): void => {
+      if (document.visibilityState === "visible") finish();
+    };
+    const timeoutId = setTimeout(finish, ms);
+    document.addEventListener("visibilitychange", onVisible);
+  });
 }
 
 function nowMs(): number {
