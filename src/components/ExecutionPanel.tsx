@@ -271,6 +271,7 @@ export const ExecutionPanel: FC = () => {
   const machine = useExecutionMachine();
   const { state, configure, start, retry, reset } = machine;
   const { pendingRecovery, resumeRecovery, discardRecovery } = machine;
+  const { otherTabsInFlight } = machine;
 
   const isIdleOrConfigured =
     state.status === ExecutionStatus.IDLE ||
@@ -452,6 +453,24 @@ export const ExecutionPanel: FC = () => {
   return (
     <section style={styles.panel} aria-label="Execution panel">
       <header style={styles.header}>EXECUTE</header>
+
+      {/* Multi-tab warning — surfaces only when ANOTHER tab in the
+          same browser profile is mid-execution. Suppress while we
+          have our own in-flight state (we'd be the source) so the
+          banner doesn't echo our own activity. */}
+      {otherTabsInFlight && !pendingRecovery && (
+        <div style={styles.multiTabBanner} role="alert">
+          <span aria-hidden="true" style={styles.multiTabIcon}>
+            ⚠️
+          </span>
+          <span>
+            <strong>Another LIMINAL tab is mid-execution.</strong> Starting a
+            new run here would create overlapping Solflare popups and
+            conflicting on-chain transactions. Switch tabs to manage that
+            execution first.
+          </span>
+        </div>
+      )}
 
       {/* Recovery prompt */}
       {pendingRecovery && (
@@ -1328,6 +1347,25 @@ const styles: Record<string, CSSProperties> = {
     fontWeight: 400,
     textTransform: "none",
     opacity: 0.75,
+  },
+  multiTabBanner: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: 10,
+    margin: "0 16px 10px",
+    padding: "10px 14px",
+    borderRadius: 8,
+    background: "var(--color-warn-bg, rgba(255, 200, 80, 0.18))",
+    border: `1px solid ${THEME.amber}`,
+    fontFamily: MONO,
+    fontSize: 12,
+    color: THEME.text,
+    lineHeight: 1.5,
+  },
+  multiTabIcon: {
+    fontSize: 18,
+    flexShrink: 0,
+    lineHeight: 1,
   },
   divider: {
     height: 1,
