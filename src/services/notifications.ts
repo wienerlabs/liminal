@@ -85,6 +85,25 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
 
 let originalTitle: string | null = null;
 let flashInterval: ReturnType<typeof setInterval> | null = null;
+// BUG FIX: keep references to the active listeners so subsequent
+// startTitleFlash() calls (e.g. multi-slice TWAP) reuse / replace
+// instead of accumulating. Without this, every slice ready signal
+// adds another (focus, visibilitychange) pair that all fire when the
+// user finally returns to the tab — momentary listener pile-up that
+// runs stopTitleFlash N times.
+let activeFocusHandler: (() => void) | null = null;
+let activeVisibilityHandler: (() => void) | null = null;
+
+function detachFocusHandlers(): void {
+  if (typeof window !== "undefined" && activeFocusHandler) {
+    window.removeEventListener("focus", activeFocusHandler);
+  }
+  if (typeof document !== "undefined" && activeVisibilityHandler) {
+    document.removeEventListener("visibilitychange", activeVisibilityHandler);
+  }
+  activeFocusHandler = null;
+  activeVisibilityHandler = null;
+}
 
 /**
  * Flashes the document title between original and `alert` until the
@@ -94,6 +113,7 @@ let flashInterval: ReturnType<typeof setInterval> | null = null;
 export function startTitleFlash(alertLabel: string): void {
   if (typeof document === "undefined") return;
   if (originalTitle === null) originalTitle = document.title;
+  // Clears interval AND any prior listeners so we never accumulate.
   stopTitleFlash();
 
   let showAlert = true;
@@ -104,20 +124,16 @@ export function startTitleFlash(alertLabel: string): void {
 
   // Auto-stop when the user focuses the tab — primary signal they saw
   // the alert.
-  const onFocus = () => {
+  activeFocusHandler = () => {
     stopTitleFlash();
-    window.removeEventListener("focus", onFocus);
-    document.removeEventListener("visibilitychange", onVisible);
   };
-  const onVisible = () => {
+  activeVisibilityHandler = () => {
     if (document.visibilityState === "visible") {
       stopTitleFlash();
-      document.removeEventListener("visibilitychange", onVisible);
-      window.removeEventListener("focus", onFocus);
     }
   };
-  window.addEventListener("focus", onFocus);
-  document.addEventListener("visibilitychange", onVisible);
+  window.addEventListener("focus", activeFocusHandler);
+  document.addEventListener("visibilitychange", activeVisibilityHandler);
 }
 
 export function stopTitleFlash(): void {
@@ -125,6 +141,7 @@ export function stopTitleFlash(): void {
     clearInterval(flashInterval);
     flashInterval = null;
   }
+  detachFocusHandlers();
   if (typeof document !== "undefined" && originalTitle !== null) {
     document.title = originalTitle;
   }
