@@ -365,7 +365,15 @@ export async function depositEffect(
         );
       }
       const connection = createConnection();
-      await broadcastPreSigned(plan.deposit, connection);
+      // BUG FIX (MM, deposit path): retry guard symmetric with the
+      // slice / final paths. If previous attempt broadcast the
+      // deposit but confirm timed out, broadcastPreSigned would
+      // throw "refusing double-send". Skip and let the state move
+      // forward — Solana's RPC handles the duplicate signature
+      // idempotently and our durable nonce is single-use anyway.
+      if (!plan.deposit.broadcasted) {
+        await broadcastPreSigned(plan.deposit, connection);
+      }
     } else {
       await kaminoDeposit(
         config.walletPublicKey,
@@ -1035,7 +1043,15 @@ export async function completeEffect(
           );
         }
       }
-      await broadcastPreSigned(s0.preSignedPlan.finalWithdraw, connection);
+      // BUG FIX (MM): mirror the slice retry guard. If a previous
+      // completeEffect attempt broadcast the final withdraw but the
+      // confirm timed out, the entry's `broadcasted` flag is set.
+      // broadcastPreSigned would throw "refusing double-send" — we
+      // skip directly to cleanup since the on-chain state is already
+      // drained. Same pattern as Bug A (PR #23) for slice retries.
+      if (!s0.preSignedPlan.finalWithdraw.broadcasted) {
+        await broadcastPreSigned(s0.preSignedPlan.finalWithdraw, connection);
+      }
       // Cleanup: one popup for rent refund. Non-fatal if the user
       // cancels — the user still holds the SOL in dormant nonce accts
       // and can reclaim later with nonceWithdraw.
