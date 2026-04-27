@@ -397,6 +397,7 @@ export const ExecutionPanel: FC = () => {
     slippageBps >= MIN_SLIPPAGE_BPS &&
     slippageBps <= MAX_SLIPPAGE_BPS &&
     !!optimalVault &&
+    !otherTabsInFlight &&
     isIdleOrConfigured;
 
   // --- Keyboard shortcut: Cmd/Ctrl + Enter to start ----------------------
@@ -1017,6 +1018,7 @@ export const ExecutionPanel: FC = () => {
                 slippageBps,
                 optimalVault,
                 isIdleOrConfigured,
+                otherTabsInFlight,
               });
               if (reason) {
                 return (
@@ -1227,6 +1229,7 @@ type DisabledInput = {
   slippageBps: number;
   optimalVault: KaminoVault | null;
   isIdleOrConfigured: boolean;
+  otherTabsInFlight: boolean;
 };
 
 function disabledReason(i: DisabledInput): string | null {
@@ -1242,6 +1245,8 @@ function disabledReason(i: DisabledInput): string | null {
     return `Slippage can't exceed ${MAX_SLIPPAGE_BPS / 100}%.`;
   if (!i.optimalVault)
     return "No active Kamino vault found for this token — idle capital can't be parked.";
+  if (i.otherTabsInFlight)
+    return "Another LIMINAL tab is mid-execution. Switch tabs to manage that one first.";
   if (!i.isIdleOrConfigured) return "An execution is already in progress.";
   return null;
 }
