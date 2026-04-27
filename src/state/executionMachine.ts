@@ -745,6 +745,14 @@ export async function executeNextSlice(
       current.config.outputMint,
     );
 
+    // BUG FIX: cancellation check before committing the success
+    // transition. If an external event (wallet change, manual reset)
+    // moved status away from SLICE_EXECUTING while batchWithdrawAndSwap
+    // was awaiting confirm, we shouldn't overwrite the ERROR/IDLE
+    // state with our slice-completed mutation. Symmetric with the
+    // post-swap guard in executePreSignedSlice (autopilot path).
+    if (getState().status !== ExecutionStatus.SLICE_EXECUTING) return;
+
     setState((s) => {
       const newResults = [...s.executionResults, enriched];
       const { weightedBps, totalUsd } = recomputeAggregates(newResults);
@@ -918,6 +926,17 @@ async function executePreSignedSlice(
     config.inputMint,
     config.outputMint,
   );
+
+  // BUG FIX: cancellation check after the swap settled. If an external
+  // event (wallet change → ERROR via Bug F subscriber, manual reset,
+  // recovery transition) moved status away from SLICE_EXECUTING while
+  // we were in the swap popup, the state machine has already moved on.
+  // Don't overwrite that with our success transition — it would
+  // resurrect a cancelled slice and skip the next one (currentSliceIndex
+  // would advance past the one the user wanted to retry).
+  if (getState().status !== ExecutionStatus.SLICE_EXECUTING) {
+    return false;
+  }
 
   setState((s) => {
     const newResults = [...s.executionResults, enriched];
