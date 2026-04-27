@@ -248,6 +248,23 @@ export const ExecutionPanel: FC = () => {
     const unsub = subscribeWallet(setWallet);
     return unsub;
   }, []);
+
+  // BUG FIX (RR): surface connectWallet() rejections to the user.
+  // Previously the call site was `() => void connectWallet()` which
+  // silently discarded the promise — if Solflare wasn't installed, or
+  // the user rejected the connection popup, they'd see no feedback at
+  // all. Capture the error and render it next to the Connect button.
+  const [connectError, setConnectError] = useState<string | null>(null);
+  const handleConnect = useCallback(async () => {
+    setConnectError(null);
+    try {
+      await connectWallet();
+    } catch (err) {
+      setConnectError(
+        err instanceof Error ? err.message : "Could not connect to Solflare.",
+      );
+    }
+  }, []);
   const { tokens: rawTokens, loading: tokensLoading, error: tokensError } =
     useAvailableTokens(wallet);
 
@@ -552,11 +569,31 @@ export const ExecutionPanel: FC = () => {
             </div>
             <Button
               variant="primary"
-              onClick={() => void connectWallet()}
+              onClick={() => void handleConnect()}
+              disabled={wallet.connecting}
               style={{ width: "100%", marginTop: 8, padding: "14px 28px" }}
             >
-              CONNECT SOLFLARE
+              {wallet.connecting ? "CONNECTING…" : "CONNECT SOLFLARE"}
             </Button>
+            {connectError && (
+              <div
+                role="alert"
+                style={{
+                  marginTop: 10,
+                  padding: "10px 12px",
+                  borderRadius: 8,
+                  border: `1px solid ${THEME.danger}`,
+                  background: "var(--color-warn-bg, rgba(255, 100, 80, 0.12))",
+                  color: THEME.text,
+                  fontFamily: MONO,
+                  fontSize: 12,
+                  lineHeight: 1.5,
+                  textAlign: "left",
+                }}
+              >
+                {connectError}
+              </div>
+            )}
           </div>
         </div>
       ) : state.status === ExecutionStatus.DONE ? (
