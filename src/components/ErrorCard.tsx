@@ -140,16 +140,30 @@ export const ErrorCard: FC<ErrorCardProps> = ({ error, onRetry, onReset }) => {
         </div>
       )}
 
+      {/* BUG FIX: previously the action row showed RETRY xor RESET. A
+          user hitting a retryable error who wanted to abandon the
+          execution had no UI escape hatch — they'd be stuck in
+          retry-fail-retry loops or have to clear localStorage manually.
+          Both buttons now coexist: RETRY first (primary action), RESET
+          secondary. Non-retryable errors still default to RESET as the
+          primary because retry would just throw immediately. */}
       <div style={styles.actions}>
-        {error.retryable ? (
+        {error.retryable && (
           <Button variant="primary" onClick={onRetry}>
             RETRY
           </Button>
-        ) : (
-          <Button variant="primary" onClick={onReset} style={{ background: THEME.danger }}>
-            RESET EXECUTION
-          </Button>
         )}
+        <Button
+          variant={error.retryable ? "secondary" : "primary"}
+          onClick={onReset}
+          style={
+            error.retryable
+              ? undefined
+              : { background: THEME.danger }
+          }
+        >
+          RESET EXECUTION
+        </Button>
       </div>
     </div>
   );
