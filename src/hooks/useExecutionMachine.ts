@@ -17,7 +17,7 @@
  * aktif Solflare adapter'ından signTransaction'ı yeniden enjekte eder.
  */
 
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { PublicKey } from "@solana/web3.js";
 import {
   configure as machineConfigure,
@@ -52,6 +52,10 @@ import {
 } from "../services/quicknode";
 import { closeNoncePool } from "../state/preSignPlan";
 import {
+  broadcast as broadcastTabStatus,
+  subscribeOtherTabsInFlight,
+} from "../services/multiTab";
+import {
   buildFromExecutionState,
   saveExecution,
 } from "../services/analyticsStore";
@@ -81,6 +85,14 @@ export type UseExecutionMachineResult = {
   pendingRecovery: RecoveryPrompt | null;
   resumeRecovery: () => void;
   discardRecovery: () => void;
+  /**
+   * True iff another LIMINAL tab in the same browser profile is
+   * currently running an in-flight execution. UI surfaces this as a
+   * warning banner before the user starts a second concurrent run.
+   * Detection uses BroadcastChannel + storage event fallback —
+   * works without backend coordination.
+   */
+  otherTabsInFlight: boolean;
 };
 
 // ---------------------------------------------------------------------------
@@ -232,6 +244,14 @@ const setState: SetStateFn = (updater) => {
     next.status === ExecutionStatus.DONE
   ) {
     void trySaveAnalytics(next);
+  }
+
+  // Multi-tab awareness: broadcast status changes so other LIMINAL
+  // tabs in the same browser profile can warn the user about
+  // overlapping executions. Cheap (single postMessage) and idempotent
+  // — broadcast() handles the BroadcastChannel-unavailable case.
+  if (prev.status !== next.status) {
+    broadcastTabStatus(next.status);
   }
 
   notifyStateListeners();
@@ -548,8 +568,16 @@ export function useExecutionMachine(): UseExecutionMachineResult {
     });
   }, []);
 
+  // Multi-tab awareness — subscribe in a React state so re-renders
+  // pick up changes from BroadcastChannel + storage event listeners.
+  const [otherTabsInFlight, setOtherTabsInFlight] = useState<boolean>(false);
+  useEffect(() => {
+    return subscribeOtherTabsInFlight(setOtherTabsInFlight);
+  }, []);
+
   return {
     state,
+    otherTabsInFlight,
     configure: configureAction,
     start: startAction,
     retry: retryAction,
