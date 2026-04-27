@@ -45,7 +45,12 @@ import {
   signTransactionWithSolflare,
   subscribeWallet,
 } from "../services/solflare";
-import { getPythPrice, resolveTokenSymbol } from "../services/quicknode";
+import {
+  createConnection,
+  getPythPrice,
+  resolveTokenSymbol,
+} from "../services/quicknode";
+import { closeNoncePool } from "../state/preSignPlan";
 import {
   buildFromExecutionState,
   saveExecution,
@@ -91,15 +96,61 @@ function safeStorage(): Storage | null {
   }
 }
 
+/**
+ * Detect QuotaExceededError across browsers. Some surface a numeric
+ * `code = 22` (legacy), others use `code = 1014` (Firefox), others
+ * just throw a DOMException with name "QuotaExceededError".
+ */
+function isQuotaExceededError(err: unknown): boolean {
+  if (err instanceof DOMException) {
+    return (
+      err.name === "QuotaExceededError" ||
+      err.name === "NS_ERROR_DOM_QUOTA_REACHED" ||
+      err.code === 22 ||
+      err.code === 1014
+    );
+  }
+  return false;
+}
+
+/**
+ * Persist execution state to localStorage. On QuotaExceededError, evict
+ * non-critical LIMINAL keys (analytics history, token registry cache)
+ * and retry once — the in-flight execution state is the most critical
+ * thing for recovery, so it gets priority over historical analytics.
+ *
+ * If even the retry fails, log a clear warning so the user understands
+ * a refresh would lose their execution. We never crash the state
+ * machine over a persist failure.
+ */
 function persist(state: ExecutionState): void {
   const storage = safeStorage();
   if (!storage) return;
+  const payload = JSON.stringify(serializeState(state));
   try {
-    storage.setItem(STORAGE_KEY, JSON.stringify(serializeState(state)));
+    storage.setItem(STORAGE_KEY, payload);
+    return;
   } catch (err) {
-    console.warn(
-      `[LIMINAL] Execution state persist edilemedi: ${err instanceof Error ? err.message : String(err)}`,
-    );
+    if (!isQuotaExceededError(err)) {
+      console.warn(
+        `[LIMINAL] Execution state persist edilemedi: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return;
+    }
+    // Quota exceeded — evict expendable LIMINAL caches and retry.
+    try {
+      storage.removeItem("liminal:analytics:history");
+      storage.removeItem("liminal:token-registry:v2");
+      storage.setItem(STORAGE_KEY, payload);
+      console.warn(
+        "[LIMINAL] localStorage quota hit — evicted analytics history + token registry cache to make room for in-flight execution state.",
+      );
+    } catch (retryErr) {
+      console.warn(
+        `[LIMINAL] localStorage quota exceeded and retry failed: ${retryErr instanceof Error ? retryErr.message : String(retryErr)}. ` +
+          "Refreshing the tab will lose recovery state — finish or cancel the execution before navigating away.",
+      );
+    }
   }
 }
 
@@ -310,8 +361,41 @@ function resetAction(): void {
     );
     return;
   }
+
+  // BUG FIX: when the user resets after a built but never-broadcasted
+  // plan (e.g. ERROR'd during DEPOSITING with autopilot ON), the
+  // pre-signed payloads are dropped from state but the on-chain nonce
+  // accounts remain — about ~$2 of SOL rent locked per execution. We
+  // capture the plan + config BEFORE clearing state and kick off a
+  // background closeNoncePool. Fire-and-forget: if the user rejects the
+  // cleanup popup or the broadcast fails, log and move on (the rent
+  // can still be reclaimed manually with `nonceWithdraw`).
+  const planForCleanup = moduleState.preSignedPlan;
+  const configForCleanup = moduleState.config;
+
   setState((prev) => machineReset(prev));
   clearPersisted();
+
+  if (planForCleanup && configForCleanup) {
+    void (async (): Promise<void> => {
+      try {
+        const connection = createConnection();
+        await closeNoncePool(
+          planForCleanup,
+          connection,
+          configForCleanup.signTransaction,
+          configForCleanup.walletPublicKey,
+        );
+        // Successful reclaim: caller's already moved on, no UI signal
+        // needed — Solflare's own confirmation toast is the receipt.
+      } catch (err) {
+        console.warn(
+          `[LIMINAL] Background nonce cleanup after reset skipped: ${err instanceof Error ? err.message : String(err)}. ` +
+            "Funds are still recoverable manually via nonceWithdraw.",
+        );
+      }
+    })();
+  }
 }
 
 function resumeRecoveryAction(): void {
