@@ -395,13 +395,30 @@ export async function depositEffect(
   // Dışarıdan iptal geldiyse (reset/recovery) — durumu kontrol et.
   if (getState().status !== ExecutionStatus.DEPOSITING) return;
 
+  // BUG FIX (WW): rebase slice target timestamps onto `startedAt`
+  // (post-deposit). Originally calculateTWAPSlices anchored slice
+  // targets at `configure` time, so a 30s deposit would consume 30s
+  // of the user's TWAP window — the first slice fired immediately
+  // (waitMs already negative) and the total execution finished
+  // earlier than the requested window. Recomputing here preserves
+  // the inter-slice intervals but moves the clock origin to the
+  // moment ACTIVE begins. User asks for "10 min TWAP" and gets
+  // exactly that, regardless of how long the deposit took.
   const startedAt = new Date();
+  const startedMs = startedAt.getTime();
+  const intervalMs =
+    config.sliceCount > 0 ? config.windowDurationMs / config.sliceCount : 0;
   setState((s) => ({
     ...s,
     status: ExecutionStatus.ACTIVE,
     kaminoDepositSignature: null, // service signature'ı zaten döndürdü; ileride map'lenebilir
     kaminoDepositedAmount: config.totalAmount,
     startedAt,
+    estimatedCompletionAt: new Date(startedMs + config.windowDurationMs),
+    slices: s.slices.map((sl, i) => ({
+      ...sl,
+      targetExecutionTime: new Date(startedMs + intervalMs * i),
+    })),
   }));
 
   await executeNextSlice(getState(), setState, getState);
