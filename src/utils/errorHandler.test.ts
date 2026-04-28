@@ -136,4 +136,28 @@ describe("parseError", () => {
     expect(err.retryable).toBe(false);
     expect(err.message).toMatch(/Top up/i);
   });
+
+  // Round 23 — observed mainnet bug
+  it("classifies 'VersionedTransaction too large' as retryable simulation fail", () => {
+    const err = parseError(
+      new Error(
+        "Simulation failed. Message: base64 encoded solana_transaction::versioned::VersionedTransaction too large: 1872 bytes (max: encoded/raw 1644/1232).",
+      ),
+      0,
+      "dflow-swap",
+    );
+    expect(err.code).toBe(ErrorCode.DFLOW_SIMULATION_FAILED);
+    expect(err.retryable).toBe(true);
+    expect(err.message).toMatch(/route too large|simpler path/i);
+  });
+
+  it("classifies 'encoding overruns Uint8Array' as retryable simulation fail", () => {
+    const err = parseError(
+      new Error("Transaction size check error: encoding overruns Uint8Array"),
+      1,
+      "batch",
+    );
+    expect(err.code).toBe(ErrorCode.DFLOW_SIMULATION_FAILED);
+    expect(err.retryable).toBe(true);
+  });
 });
