@@ -35,12 +35,11 @@ import { usePriceMonitor } from "../hooks/usePriceMonitor";
 import { useExecutionMachine } from "../hooks/useExecutionMachine";
 import { useDeviceDetection } from "../hooks/useDeviceDetection";
 import { useTokenRegistry } from "../hooks/useTokenRegistry";
+import type { TokenInfo } from "../services/tokenRegistry";
 import {
   DFlowLogo,
   KaminoIcon,
   LiminalMark,
-  PARTNER_LOGOS,
-  LOGO_CAP,
 } from "./BrandLogos";
 import { ExecutionStatus, IN_FLIGHT_STATUSES } from "../state/executionMachine";
 import { estimatePopups, MAX_AUTOPILOT_SLICES } from "../state/preSignPlan";
@@ -619,56 +618,10 @@ export const ExecutionPanel: FC = () => {
               </div>
             )}
 
-            {/* Partner logos relocated from header (PR #4 audit
-                follow-up). Welcome state is the right surface — first-
-                time users see who's powering this thing. Subtle row,
-                muted color, no gradient flourish. */}
-            <div
-              style={{
-                marginTop: 28,
-                paddingTop: 18,
-                borderTop: "1px solid var(--color-stroke)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 14,
-                opacity: 0.55,
-                color: "var(--color-text-muted)",
-                fontFamily: MONO,
-                fontSize: 12,
-              }}
-              aria-label="Built with"
-            >
-              <span>Built with</span>
-              {PARTNER_LOGOS.map(({ name, logo: Logo }, i) => (
-                <span
-                  key={name}
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 8,
-                  }}
-                >
-                  {i > 0 && (
-                    <span aria-hidden="true" style={{ opacity: 0.5 }}>
-                      ·
-                    </span>
-                  )}
-                  <span
-                    title={name}
-                    aria-label={`${name} logo`}
-                    role="img"
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      height: LOGO_CAP,
-                    }}
-                  >
-                    <Logo height={LOGO_CAP} size={LOGO_CAP} />
-                  </span>
-                </span>
-              ))}
-            </div>
+            {/* Partner logos moved out of welcome state into the global
+                <Footer /> rendered at the bottom of every layout (App.tsx).
+                Keeps attribution visible across all execution states, not
+                just the first-time view. */}
           </div>
         </div>
       ) : state.status === ExecutionStatus.DONE ? (
@@ -704,9 +657,11 @@ export const ExecutionPanel: FC = () => {
                   label="From"
                   value={fromMint}
                   tokens={tokens}
-                  onChange={(e) => !isInFlight && setFromMint(e.target.value)}
+                  onChange={(mint) => !isInFlight && setFromMint(mint)}
                   disabled={isInFlight}
                   lockedTooltip={lockedTooltip}
+                  prices={prices}
+                  lookup={tokenRegistry.lookup}
                 />
                 <button
                   type="button"
@@ -735,9 +690,11 @@ export const ExecutionPanel: FC = () => {
                   label="To"
                   value={toMint}
                   tokens={tokens.filter((t) => t.mint !== fromMint)}
-                  onChange={(e) => !isInFlight && setToMint(e.target.value)}
+                  onChange={(mint) => !isInFlight && setToMint(mint)}
                   disabled={isInFlight || !fromMint}
                   lockedTooltip={lockedTooltip}
+                  prices={prices}
+                  lookup={tokenRegistry.lookup}
                 />
               </div>
             )}
@@ -1139,54 +1096,269 @@ export const ExecutionPanel: FC = () => {
 // Sub-components
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// TokenSelect — custom dropdown picker
+//
+// Replaced the native <select> in PR #5a. The native control could only
+// render plain symbol text per option; the new picker shows for each row
+//   - the official token logo (from tokenRegistry's logoURI), with a
+//     coloured-circle fallback for tokens without metadata
+//   - symbol + name (muted)
+//   - live USD price (from Pyth via usePriceMonitor)
+//   - balance × price = USD value of the user's holdings
+//
+// Behaviour:
+//   - Click trigger to open, click outside or press Escape to close
+//   - Click a row to select; the trigger collapses to logo + symbol +
+//     a short balance hint
+//   - When `disabled`, trigger is non-interactive and renders the lock
+//     tooltip on hover
+//   - Empty `value` shows a neutral "Select token" placeholder
+// ---------------------------------------------------------------------------
+
+const TokenLogo: FC<{
+  mint: string;
+  symbol: string;
+  info: TokenInfo | null;
+  size?: number;
+}> = ({ mint, symbol, info, size = 22 }) => {
+  const [errored, setErrored] = useState(false);
+  const url = info?.logoURI ?? null;
+  if (url && !errored) {
+    return (
+      <img
+        src={url}
+        alt=""
+        width={size}
+        height={size}
+        loading="lazy"
+        decoding="async"
+        onError={() => setErrored(true)}
+        style={{
+          width: size,
+          height: size,
+          borderRadius: "50%",
+          objectFit: "cover",
+          flexShrink: 0,
+          background: "var(--color-2)",
+        }}
+        aria-hidden="true"
+      />
+    );
+  }
+  // Fallback: solid coloured circle with first letter of symbol.
+  const bg = getTokenColor(symbol);
+  const letter = (symbol || mint).slice(0, 1).toUpperCase();
+  return (
+    <span
+      aria-hidden="true"
+      style={{
+        width: size,
+        height: size,
+        borderRadius: "50%",
+        background: bg,
+        color: "#fff",
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontFamily: MONO,
+        fontSize: Math.max(10, Math.floor(size * 0.5)),
+        fontWeight: 700,
+        flexShrink: 0,
+      }}
+    >
+      {letter}
+    </span>
+  );
+};
+
+function formatBalance(n: number): string {
+  if (n === 0) return "0";
+  if (n < 0.0001) return n.toExponential(2);
+  if (n < 1) return n.toLocaleString("en-US", { maximumFractionDigits: 6 });
+  if (n < 1000) return n.toLocaleString("en-US", { maximumFractionDigits: 4 });
+  return n.toLocaleString("en-US", { maximumFractionDigits: 2 });
+}
+
 const TokenSelect: FC<{
   label: string;
   value: string;
   tokens: AvailableToken[];
-  onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+  onChange: (mint: string) => void;
   disabled?: boolean;
   lockedTooltip?: string;
-}> = ({ label, value, tokens, onChange, disabled, lockedTooltip }) => {
+  prices: Record<string, number>;
+  lookup: (mint: string) => TokenInfo | null;
+}> = ({
+  label,
+  value,
+  tokens,
+  onChange,
+  disabled,
+  lockedTooltip,
+  prices,
+  lookup,
+}) => {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const selectedToken = tokens.find((t) => t.mint === value);
+  const selectedInfo = selectedToken ? lookup(selectedToken.mint) : null;
+  const selectedPrice = selectedToken ? prices[selectedToken.mint] : undefined;
+
+  // Close on outside click or Escape.
+  useEffect(() => {
+    if (!open) return;
+    function onDocClick(e: MouseEvent) {
+      if (!rootRef.current) return;
+      if (!rootRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
   return (
-    <label style={styles.selectWrap}>
+    <div style={styles.selectWrap} ref={rootRef}>
       <span style={styles.selectLabel}>{label}</span>
-      <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
-        {selectedToken && (
-          <span
-            style={{
-              position: "absolute",
-              left: 12,
-              width: 8,
-              height: 8,
-              borderRadius: "50%",
-              background: getTokenColor(selectedToken.symbol),
-              zIndex: 1,
-              pointerEvents: "none",
-            }}
-          />
-        )}
-        <select
-          value={value}
-          onChange={onChange}
+      <div style={{ position: "relative" }}>
+        <button
+          type="button"
           disabled={disabled}
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          aria-label={`${label} token: ${selectedToken?.symbol ?? "none selected"}`}
           title={disabled ? lockedTooltip : undefined}
+          onClick={() => !disabled && setOpen((v) => !v)}
           style={{
-            ...styles.select,
-            paddingLeft: selectedToken ? 28 : 12,
+            ...styles.tokenTrigger,
             opacity: disabled ? 0.5 : 1,
             cursor: disabled ? "not-allowed" : "pointer",
+            borderColor: open ? "var(--color-accent-border)" : THEME.border,
           }}
         >
-          <option value="">-- select --</option>
-          {tokens.map((t) => (
-            <option key={t.mint} value={t.mint}>
-              {t.symbol}
-            </option>
-          ))}
-        </select>
+          {selectedToken ? (
+            <>
+              <TokenLogo
+                mint={selectedToken.mint}
+                symbol={selectedToken.symbol}
+                info={selectedInfo}
+                size={22}
+              />
+              <span style={styles.tokenTriggerSymbol}>
+                {selectedToken.symbol}
+              </span>
+              {selectedPrice != null && (
+                <span style={styles.tokenTriggerPrice}>
+                  {formatUSD(selectedPrice)}
+                </span>
+              )}
+            </>
+          ) : (
+            <span style={styles.tokenTriggerPlaceholder}>Select token</span>
+          )}
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 12 12"
+            fill="none"
+            aria-hidden="true"
+            style={{
+              marginLeft: "auto",
+              transition: "transform var(--motion-base) var(--ease-out)",
+              transform: open ? "rotate(180deg)" : "rotate(0deg)",
+              flexShrink: 0,
+            }}
+          >
+            <path
+              d="M3 5l3 3 3-3"
+              fill="none"
+              stroke="var(--color-text-muted)"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+        {open && (
+          <ul
+            role="listbox"
+            aria-label={`${label} token list`}
+            style={styles.tokenMenu}
+          >
+            {tokens.length === 0 ? (
+              <li style={styles.tokenMenuEmpty}>No tokens available</li>
+            ) : (
+              tokens.map((t) => {
+                const info = lookup(t.mint);
+                const price = prices[t.mint];
+                const total = price != null ? price * t.balance : null;
+                const selected = t.mint === value;
+                return (
+                  <li
+                    key={t.mint}
+                    role="option"
+                    aria-selected={selected}
+                    onClick={() => {
+                      onChange(t.mint);
+                      setOpen(false);
+                    }}
+                    style={{
+                      ...styles.tokenMenuRow,
+                      background: selected
+                        ? "var(--color-accent-bg-soft)"
+                        : "transparent",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!selected)
+                        (e.currentTarget as HTMLLIElement).style.background =
+                          "var(--surface-raised)";
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!selected)
+                        (e.currentTarget as HTMLLIElement).style.background =
+                          "transparent";
+                    }}
+                  >
+                    <TokenLogo
+                      mint={t.mint}
+                      symbol={t.symbol}
+                      info={info}
+                      size={28}
+                    />
+                    <div style={styles.tokenMenuMain}>
+                      <div style={styles.tokenMenuSymbol}>{t.symbol}</div>
+                      <div style={styles.tokenMenuName}>
+                        {info?.name ?? `${t.mint.slice(0, 4)}…${t.mint.slice(-4)}`}
+                      </div>
+                    </div>
+                    <div style={styles.tokenMenuRight}>
+                      <div style={styles.tokenMenuPrice}>
+                        {price != null ? formatUSD(price) : "—"}
+                      </div>
+                      <div style={styles.tokenMenuBalance}>
+                        {formatBalance(t.balance)}
+                        {total != null && total > 0 && (
+                          <span style={styles.tokenMenuTotal}>
+                            {" "}
+                            · {formatUSD(total)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </li>
+                );
+              })
+            )}
+          </ul>
+        )}
       </div>
-    </label>
+    </div>
   );
 };
 
@@ -1549,6 +1721,113 @@ const styles: Record<string, CSSProperties> = {
     backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 5l3 3 3-3' fill='none' stroke='%2364748b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
     backgroundRepeat: "no-repeat",
     backgroundPosition: "right 12px center",
+  },
+  // ---- Custom token picker (replaces native <select> for token rows) ----
+  tokenTrigger: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    width: "100%",
+    minHeight: 44,
+    padding: "8px 12px",
+    background: "var(--surface-input)",
+    border: `1px solid ${THEME.border}`,
+    borderRadius: "var(--radius-sm)",
+    boxShadow: "inset 0 1px 2px rgba(26, 26, 26, 0.06)",
+    fontFamily: MONO,
+    fontSize: 16,
+    color: THEME.text,
+    textAlign: "left",
+    transition: "border-color var(--motion-base) var(--ease-out)",
+  },
+  tokenTriggerSymbol: {
+    fontWeight: 700,
+    letterSpacing: 0,
+  },
+  tokenTriggerPrice: {
+    color: THEME.textMuted,
+    fontSize: 13,
+    fontVariantNumeric: "tabular-nums",
+  },
+  tokenTriggerPlaceholder: {
+    color: THEME.textMuted,
+    fontFamily: SANS,
+  },
+  tokenMenu: {
+    position: "absolute",
+    top: "calc(100% + 4px)",
+    left: 0,
+    right: 0,
+    margin: 0,
+    padding: 4,
+    listStyle: "none",
+    background: "var(--surface-raised)",
+    border: `1px solid ${THEME.border}`,
+    borderRadius: "var(--radius-sm)",
+    boxShadow: "var(--shadow-component)",
+    maxHeight: 320,
+    overflowY: "auto",
+    zIndex: 60,
+  },
+  tokenMenuRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    padding: "10px 10px",
+    borderRadius: 6,
+    cursor: "pointer",
+    transition: "background var(--motion-base) var(--ease-out)",
+  },
+  tokenMenuMain: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 2,
+    minWidth: 0,
+    flex: 1,
+  },
+  tokenMenuSymbol: {
+    fontFamily: MONO,
+    fontWeight: 700,
+    fontSize: 14,
+    color: THEME.text,
+    letterSpacing: 0,
+  },
+  tokenMenuName: {
+    fontFamily: SANS,
+    fontSize: 12,
+    color: THEME.textMuted,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  tokenMenuRight: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "flex-end",
+    gap: 2,
+    flexShrink: 0,
+  },
+  tokenMenuPrice: {
+    fontFamily: MONO,
+    fontSize: 13,
+    color: THEME.text,
+    fontVariantNumeric: "tabular-nums",
+  },
+  tokenMenuBalance: {
+    fontFamily: MONO,
+    fontSize: 11,
+    color: THEME.textMuted,
+    fontVariantNumeric: "tabular-nums",
+  },
+  tokenMenuTotal: {
+    color: "var(--color-success)",
+  },
+  tokenMenuEmpty: {
+    padding: "12px",
+    color: THEME.textMuted,
+    fontFamily: SANS,
+    fontSize: 13,
+    textAlign: "center",
   },
   swapButton: {
     width: 32,

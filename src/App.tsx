@@ -29,6 +29,7 @@ import WalletPanel from "./components/WalletPanel";
 import ExecutionPanel from "./components/ExecutionPanel";
 import AnalyticsPanel from "./components/AnalyticsPanel";
 import HeaderBar from "./components/HeaderBar";
+import Footer from "./components/Footer";
 import { ToastContainer } from "./components/ToastProvider";
 import DisclaimerModal, {
   hasAcceptedDisclaimer,
@@ -148,6 +149,7 @@ export const App: FC = () => {
           {mobileTab === "wallet" && <WalletPanel />}
           {mobileTab === "execute" && <ExecutionPanel />}
           {mobileTab === "analytics" && <AnalyticsPanel />}
+          <Footer compact />
         </main>
 
         <nav style={styles.mobileTabBar} role="tablist" aria-label="Main navigation">
@@ -202,6 +204,7 @@ export const App: FC = () => {
             </aside>
           </div>
         </div>
+        <Footer />
       </div>
     );
   }
@@ -239,6 +242,7 @@ export const App: FC = () => {
           Connect your Solflare wallet — the Connect button is in the middle panel.
         </div>
       )}
+      <Footer />
     </div>
   );
 };
