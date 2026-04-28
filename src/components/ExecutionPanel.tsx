@@ -730,8 +730,25 @@ export const ExecutionPanel: FC = () => {
               {fromToken && !isInFlight && (
                 <button
                   type="button"
-                  onClick={() => setAmountStr(fromBalance.toString())}
+                  // BUG FIX (UU): for SOL, leave a buffer for transaction
+                  // fees (and nonce rent in autopilot mode). Without it,
+                  // clicking MAX would empty the wallet and the first
+                  // tx broadcast would fail with "insufficient lamports
+                  // for fee". 0.05 SOL covers ~250 typical transactions
+                  // + up to 8 nonce account rents — well over the worst-
+                  // case autopilot pool (6 slices = N+2 = 8 accounts at
+                  // ~0.00148 SOL each = 0.012 SOL).
+                  onClick={() => {
+                    const buffer = fromMint === SOL_MINT ? 0.05 : 0;
+                    const max = Math.max(0, fromBalance - buffer);
+                    setAmountStr(max.toString());
+                  }}
                   style={styles.maxButton}
+                  title={
+                    fromMint === SOL_MINT
+                      ? "Leaves 0.05 SOL for transaction fees + autopilot nonce rent."
+                      : undefined
+                  }
                 >
                   MAX
                 </button>
@@ -1259,6 +1276,14 @@ function deriveStep(status: ExecutionStatus): number {
     case ExecutionStatus.IDLE:
     case ExecutionStatus.CONFIGURED:
       return -1; // no step active pre-start
+    // BUG FIX (TT): PREPARING was missing → fell through to default
+    // (-1) so the StepIndicator showed nothing during autopilot plan
+    // signing. From the user's perspective, PREPARING is the front
+    // half of the deposit phase (we're setting up nonce accounts and
+    // signing all txs that include the deposit), so it maps to the
+    // same first step as DEPOSITING. The visual now lights up the
+    // moment they hit START.
+    case ExecutionStatus.PREPARING:
     case ExecutionStatus.DEPOSITING:
       return 0;
     case ExecutionStatus.ACTIVE:
