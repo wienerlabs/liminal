@@ -62,22 +62,42 @@ const ULTRA_ORDER_PATH = "/ultra/v1/order";
 /**
  * Cap the number of accounts Ultra is allowed to include in a single
  * route. Lower = simpler route = smaller serialized tx (fits Solana's
- * 1232-byte packet MTU). Default Ultra ceiling is 64 which routinely
- * produces 1800+ byte transactions that fail simulation with
- * "VersionedTransaction too large".
+ * 1232-byte packet MTU).
  *
- * 30 accounts ≈ ~1100 bytes worst case — comfortably under MTU even
- * with our additional setup ix's. Multi-hop routes still possible
- * (each hop is ~6 accounts), just no longer 5+ hop convoluted paths.
+ * History:
+ *   - default (64) → 1872-byte tx, simulation failed (mainnet 16:37)
+ *   - 30 → still failed on a subsequent attempt (mainnet 16:48)
+ *   - 20 → current. Combined with `restrictIntermediateTokens: true`,
+ *     this caps practical tx size at ~900 bytes worst case.
  *
- * Trade-off: in rare cases Ultra might find a slightly better price
- * with a more complex route. Worth the tradeoff because (1) MTU
- * failures cost the user a slice slot AND a failed-simulation tx fee,
- * (2) BLOK 6 transaction-count-minimization mandates predictably-
- * sized txs, (3) DFlow's RFQ paths within Ultra are already simpler
- * than full-aggregator routes.
+ * The relationship between maxAccounts and serialized size isn't
+ * linear because LUTs compress account references, but each AMM hop
+ * still costs ~150-200 bytes of instruction data + signers/writables.
+ * With 20 accounts we typically get 2-3 hop routes that comfortably
+ * fit MTU even after our setup instructions are added.
+ *
+ * Trade-off: more aggressive than ideal — Ultra may find a slightly
+ * better price with a complex 4+ hop route. Worth the tradeoff because
+ * (1) MTU failures cost the user a slice slot AND a failed-simulation
+ * tx fee, (2) DFlow RFQ paths within Ultra remain simpler than full-
+ * aggregator routes, (3) 20-account routes already cover the popular
+ * (SOL/USDC, USDC/USDT, etc.) trading pairs LIMINAL targets.
  */
-const ULTRA_MAX_ACCOUNTS = 30;
+const ULTRA_MAX_ACCOUNTS = 20;
+
+/**
+ * Force Ultra's intermediate hops to be drawn from a curated list of
+ * highly-liquid tokens (SOL, USDC, USDT, etc.) rather than arbitrary
+ * memecoins. Two benefits:
+ *   - Deterministic routing → predictable tx size
+ *   - Better fill quality on long-tail tokens (deeper books in the
+ *     curated set)
+ *
+ * Default for Ultra is unclear from public docs (some endpoints
+ * default true, some false). We pin true explicitly to remove
+ * ambiguity.
+ */
+const ULTRA_RESTRICT_INTERMEDIATE = true;
 const ULTRA_EXECUTE_PATH = "/ultra/v1/execute";
 
 const COMMITMENT: Commitment = "confirmed";
@@ -477,10 +497,10 @@ export async function getQuote(
       amount: amountLamports.toString(),
       slippageBps,
       // Cap route complexity to fit Solana's 1232-byte packet MTU.
-      // Without this, multi-hop routes routinely produce 1800+ byte
-      // transactions that fail simulation with "VersionedTransaction
-      // too large" (the original Bug we hit on mainnet).
+      // History: 64 (default) → 1872 bytes failed; 30 → still failed
+      // on some pairs; 20 + restrictIntermediateTokens reliably fits.
       maxAccounts: ULTRA_MAX_ACCOUNTS,
+      restrictIntermediateTokens: ULTRA_RESTRICT_INTERMEDIATE,
       // Ultra takes a taker address to pre-bind fee ATAs. If not known yet
       // (pre-connect), we omit and ask the route-only (no signing).
       taker,
@@ -675,6 +695,7 @@ export async function executeSwap(
       ).toString(),
       slippageBps: quote.slippageBps,
       maxAccounts: ULTRA_MAX_ACCOUNTS,
+      restrictIntermediateTokens: ULTRA_RESTRICT_INTERMEDIATE,
       taker: walletPublicKey.toBase58(),
     }).catch(() => null);
     b64 = refreshed?.transaction;
@@ -686,6 +707,30 @@ export async function executeSwap(
   }
 
   const tx = decodeSwapTransaction({ transaction: b64 });
+
+  // 1.5) Pre-flight size check. Solana's per-tx packet MTU is 1232
+  // bytes raw / 1644 base64. If Ultra still returned a too-big route
+  // despite our maxAccounts cap, fail fast with a clean retryable
+  // error (parseError classifies this as DFLOW_SIMULATION_FAILED) —
+  // saves a wasted RPC round-trip and the user gets a clear message
+  // instead of the RPC's cryptic "VersionedTransaction too large".
+  let preflightSize = 0;
+  try {
+    preflightSize = tx.serialize().length;
+  } catch (err) {
+    // serialize() can throw "encoding overruns Uint8Array" for huge
+    // txs — same root cause, treat identically.
+    throw new Error(
+      `VersionedTransaction too large: encoding overruns Uint8Array. ` +
+        `${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+  if (preflightSize > 1232) {
+    throw new Error(
+      `VersionedTransaction too large: ${preflightSize} bytes (max raw 1232). ` +
+        "Aggregator returned a route too large for Solana's packet limit.",
+    );
+  }
 
   // 2) Simulate (BLOK 6 kural 5 — zorunlu).
   try {
@@ -864,6 +909,7 @@ export async function fetchSwapInstructions(
       amount: "0",
       slippageBps: quote.slippageBps,
       maxAccounts: ULTRA_MAX_ACCOUNTS,
+      restrictIntermediateTokens: ULTRA_RESTRICT_INTERMEDIATE,
       taker: walletPublicKey.toBase58(),
     }).catch(() => null);
     b64 = refreshed?.transaction;
