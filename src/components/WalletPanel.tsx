@@ -24,7 +24,6 @@ import {
   type FC,
 } from "react";
 import {
-  connectWallet,
   disconnectWallet,
   getSOLBalance,
   getSPLTokenBalances,
@@ -43,7 +42,6 @@ import {
   type HistoricalExecution,
 } from "../services/analyticsStore";
 import { requestAnalyticsTab } from "../state/analyticsNav";
-import Button from "./Button";
 
 const SOL_MINT = "So11111111111111111111111111111111111111112";
 
@@ -210,16 +208,10 @@ export const WalletPanel: FC = () => {
     }
   }, [wallet.connected, wallet.address, loadBalances]);
 
-  const handleConnect = useCallback(async () => {
-    setConnectError(null);
-    try {
-      await connectWallet();
-    } catch (err) {
-      setConnectError(
-        err instanceof Error ? err.message : "An error occurred while connecting.",
-      );
-    }
-  }, []);
+  // handleConnect removed — CTA delegated to ExecutionPanel (single
+  // primary connect action across the app). connectError state kept
+  // for surfacing errors that originate from the wallet adapter even
+  // when triggered elsewhere — e.g. accountChanged → re-init failure.
 
   const handleDisconnect = useCallback(async () => {
     await disconnectWallet();
@@ -231,7 +223,14 @@ export const WalletPanel: FC = () => {
   }, [wallet.address, loadBalances]);
 
   // -----------------------------------------------------------------------
-  // Disconnected state: tek merkez "Connect Solflare" butonu
+  // Disconnected state: value-prop only (no CTA).
+  //
+  // Previous design had a "CONNECT SOLFLARE" button here AND another in
+  // ExecutionPanel's welcome state — same action, two buttons. We
+  // delegate the CTA to ExecutionPanel (the larger, more visible one)
+  // and use this panel purely as a value-prop / education surface.
+  // The arrow hint at the bottom of the App's desktopFooterHint already
+  // points the user to the Connect button.
   // -----------------------------------------------------------------------
   if (!wallet.connected) {
     return (
@@ -241,32 +240,28 @@ export const WalletPanel: FC = () => {
       >
         <header style={styles.header}>WALLET</header>
         <div style={styles.emptyBody}>
-          <LiminalMark size={96} style={{ marginBottom: 4 }} />
+          <LiminalMark size={72} style={{ marginBottom: 4 }} />
           <div style={styles.emptyHint}>
-            Connect your Solflare wallet to start using LIMINAL.
+            Once connected, your SOL + SPL balances, active Kamino
+            positions, and execution history land here.
           </div>
           <div style={styles.featureBullets}>
             <div style={styles.bulletItem}>
               <span style={styles.bulletDot} />
-              View SOL and SPL balances
+              SOL + SPL balances
             </div>
             <div style={styles.bulletItem}>
               <span style={styles.bulletDot} />
-              Track execution history
+              Active Kamino positions
             </div>
             <div style={styles.bulletItem}>
               <span style={styles.bulletDot} />
-              One-click Solflare connection
+              Execution history + analytics
             </div>
           </div>
-          <Button
-            variant="primary"
-            onClick={handleConnect}
-            disabled={wallet.connecting}
-            style={{ padding: "14px 28px" }}
-          >
-            {wallet.connecting ? "CONNECTING..." : "CONNECT SOLFLARE"}
-          </Button>
+          {/* CTA intentionally moved to ExecutionPanel — single primary
+              connect action across the whole app. `connectError` from
+              that path surfaces in the same place. */}
           {connectError && (
             <div role="alert" style={styles.errorText}>
               {connectError}
