@@ -225,7 +225,7 @@ export const WalletPanel: FC = () => {
   // -----------------------------------------------------------------------
   // Disconnected state: value-prop only (no CTA).
   //
-  // Previous design had a "CONNECT SOLFLARE" button here AND another in
+  // Previous design had a "Connect Solflare" button here AND another in
   // ExecutionPanel's welcome state — same action, two buttons. We
   // delegate the CTA to ExecutionPanel (the larger, more visible one)
   // and use this panel purely as a value-prop / education surface.
@@ -238,7 +238,7 @@ export const WalletPanel: FC = () => {
         style={styles.panel}
         aria-label="Wallet panel"
       >
-        <header style={styles.header}>WALLET</header>
+        <header style={styles.header}>Wallet</header>
         <div style={styles.emptyBody}>
           <LiminalMark size={72} style={{ marginBottom: 4 }} />
           <div style={styles.emptyHint}>
@@ -280,7 +280,7 @@ export const WalletPanel: FC = () => {
       style={styles.panel}
       aria-label="Wallet panel"
     >
-      <header style={styles.header}>WALLET</header>
+      <header style={styles.header}>Wallet</header>
 
       <section style={styles.section}>
         <div style={styles.sectionLabel}>ADDRESS</div>
@@ -361,7 +361,7 @@ export const WalletPanel: FC = () => {
       {/* Kompakt geçmiş — son 3 execution */}
       <section style={styles.section}>
         <div style={styles.historyHeaderRow}>
-          <div style={styles.sectionLabel}>HISTORY</div>
+          <div style={styles.sectionLabel}>History</div>
           {recentHistory.length > 0 && (
             <button
               type="button"
@@ -700,12 +700,12 @@ const styles: Record<string, CSSProperties> = {
   header: {
     fontFamily: MONO,
     fontSize: 13,
-    letterSpacing: "0.18em",
+    letterSpacing: 0,
     fontWeight: 600,
     color: THEME.textMuted,
     padding: "14px 16px 12px",
     borderBottom: `1px solid ${THEME.border}`,
-    textTransform: "uppercase",
+    textTransform: "none",
   },
   emptyBody: {
     flex: 1,
@@ -755,7 +755,7 @@ const styles: Record<string, CSSProperties> = {
     border: "none",
     borderRadius: 8,
     padding: "14px 28px",
-    letterSpacing: 1,
+    letterSpacing: 0,
     transition: "transform 120ms ease",
   },
   secondaryButton: {
@@ -768,8 +768,8 @@ const styles: Record<string, CSSProperties> = {
     padding: "10px 16px",
     width: "100%",
     cursor: "pointer",
-    letterSpacing: 1,
-    textTransform: "uppercase",
+    letterSpacing: 0,
+    textTransform: "none",
   },
   section: {
     padding: "12px 16px",
@@ -778,10 +778,10 @@ const styles: Record<string, CSSProperties> = {
     fontFamily: MONO,
     fontSize: 13,
     color: THEME.textMuted,
-    letterSpacing: "0.16em",
+    letterSpacing: 0,
     fontWeight: 600,
     marginBottom: 8,
-    textTransform: "uppercase",
+    textTransform: "none",
   },
   addressButton: {
     display: "flex",
@@ -797,7 +797,7 @@ const styles: Record<string, CSSProperties> = {
     fontFamily: MONO,
     fontSize: 17,
     color: THEME.text,
-    letterSpacing: 0.5,
+    letterSpacing: 0,
     fontVariantNumeric: "tabular-nums",
   },
   copiedText: {
@@ -835,7 +835,7 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 16,
     fontWeight: 600,
     color: THEME.text,
-    letterSpacing: 0.5,
+    letterSpacing: 0,
   },
   balanceValues: {
     display: "flex",
@@ -903,8 +903,8 @@ const styles: Record<string, CSSProperties> = {
     background: "transparent",
     border: "none",
     cursor: "pointer",
-    letterSpacing: 0.5,
-    textTransform: "uppercase",
+    letterSpacing: 0,
+    textTransform: "none",
     padding: 0,
   },
   historyEmpty: {
@@ -986,7 +986,7 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 16,
     fontWeight: 600,
     color: THEME.text,
-    letterSpacing: "0.02em",
+    letterSpacing: 0,
   },
   kaminoPositionApy: {
     fontSize: 15,
@@ -1025,8 +1025,8 @@ const styles: Record<string, CSSProperties> = {
     padding: "10px 16px",
     flex: 1,
     cursor: "pointer",
-    letterSpacing: "0.06em",
-    textTransform: "uppercase",
+    letterSpacing: 0,
+    textTransform: "none",
     fontWeight: 600,
   },
 };

@@ -178,7 +178,7 @@ export const ExecutionTimeline: FC<ExecutionTimelineProps> = ({
       {/* Üst özet bar */}
       <header style={styles.summaryBar}>
         <div style={styles.summaryLeft}>
-          <div style={styles.summaryLabel}>STATUS</div>
+          <div style={styles.summaryLabel}>Status</div>
           <div
             style={{
               ...styles.summaryValue,
@@ -190,7 +190,7 @@ export const ExecutionTimeline: FC<ExecutionTimelineProps> = ({
         </div>
 
         <div style={{ ...styles.summaryCell, alignItems: "center" }}>
-          <div style={styles.summaryLabel}>SLICES</div>
+          <div style={styles.summaryLabel}>Slices</div>
           <ProgressRing
             completed={completedCount}
             total={totalCount}
@@ -200,7 +200,7 @@ export const ExecutionTimeline: FC<ExecutionTimelineProps> = ({
         </div>
 
         <div style={styles.summaryCell}>
-          <div style={styles.summaryLabel}>BPS</div>
+          <div style={styles.summaryLabel}>Bps</div>
           <div
             style={{
               ...styles.summaryValue,
@@ -219,7 +219,7 @@ export const ExecutionTimeline: FC<ExecutionTimelineProps> = ({
         </div>
 
         <div style={styles.summaryCell}>
-          <div style={styles.summaryLabel}>USD</div>
+          <div style={styles.summaryLabel}>Usd</div>
           <div
             style={{
               ...styles.summaryValue,
@@ -238,7 +238,7 @@ export const ExecutionTimeline: FC<ExecutionTimelineProps> = ({
         </div>
 
         <div style={styles.summaryCell}>
-          <div style={styles.summaryLabel}>REMAINING</div>
+          <div style={styles.summaryLabel}>Remaining</div>
           <CountdownTimer remainingMs={remainingMs} />
         </div>
       </header>
@@ -306,7 +306,7 @@ export const ExecutionTimeline: FC<ExecutionTimelineProps> = ({
       {/* DONE summary */}
       {state.status === ExecutionStatus.DONE && (
         <div style={styles.doneCard}>
-          <div style={styles.doneTitle}>EXECUTION COMPLETED</div>
+          <div style={styles.doneTitle}>Execution completed</div>
           <div style={styles.doneGrid}>
             <DoneMetric
               label="Total improvement"
@@ -506,9 +506,9 @@ const styles: Record<string, CSSProperties> = {
   summaryLabel: {
     fontSize: 13,
     color: THEME.textMuted,
-    letterSpacing: "0.16em",
+    letterSpacing: 0,
     fontWeight: 600,
-    textTransform: "uppercase",
+    textTransform: "none",
   },
   summaryValue: {
     fontSize: 16,
@@ -592,8 +592,8 @@ const styles: Record<string, CSSProperties> = {
   doneTitle: {
     fontSize: 13,
     color: THEME.success,
-    letterSpacing: 1.5,
-    textTransform: "uppercase",
+    letterSpacing: 0,
+    textTransform: "none",
     fontWeight: 700,
   },
   doneGrid: {
@@ -609,8 +609,8 @@ const styles: Record<string, CSSProperties> = {
   doneMetricLabel: {
     fontSize: 12,
     color: THEME.textMuted,
-    letterSpacing: 0.5,
-    textTransform: "uppercase",
+    letterSpacing: 0,
+    textTransform: "none",
   },
   doneMetricValue: {
     fontSize: 18,
@@ -627,7 +627,7 @@ const styles: Record<string, CSSProperties> = {
     borderRadius: 6,
     padding: "10px 18px",
     cursor: "pointer",
-    letterSpacing: 1,
+    letterSpacing: 0,
     alignSelf: "flex-start",
   },
 };

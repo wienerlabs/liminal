@@ -14,11 +14,7 @@ import {
   subscribeWallet,
   type WalletState,
 } from "../services/solflare";
-import {
-  LOGO_CAP,
-  LiminalMark,
-  PARTNER_LOGOS,
-} from "./BrandLogos";
+import { LiminalMark } from "./BrandLogos";
 import { getMevStrategy } from "../services/mevProtection";
 import { useDeviceDetection } from "../hooks/useDeviceDetection";
 import ThemeSwitcher from "./ThemeSwitcher";
@@ -77,22 +73,13 @@ export const HeaderBar: FC<HeaderBarProps> = ({ networkStatus }) => {
         <span style={styles.wordmark}>LIMINAL</span>
       </a>
 
-      {/* Partner logoları — desktop + tablet only. Mobile (<=767)
-          gizli ki "Connected #N..." + WalletBadge sığsın. */}
-      {!device.isMobile && (
-        <div style={styles.partners} aria-label="Powered by">
-          <span style={styles.poweredBy}>Powered by</span>
-          {PARTNER_LOGOS.map(({ name, logo: Logo }, i) => (
-            <span key={name} style={styles.partnerItem}>
-              {i > 0 && <span style={styles.partnerDot} aria-hidden="true">·</span>}
-              <span style={styles.partnerLogo} title={name} aria-label={`${name} logo`} role="img">
-                <Logo height={LOGO_CAP} size={LOGO_CAP} />
-              </span>
-            </span>
-          ))}
-        </div>
-      )}
-      {device.isMobile && <div style={{ flex: 1 }} aria-hidden="true" />}
+      {/* Partner logos relocated out of the header (audit feedback):
+          - Welcome state in ExecutionPanel renders a "Built with"
+            row at the bottom — that's where new users see them.
+          - Analytics > Protocol tab carries the integration depth
+            story for jurors / curious users.
+          The header is now status-only (network, wallet, theme). */}
+      <div style={{ flex: 1 }} aria-hidden="true" />
 
       <div style={styles.right}>
         <ThemeSwitcher />
@@ -244,49 +231,12 @@ const styles: Record<string, CSSProperties> = {
     fontFamily: SANS,
     fontWeight: 700,
     fontSize: "var(--text-base)",
-    letterSpacing: "0.22em",
+    letterSpacing: "0.04em",
     color: "var(--color-text)",
     lineHeight: 1,
   },
-  partners: {
-    display: "flex",
-    alignItems: "center",
-    gap: "var(--space-2)",
-    flex: 1,
-    justifyContent: "center",
-    overflow: "hidden",
-    color: "var(--color-text)",
-    opacity: 0.45,
-    minWidth: 0,
-  },
-  partnerItem: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 0,
-  },
-  poweredBy: {
-    fontFamily: MONO,
-    fontSize: 12,
-    letterSpacing: "0.12em",
-    color: "var(--color-text-muted)",
-    whiteSpace: "nowrap",
-    textTransform: "uppercase",
-    marginRight: "var(--space-1)",
-  },
-  partnerDot: {
-    fontFamily: MONO,
-    fontSize: 15,
-    color: "var(--color-text-subtle)",
-    margin: "0 var(--space-2)",
-    lineHeight: 1,
-    transform: "translateY(-1px)",
-  },
-  partnerLogo: {
-    display: "inline-flex",
-    alignItems: "center",
-    height: LOGO_CAP,
-    transition: "opacity var(--motion-base) var(--ease-out)",
-  },
+  /* Partner row styles removed — partners moved to ExecutionPanel
+     welcome footer + (future) Analytics > Protocol tab. */
   right: {
     display: "flex",
     alignItems: "center",
@@ -318,9 +268,9 @@ const styles: Record<string, CSSProperties> = {
     fontFamily: MONO,
     fontSize: 11,
     fontWeight: 600,
-    letterSpacing: "0.06em",
+    letterSpacing: 0,
     color: "var(--color-5-strong)",
-    textTransform: "uppercase",
+    textTransform: "none",
     whiteSpace: "nowrap",
     height: 28,
     cursor: "help",

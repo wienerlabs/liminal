@@ -209,8 +209,8 @@ const styles: Record<string, CSSProperties> = {
   title: {
     fontSize: 15,
     fontWeight: 700,
-    letterSpacing: 0.5,
-    textTransform: "uppercase",
+    letterSpacing: 0,
+    textTransform: "none",
   },
   timestamp: {
     fontSize: 13,
@@ -250,7 +250,7 @@ const styles: Record<string, CSSProperties> = {
     borderRadius: 6,
     padding: "10px 18px",
     cursor: "pointer",
-    letterSpacing: 1,
+    letterSpacing: 0,
   },
   resetButton: {
     fontFamily: MONO,
@@ -262,7 +262,7 @@ const styles: Record<string, CSSProperties> = {
     borderRadius: 6,
     padding: "10px 18px",
     cursor: "pointer",
-    letterSpacing: 1,
+    letterSpacing: 0,
   },
 };
 

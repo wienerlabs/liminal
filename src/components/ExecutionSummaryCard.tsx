@@ -157,7 +157,7 @@ export const ExecutionSummaryCard: FC<ExecutionSummaryCardProps> = ({
           />
         </svg>
       </div>
-      <div style={styles.title}>EXECUTION COMPLETED</div>
+      <div style={styles.title}>Execution completed</div>
 
       <div style={styles.pairRow}>
         <span style={styles.pairText}>
@@ -275,8 +275,8 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 17,
     fontWeight: 700,
     color: THEME.success,
-    letterSpacing: 1.5,
-    textTransform: "uppercase",
+    letterSpacing: 0,
+    textTransform: "none",
   },
   pairRow: {
     marginTop: 6,
@@ -318,8 +318,8 @@ const styles: Record<string, CSSProperties> = {
   metricLabel: {
     fontSize: 12,
     color: THEME.textMuted,
-    letterSpacing: 0.5,
-    textTransform: "uppercase",
+    letterSpacing: 0,
+    textTransform: "none",
   },
   metricValue: {
     fontSize: 17,
@@ -334,8 +334,8 @@ const styles: Record<string, CSSProperties> = {
   valueCaptureLabel: {
     fontSize: 13,
     color: THEME.textMuted,
-    letterSpacing: 1.5,
-    textTransform: "uppercase",
+    letterSpacing: 0,
+    textTransform: "none",
     marginTop: 8,
   },
   valueCaptureValue: {
@@ -371,7 +371,7 @@ const styles: Record<string, CSSProperties> = {
     borderRadius: 8,
     padding: "14px 20px",
     width: "100%",
-    letterSpacing: 1,
+    letterSpacing: 0,
     cursor: "pointer",
     boxShadow: "0 0 28px var(--color-accent-bg-strong)",
   },
@@ -385,7 +385,7 @@ const styles: Record<string, CSSProperties> = {
     borderRadius: 8,
     padding: "12px 20px",
     width: "100%",
-    letterSpacing: 1,
+    letterSpacing: 0,
     cursor: "pointer",
   },
 };

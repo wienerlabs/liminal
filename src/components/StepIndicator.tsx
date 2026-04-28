@@ -184,8 +184,8 @@ const styles: Record<string, CSSProperties> = {
   label: {
     fontFamily: "var(--font-mono)",
     fontSize: 12,
-    letterSpacing: "0.06em",
-    textTransform: "uppercase" as const,
+    letterSpacing: 0,
+    textTransform: "none" as const,
     textAlign: "center" as const,
     lineHeight: 1.2,
     whiteSpace: "nowrap",

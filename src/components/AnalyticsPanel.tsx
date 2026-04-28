@@ -195,7 +195,7 @@ export const AnalyticsPanel: FC = () => {
 
   return (
     <aside style={styles.panel} aria-label="Analytics panel">
-      <header style={styles.header}>ANALYTICS</header>
+      <header style={styles.header}>Analytics</header>
 
       <nav style={styles.tabs} role="tablist" aria-label="Analytics views">
         <TabButton
@@ -333,7 +333,7 @@ const LiveHeroCard: FC = () => (
   <div style={styles.heroWrap}>
     <div style={styles.heroBadge}>
       <span style={styles.heroBadgeDot} />
-      <span>AWAITING EXECUTION</span>
+      <span>Awaiting execution</span>
     </div>
     <h3 style={styles.heroTitle}>
       Earn while you trade.
@@ -1582,12 +1582,12 @@ const styles: Record<string, CSSProperties> = {
   header: {
     fontFamily: MONO,
     fontSize: 12,
-    letterSpacing: 2.5,
+    letterSpacing: 0,
     color: THEME.textMuted,
     opacity: 0.5,
     padding: "12px 16px 10px",
     borderBottom: `1px solid ${THEME.border}`,
-    textTransform: "uppercase",
+    textTransform: "none",
   },
   tabs: {
     display: "flex",
@@ -1604,8 +1604,8 @@ const styles: Record<string, CSSProperties> = {
     borderBottom: "2px solid transparent",
     padding: "12px 14px",
     cursor: "pointer",
-    letterSpacing: 0.5,
-    textTransform: "uppercase",
+    letterSpacing: 0,
+    textTransform: "none",
   },
   body: {
     flex: 1,
@@ -1639,7 +1639,7 @@ const styles: Record<string, CSSProperties> = {
     border: "1px solid var(--color-accent-border)",
     fontSize: 11,
     fontWeight: 600,
-    letterSpacing: "0.12em",
+    letterSpacing: 0,
     color: "var(--color-5-strong)",
   } as CSSProperties,
   heroBadgeDot: {
@@ -1717,8 +1717,8 @@ const styles: Record<string, CSSProperties> = {
   skeletonChartLabel: {
     fontSize: 12,
     color: THEME.textMuted,
-    letterSpacing: 1.5,
-    textTransform: "uppercase",
+    letterSpacing: 0,
+    textTransform: "none",
     marginBottom: 12,
     paddingLeft: 8,
     opacity: 0.6,
@@ -1757,8 +1757,8 @@ const styles: Record<string, CSSProperties> = {
   valueCaptureLabel: {
     fontSize: 13,
     color: THEME.textMuted,
-    letterSpacing: 1.5,
-    textTransform: "uppercase",
+    letterSpacing: 0,
+    textTransform: "none",
     marginBottom: 8,
   },
   valueCaptureValue: {
@@ -1782,8 +1782,8 @@ const styles: Record<string, CSSProperties> = {
   },
   breakdownKey: {
     color: THEME.textMuted,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
+    textTransform: "none",
+    letterSpacing: 0,
   },
   breakdownValue: {
     fontWeight: 600,
@@ -1799,8 +1799,8 @@ const styles: Record<string, CSSProperties> = {
   chartLabel: {
     fontSize: 12,
     color: THEME.accent,
-    letterSpacing: 1.5,
-    textTransform: "uppercase",
+    letterSpacing: 0,
+    textTransform: "none",
     marginBottom: 10,
     paddingLeft: 8,
   },
@@ -1931,8 +1931,8 @@ const styles: Record<string, CSSProperties> = {
   },
   historyValueKey: {
     color: THEME.textMuted,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
+    textTransform: "none",
+    letterSpacing: 0,
   },
   historyDivider: {
     color: THEME.border,
@@ -2052,8 +2052,8 @@ const styles: Record<string, CSSProperties> = {
   summaryMetricLabel: {
     fontSize: 12,
     color: THEME.textMuted,
-    letterSpacing: 0.5,
-    textTransform: "uppercase",
+    letterSpacing: 0,
+    textTransform: "none",
   },
   summaryMetricValue: {
     fontVariantNumeric: "tabular-nums",
@@ -2061,8 +2061,8 @@ const styles: Record<string, CSSProperties> = {
   modalSectionTitle: {
     fontSize: 13,
     color: THEME.accent,
-    letterSpacing: 1.5,
-    textTransform: "uppercase",
+    letterSpacing: 0,
+    textTransform: "none",
     marginBottom: 10,
     marginTop: 8,
   },
@@ -2080,8 +2080,8 @@ const styles: Record<string, CSSProperties> = {
     padding: "6px 8px",
     color: THEME.textMuted,
     fontSize: 12,
-    letterSpacing: 0.5,
-    textTransform: "uppercase",
+    letterSpacing: 0,
+    textTransform: "none",
     borderBottom: `1px solid ${THEME.border}`,
   },
   td: {
@@ -2125,8 +2125,8 @@ const styles: Record<string, CSSProperties> = {
   protocolLabel: {
     fontSize: 12,
     color: THEME.textMuted,
-    letterSpacing: 1,
-    textTransform: "uppercase",
+    letterSpacing: 0,
+    textTransform: "none",
   },
   protocolValue: {
     fontWeight: 700,
@@ -2167,14 +2167,14 @@ const styles: Record<string, CSSProperties> = {
   mevTitle: {
     fontSize: 12,
     fontWeight: 700,
-    letterSpacing: "0.16em",
+    letterSpacing: 0,
     color: "var(--color-5-strong)",
-    textTransform: "uppercase",
+    textTransform: "none",
   },
   mevMode: {
     fontSize: 12,
     color: THEME.textMuted,
-    letterSpacing: 0.3,
+    letterSpacing: 0,
   },
   mevLayers: {
     display: "flex",
@@ -2199,8 +2199,8 @@ const styles: Record<string, CSSProperties> = {
     borderRadius: 999,
     fontSize: 10,
     fontWeight: 700,
-    letterSpacing: "0.08em",
-    textTransform: "uppercase",
+    letterSpacing: 0,
+    textTransform: "none",
     color: "#ffffff",
     textAlign: "center",
     alignSelf: "flex-start",
