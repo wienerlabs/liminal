@@ -77,6 +77,31 @@ export function parseError(
     };
   }
 
+  // BUG FIX (BBB): "insufficient lamports for fee" / generic
+  // insufficient-SOL errors. Solana RPCs phrase this several ways:
+  //   - "Attempt to debit an account but found no record of a prior credit"
+  //   - "Insufficient lamports"
+  //   - "InsufficientFundsForFee"
+  //   - "Transfer: insufficient lamports N, need M"
+  // Without matching here, the user saw a generic UNKNOWN with the raw
+  // RPC message — no actionable guidance. Now they get a clear next
+  // step (top up SOL) and the error is non-retryable so RETRY doesn't
+  // just re-trigger the same failure.
+  if (
+    /insufficient\s*(lamports|funds\s*for\s*fee)|insufficientfundsforfee|attempt to debit an account/i.test(
+      rawMessage,
+    )
+  ) {
+    return {
+      code: ErrorCode.UNKNOWN,
+      message:
+        "Not enough SOL to pay transaction fees. Top up your wallet with at least 0.05 SOL and try again.",
+      sliceIndex,
+      retryable: false,
+      timestamp,
+    };
+  }
+
   if (/0x[0-9a-f]+|custom program error/i.test(rawMessage)) {
     console.error("[LIMINAL] Custom program error:", error);
     return {

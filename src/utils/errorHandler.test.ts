@@ -97,4 +97,43 @@ describe("parseError", () => {
     const err = parseError(new Error("x"), null, undefined);
     expect(err.timestamp).toBeInstanceOf(Date);
   });
+
+  // Bug BBB: insufficient SOL for fee — multiple Solana RPC phrasings
+  // all map to a single actionable, non-retryable error.
+  it("classifies 'insufficient lamports' as a non-retryable top-up prompt", () => {
+    const err = parseError(
+      new Error("Transfer: insufficient lamports 100, need 5000"),
+      0,
+      "kamino-deposit",
+    );
+    expect(err.code).toBe(ErrorCode.UNKNOWN);
+    expect(err.retryable).toBe(false);
+    expect(err.message).toMatch(/Top up your wallet|0\.05 SOL/i);
+  });
+
+  it("classifies 'InsufficientFundsForFee' (RPC error variant)", () => {
+    const err = parseError(
+      new Error(
+        '{"err":{"InstructionError":[0,"InsufficientFundsForFee"]}}',
+      ),
+      null,
+      "dflow-swap",
+    );
+    expect(err.code).toBe(ErrorCode.UNKNOWN);
+    expect(err.retryable).toBe(false);
+    expect(err.message).toMatch(/Top up/i);
+  });
+
+  it("classifies 'Attempt to debit an account' as insufficient SOL", () => {
+    const err = parseError(
+      new Error(
+        "Attempt to debit an account but found no record of a prior credit.",
+      ),
+      0,
+      "kamino-withdraw",
+    );
+    expect(err.code).toBe(ErrorCode.UNKNOWN);
+    expect(err.retryable).toBe(false);
+    expect(err.message).toMatch(/Top up/i);
+  });
 });
