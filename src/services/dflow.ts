@@ -267,6 +267,57 @@ function getJson<T>(
   return fetchJson<T>(fullPath, { method: "GET" }, timeoutMs);
 }
 
+/**
+ * Detect transient Ultra failures that are worth retrying. Filters
+ * 5xx + network errors as retry-worthy, leaves 4xx and timeouts alone.
+ *
+ * Why so narrow:
+ *   - 4xx is almost always a client bug (bad mint, malformed query) —
+ *     retrying won't help, just spams the user with delay
+ *   - Timeouts already had 60s of patience; another retry would
+ *     compound the wait beyond the slice loop's expectations
+ *   - 5xx + "fetch failed" / "network" are exactly the transient
+ *     classes (server overload, brief connectivity blip) where a
+ *     quick retry pays off
+ */
+function isTransientUltraError(err: unknown): boolean {
+  const msg =
+    err instanceof Error
+      ? err.message
+      : typeof err === "string"
+        ? err
+        : "";
+  // 5xx pattern from fetchJson's "Aggregator NNN: …" format
+  if (/Aggregator 5\d{2}:/i.test(msg)) return true;
+  // Network-not-reachable from fetchJson's TypeError fallback
+  if (/Aggregator not reachable/i.test(msg)) return true;
+  return false;
+}
+
+/**
+ * Single-retry wrapper for Ultra GET endpoints (quote / order). The
+ * backoff is intentionally short (250ms) — the slice loop's quote
+ * window is tight and a longer wait might miss the targetExecutionTime.
+ *
+ * BUG FIX (DDD): without this, a single 5xx from Jupiter Ultra would
+ * surface to the user as DFLOW_QUOTE_FAILED ERROR. The user could
+ * RETRY but they'd hit the same upstream blip a moment later. With
+ * the auto-retry, transient blips heal silently — the typical case
+ * resolves in <1s and the user never sees ERROR.
+ */
+async function withQuoteRetry<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    if (!isTransientUltraError(err)) throw err;
+    // 250ms backoff before single retry. Keeps total worst-case <
+    // (HTTP_TIMEOUT_MS + 250 + HTTP_TIMEOUT_MS) so the slice loop
+    // doesn't blow its quote-fresh budget.
+    await new Promise<void>((resolve) => setTimeout(resolve, 250));
+    return fn();
+  }
+}
+
 function postJsonUltra<T>(
   path: string,
   body: unknown,
@@ -397,15 +448,19 @@ export async function getQuote(
     );
   }
 
-  const order = await getJson<UltraOrderResponse>(ULTRA_ORDER_PATH, {
-    inputMint,
-    outputMint,
-    amount: amountLamports.toString(),
-    slippageBps,
-    // Ultra takes a taker address to pre-bind fee ATAs. If not known yet
-    // (pre-connect), we omit and ask the route-only (no signing).
-    taker,
-  });
+  // Auto-retry once on transient 5xx / network errors so a brief
+  // upstream blip doesn't drag the user into ERROR (Bug DDD).
+  const order = await withQuoteRetry(() =>
+    getJson<UltraOrderResponse>(ULTRA_ORDER_PATH, {
+      inputMint,
+      outputMint,
+      amount: amountLamports.toString(),
+      slippageBps,
+      // Ultra takes a taker address to pre-bind fee ATAs. If not known yet
+      // (pre-connect), we omit and ask the route-only (no signing).
+      taker,
+    }),
+  );
 
   if (order.errorCode && order.errorCode !== 0 && !order.transaction) {
     // Ultra returned an actionable error — surface it verbatim so the UI
