@@ -102,6 +102,29 @@ export function parseError(
     };
   }
 
+  // BUG FIX: "VersionedTransaction too large" — Solana's per-tx packet
+  // MTU is 1232 bytes raw / 1644 base64. Jupiter Ultra occasionally
+  // returns a route that exceeds this (multi-hop with too many ATAs).
+  // The maxAccounts cap in dflow.ts preempts most of these, but as a
+  // belt-and-suspenders we still classify the error if it lands. The
+  // fix path is to retry — Ultra will pick a different route on the
+  // next quote attempt.
+  if (
+    /VersionedTransaction too large|encoding overruns Uint8Array|exceeds.*max.*encoded/i.test(
+      rawMessage,
+    )
+  ) {
+    return {
+      code: ErrorCode.DFLOW_SIMULATION_FAILED,
+      message:
+        "Aggregator returned a route too large for Solana's packet limit. " +
+        "Click Retry — the next quote will pick a simpler path.",
+      sliceIndex,
+      retryable: true,
+      timestamp,
+    };
+  }
+
   if (/0x[0-9a-f]+|custom program error/i.test(rawMessage)) {
     console.error("[LIMINAL] Custom program error:", error);
     return {

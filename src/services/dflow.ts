@@ -58,6 +58,26 @@ import { createConnection, getPythPrice } from "./quicknode";
  */
 export const DFLOW_ENDORSEMENT_SERVER = "https://lite-api.jup.ag";
 const ULTRA_ORDER_PATH = "/ultra/v1/order";
+
+/**
+ * Cap the number of accounts Ultra is allowed to include in a single
+ * route. Lower = simpler route = smaller serialized tx (fits Solana's
+ * 1232-byte packet MTU). Default Ultra ceiling is 64 which routinely
+ * produces 1800+ byte transactions that fail simulation with
+ * "VersionedTransaction too large".
+ *
+ * 30 accounts ≈ ~1100 bytes worst case — comfortably under MTU even
+ * with our additional setup ix's. Multi-hop routes still possible
+ * (each hop is ~6 accounts), just no longer 5+ hop convoluted paths.
+ *
+ * Trade-off: in rare cases Ultra might find a slightly better price
+ * with a more complex route. Worth the tradeoff because (1) MTU
+ * failures cost the user a slice slot AND a failed-simulation tx fee,
+ * (2) BLOK 6 transaction-count-minimization mandates predictably-
+ * sized txs, (3) DFlow's RFQ paths within Ultra are already simpler
+ * than full-aggregator routes.
+ */
+const ULTRA_MAX_ACCOUNTS = 30;
 const ULTRA_EXECUTE_PATH = "/ultra/v1/execute";
 
 const COMMITMENT: Commitment = "confirmed";
@@ -456,6 +476,11 @@ export async function getQuote(
       outputMint,
       amount: amountLamports.toString(),
       slippageBps,
+      // Cap route complexity to fit Solana's 1232-byte packet MTU.
+      // Without this, multi-hop routes routinely produce 1800+ byte
+      // transactions that fail simulation with "VersionedTransaction
+      // too large" (the original Bug we hit on mainnet).
+      maxAccounts: ULTRA_MAX_ACCOUNTS,
       // Ultra takes a taker address to pre-bind fee ATAs. If not known yet
       // (pre-connect), we omit and ask the route-only (no signing).
       taker,
@@ -649,6 +674,7 @@ export async function executeSwap(
         Math.floor(quote.dflowQuote.inAmount * 1e9),
       ).toString(),
       slippageBps: quote.slippageBps,
+      maxAccounts: ULTRA_MAX_ACCOUNTS,
       taker: walletPublicKey.toBase58(),
     }).catch(() => null);
     b64 = refreshed?.transaction;
@@ -837,6 +863,7 @@ export async function fetchSwapInstructions(
       outputMint: "",
       amount: "0",
       slippageBps: quote.slippageBps,
+      maxAccounts: ULTRA_MAX_ACCOUNTS,
       taker: walletPublicKey.toBase58(),
     }).catch(() => null);
     b64 = refreshed?.transaction;
