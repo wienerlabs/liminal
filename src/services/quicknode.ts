@@ -113,6 +113,17 @@ const TOKEN_PROGRAM_ID = new PublicKey(
   "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
 );
 
+/**
+ * Token-2022 program ID. Many newer tokens (pump.fun memecoins,
+ * USDC's Token-2022 variants, transfer-fee enabled tokens) live under
+ * this program rather than the legacy SPL Token Program. Both must be
+ * queried separately because `getParsedTokenAccountsByOwner` filters
+ * by a single program at a time.
+ */
+const TOKEN_2022_PROGRAM_ID = new PublicKey(
+  "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+);
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -327,21 +338,51 @@ export async function getSPLTokenBalances(
   const pubkey = parsePublicKey(walletAddress);
   const connection = createConnection();
 
-  let accounts;
+  // BUG FIX (AAA): query BOTH the legacy SPL Token program and Token-
+  // 2022 separately. `getParsedTokenAccountsByOwner` only filters by
+  // one program at a time, and many newer tokens (pump.fun memecoins,
+  // USDC's Token-2022 variants, transfer-fee enabled tokens) live
+  // under Token-2022. Without this, those balances were invisible in
+  // the From/To dropdown — user couldn't trade them.
+  let legacyAccounts;
+  let token2022Accounts;
   try {
-    accounts = await withRateLimitRetry(
-      () =>
-        withTimeout(
-          connection.getParsedTokenAccountsByOwner(
-            pubkey,
-            { programId: TOKEN_PROGRAM_ID },
-            COMMITMENT,
+    [legacyAccounts, token2022Accounts] = await Promise.all([
+      withRateLimitRetry(
+        () =>
+          withTimeout(
+            connection.getParsedTokenAccountsByOwner(
+              pubkey,
+              { programId: TOKEN_PROGRAM_ID },
+              COMMITMENT,
+            ),
+            RPC_TIMEOUT_MS,
+            "SPL token accounts query",
           ),
-          RPC_TIMEOUT_MS,
-          "SPL token accounts query",
-        ),
-      "getParsedTokenAccountsByOwner",
-    );
+        "getParsedTokenAccountsByOwner",
+      ),
+      // Token-2022: same query, different program id. We don't fail
+      // the whole flow if Token-2022 is empty / errors — fall back to
+      // legacy-only by treating an error as "no accounts".
+      withRateLimitRetry(
+        () =>
+          withTimeout(
+            connection.getParsedTokenAccountsByOwner(
+              pubkey,
+              { programId: TOKEN_2022_PROGRAM_ID },
+              COMMITMENT,
+            ),
+            RPC_TIMEOUT_MS,
+            "Token-2022 accounts query",
+          ),
+        "getParsedTokenAccountsByOwner",
+      ).catch((err) => {
+        console.warn(
+          `[LIMINAL] Token-2022 fetch skipped: ${err instanceof Error ? err.message : String(err)}`,
+        );
+        return { value: [] };
+      }),
+    ]);
   } catch (err) {
     if (err instanceof Error && /timed out/.test(err.message)) {
       throw err;
@@ -357,7 +398,10 @@ export async function getSPLTokenBalances(
 
   type Row = { mint: string; balance: number };
   const rows: Row[] = [];
-  for (const { account } of accounts.value) {
+  for (const { account } of [
+    ...legacyAccounts.value,
+    ...token2022Accounts.value,
+  ]) {
     const data = account.data as ParsedAccountData;
     const parsed = data.parsed as { info?: ParsedTokenInfo } | undefined;
     const info = parsed?.info;
