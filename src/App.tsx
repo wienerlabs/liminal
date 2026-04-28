@@ -173,7 +173,14 @@ export const App: FC = () => {
   }
 
   // ------------------------------------------------------------------
-  // Tablet layout
+  // Tablet layout (768-1023)
+  // ------------------------------------------------------------------
+  // 2-column Execute + Analytics. WalletPanel is hidden — at this
+  // viewport width keeping all 3 panels would squeeze the middle col
+  // to ~224px which is unusable for the execution form. Connected
+  // wallet state (balances, positions) surfaces in the Execute panel
+  // header summary bar instead. (TODO: header summary bar for tablet
+  // is a P2 follow-up.)
   // ------------------------------------------------------------------
   if (device.isTablet) {
     return (
@@ -185,12 +192,14 @@ export const App: FC = () => {
         {disclaimerOpen && (
           <DisclaimerModal onAccept={() => setDisclaimerOpen(false)} />
         )}
-        <div style={styles.tabletLayout}>
-          <div style={{ ...styles.tabletPane, ...panelEntranceStyle(0) }}>
-            <ExecutionPanel />
-          </div>
-          <div style={{ ...styles.tabletPane, ...panelEntranceStyle(1) }}>
-            <AnalyticsPanel />
+        <div style={styles.tabletLayoutOuter}>
+          <div style={styles.tabletLayout}>
+            <main style={{ ...styles.tabletPane, ...panelEntranceStyle(0) }}>
+              <ExecutionPanel />
+            </main>
+            <aside style={{ ...styles.tabletPane, ...panelEntranceStyle(1) }}>
+              <AnalyticsPanel />
+            </aside>
           </div>
         </div>
       </div>
@@ -198,7 +207,7 @@ export const App: FC = () => {
   }
 
   // ------------------------------------------------------------------
-  // Desktop layout — simetrik 300/flex/300
+  // Desktop layout — clamp 3-col with max-width container
   // ------------------------------------------------------------------
   return (
     <div className="liminal-root" style={styles.appRoot}>
@@ -209,23 +218,25 @@ export const App: FC = () => {
         {disclaimerOpen && (
           <DisclaimerModal onAccept={() => setDisclaimerOpen(false)} />
         )}
-      <div style={styles.desktopLayout}>
-        <aside style={{ ...styles.sideCol, ...panelEntranceStyle(0) }}>
-          <WalletPanel />
-        </aside>
-        <main style={{ ...styles.middleCol, ...panelEntranceStyle(1) }}>
-          <ExecutionPanel />
-        </main>
-        <aside style={{ ...styles.sideCol, ...panelEntranceStyle(2) }}>
-          <AnalyticsPanel />
-        </aside>
+      <div style={styles.desktopLayoutOuter}>
+        <div style={styles.desktopLayout}>
+          <aside style={{ ...styles.sideCol, ...panelEntranceStyle(0) }}>
+            <WalletPanel />
+          </aside>
+          <main style={{ ...styles.middleCol, ...panelEntranceStyle(1) }}>
+            <ExecutionPanel />
+          </main>
+          <aside style={{ ...styles.sideColRight, ...panelEntranceStyle(2) }}>
+            <AnalyticsPanel />
+          </aside>
+        </div>
       </div>
       {!wallet.connected && !device.isSolflareInAppBrowser && (
         <div style={styles.desktopFooterHint}>
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ flexShrink: 0 }} aria-hidden="true">
             <path d="M9 3L5 7l4 4" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-          Connect your Solflare wallet from the left panel to get started.
+          Connect your Solflare wallet — the Connect button is in the middle panel.
         </div>
       )}
     </div>
@@ -358,13 +369,30 @@ const styles: Record<string, CSSProperties> = {
     boxShadow: "0 0 8px var(--color-5)",
   },
 
-  // Desktop — simetrik 300/300
+  // Outer container: clamps to a max-width on ultra-wide displays so
+  // the layout doesn't stretch into infinity. At ≥1920 the body keeps
+  // its background but the actual UI stays comfortably readable.
+  desktopLayoutOuter: {
+    flex: 1,
+    minHeight: 0,
+    width: "100%",
+    maxWidth: 1800,
+    margin: "0 auto",
+    padding: "0 var(--space-4)",
+  },
+  // Adaptive 3-col grid using CSS clamp() — works tablet → ultra-wide
+  // without a JS isTablet branch:
+  //   sideCol left:   clamp(220px, 22vw, 300px)
+  //   middleCol:      1fr (executes the meat of the work)
+  //   sideCol right:  clamp(260px, 26vw, 380px) — analytics gets
+  //                   slightly more room on wide screens for charts
   desktopLayout: {
     flex: 1,
     display: "grid",
-    gridTemplateColumns: "300px 1fr 300px",
+    gridTemplateColumns:
+      "clamp(220px, 22vw, 300px) 1fr clamp(260px, 26vw, 380px)",
     gap: "var(--space-4)",
-    padding: "var(--space-4)",
+    padding: "var(--space-4) 0",
     minHeight: 0,
     alignItems: "start",
   },
@@ -372,6 +400,15 @@ const styles: Record<string, CSSProperties> = {
     minWidth: 0,
     display: "flex",
     flexDirection: "column",
+  },
+  // Right side col gets a min-height so analytics charts have room
+  // even when execution hasn't started yet — prevents collapse to
+  // <100px on tablet with empty AWAITING state.
+  sideColRight: {
+    minWidth: 0,
+    display: "flex",
+    flexDirection: "column",
+    minHeight: 480,
   },
   middleCol: {
     minWidth: 0,
@@ -391,13 +428,24 @@ const styles: Record<string, CSSProperties> = {
     gap: "var(--space-2)",
   },
 
-  // Tablet
+  // Tablet — 2-col Execute + Analytics. Wallet hidden at this width;
+  // see App component comment for rationale.
+  tabletLayoutOuter: {
+    flex: 1,
+    minHeight: 0,
+    width: "100%",
+    maxWidth: 1200,
+    margin: "0 auto",
+    padding: "0 var(--space-3)",
+  },
   tabletLayout: {
     flex: 1,
     display: "grid",
-    gridTemplateColumns: "1fr 1fr",
+    // 1.4fr / 1fr — Execute slightly larger because the form has more
+    // input controls. Analytics fits a few cards even at 41% width.
+    gridTemplateColumns: "1.4fr 1fr",
     gap: "var(--space-3)",
-    padding: "var(--space-3)",
+    padding: "var(--space-3) 0",
     minHeight: 0,
     alignItems: "start",
   },

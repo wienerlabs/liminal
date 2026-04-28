@@ -20,6 +20,7 @@ import {
   PARTNER_LOGOS,
 } from "./BrandLogos";
 import { getMevStrategy } from "../services/mevProtection";
+import { useDeviceDetection } from "../hooks/useDeviceDetection";
 
 const MONO = "var(--font-mono)";
 const SANS = "var(--font-sans)";
@@ -35,6 +36,7 @@ export type HeaderBarProps = {
 export const HeaderBar: FC<HeaderBarProps> = ({ networkStatus }) => {
   const [wallet, setWallet] = useState<WalletState>(() => getWalletState());
   useEffect(() => subscribeWallet(setWallet), []);
+  const device = useDeviceDetection();
 
   const shortAddr = wallet.address
     ? `${wallet.address.slice(0, 4)}…${wallet.address.slice(-4)}`
@@ -74,23 +76,36 @@ export const HeaderBar: FC<HeaderBarProps> = ({ networkStatus }) => {
         <span style={styles.wordmark}>LIMINAL</span>
       </a>
 
-      {/* Partner logoları — desktop + tablet, mobilde gizli */}
-      <div style={styles.partners} aria-label="Powered by">
-        <span style={styles.poweredBy}>Powered by</span>
-        {PARTNER_LOGOS.map(({ name, logo: Logo }, i) => (
-          <span key={name} style={styles.partnerItem}>
-            {i > 0 && <span style={styles.partnerDot} aria-hidden="true">·</span>}
-            <span style={styles.partnerLogo} title={name} aria-label={`${name} logo`} role="img">
-              <Logo height={LOGO_CAP} size={LOGO_CAP} />
+      {/* Partner logoları — desktop + tablet only. Mobile (<=767)
+          gizli ki "Connected #N..." + WalletBadge sığsın. */}
+      {!device.isMobile && (
+        <div style={styles.partners} aria-label="Powered by">
+          <span style={styles.poweredBy}>Powered by</span>
+          {PARTNER_LOGOS.map(({ name, logo: Logo }, i) => (
+            <span key={name} style={styles.partnerItem}>
+              {i > 0 && <span style={styles.partnerDot} aria-hidden="true">·</span>}
+              <span style={styles.partnerLogo} title={name} aria-label={`${name} logo`} role="img">
+                <Logo height={LOGO_CAP} size={LOGO_CAP} />
+              </span>
             </span>
-          </span>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
+      {device.isMobile && <div style={{ flex: 1 }} aria-hidden="true" />}
 
       <div style={styles.right}>
-        <MevBadge />
+        {/* MEV badge: desktop + tablet only on mobile (saves ~50px). */}
+        {!device.isMobile && <MevBadge />}
         {networkStatus && (
-          <div style={styles.networkPill} aria-label={`Solana network: ${netLabel}`}>
+          <div
+            style={styles.networkPill}
+            aria-label={`Solana network: ${netLabel}`}
+            title={
+              device.isMobile && networkStatus.slot !== null
+                ? `${netLabel} · slot #${networkStatus.slot}`
+                : undefined
+            }
+          >
             <span
               style={{
                 ...styles.netDot,
@@ -99,9 +114,14 @@ export const HeaderBar: FC<HeaderBarProps> = ({ networkStatus }) => {
               }}
               aria-hidden="true"
             />
-            <span style={styles.netLabel}>{netLabel}</span>
-            {networkStatus.slot !== null && (
-              <span style={styles.netSlot}>#{networkStatus.slot}</span>
+            {/* Mobile: just the dot. Tablet/desktop: full label + slot. */}
+            {!device.isMobile && (
+              <>
+                <span style={styles.netLabel}>{netLabel}</span>
+                {networkStatus.slot !== null && (
+                  <span style={styles.netSlot}>#{networkStatus.slot}</span>
+                )}
+              </>
             )}
           </div>
         )}
@@ -114,6 +134,9 @@ export const HeaderBar: FC<HeaderBarProps> = ({ networkStatus }) => {
             cursor: wallet.connected ? "pointer" : "default",
             color: wallet.connected ? "var(--color-text)" : "var(--color-text-muted)",
             borderColor: wallet.connected ? "var(--color-accent-border)" : "var(--color-stroke)",
+            // Mobile compact: just dot (when connected) or "—" placeholder.
+            paddingLeft: device.isMobile ? 8 : undefined,
+            paddingRight: device.isMobile ? 8 : undefined,
           }}
           title={wallet.connected ? "Click to copy address" : "Wallet not connected"}
           aria-label={
@@ -125,12 +148,16 @@ export const HeaderBar: FC<HeaderBarProps> = ({ networkStatus }) => {
           {wallet.connected && (
             <span style={{ ...styles.netDot, background: "var(--color-5)" }} aria-hidden="true" />
           )}
+          {/* Mobile: short address only when connected, hide entirely otherwise.
+              Desktop/tablet: full text. */}
           <span>
             {copiedAddr
               ? "Copied"
               : wallet.connected && shortAddr
                 ? shortAddr
-                : "Not connected"}
+                : device.isMobile
+                  ? "—"
+                  : "Not connected"}
           </span>
         </button>
       </div>
