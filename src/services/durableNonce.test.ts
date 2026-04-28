@@ -198,7 +198,8 @@ describe("buildCloseNonceAccountsTx", () => {
     const pool = generateNoncePool(3);
     const conn = mockConnection();
     const tx = await buildCloseNonceAccountsTx(PAYER, pool, conn);
-    expect(tx.message.compiledInstructions.length).toBe(3);
+    expect(tx).not.toBeNull();
+    expect(tx!.message.compiledInstructions.length).toBe(3);
   });
 
   it("skips accounts with zero lamports (already closed — non-fatal)", async () => {
@@ -208,23 +209,32 @@ describe("buildCloseNonceAccountsTx", () => {
         pk.equals(pool[1].publicKey) ? 0 : 1_500_000,
     });
     const tx = await buildCloseNonceAccountsTx(PAYER, pool, conn);
-    expect(tx.message.compiledInstructions.length).toBe(2);
+    expect(tx).not.toBeNull();
+    expect(tx!.message.compiledInstructions.length).toBe(2);
   });
 
-  it("throws when every account is already closed", async () => {
+  // Bug H-3 (audit): returns null instead of throwing when nothing
+  // to clean up. Caller paths treat this as a no-op success.
+  it("returns null when every account is already closed", async () => {
     const pool = generateNoncePool(2);
     const conn = mockConnection({ accountLamports: () => 0 });
-    await expect(
-      buildCloseNonceAccountsTx(PAYER, pool, conn),
-    ).rejects.toThrow(/nothing to do/);
+    const tx = await buildCloseNonceAccountsTx(PAYER, pool, conn);
+    expect(tx).toBeNull();
+  });
+
+  it("returns null on empty pool (no throw)", async () => {
+    const conn = mockConnection();
+    const tx = await buildCloseNonceAccountsTx(PAYER, [], conn);
+    expect(tx).toBeNull();
   });
 
   it("requires the payer to be the authority (only their signature needed)", async () => {
     const pool = generateNoncePool(2);
     const conn = mockConnection();
     const tx = await buildCloseNonceAccountsTx(PAYER, pool, conn);
+    expect(tx).not.toBeNull();
     // No ephemeral signatures — authority is the payer.
-    const nonzero = tx.signatures.filter((sig) =>
+    const nonzero = tx!.signatures.filter((sig) =>
       sig.some((byte) => byte !== 0),
     );
     expect(nonzero.length).toBe(0);

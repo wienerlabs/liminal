@@ -28,6 +28,7 @@ import {
   PublicKey,
   VersionedTransaction,
 } from "@solana/web3.js";
+import { isDurableNonceTx } from "../utils/durableTx";
 import {
   buildCreateNonceAccountsTx,
   buildCloseNonceAccountsTx,
@@ -101,6 +102,15 @@ export type BuildPlanArgs = {
   totalAmount: number;
   /** Per-slice amount (UI units). length === slice count. */
   sliceAmounts: number[];
+  /**
+   * Kamino vault (reserve) address for the deposit/withdraw flow. Passed
+   * through to `buildPartialWithdrawInstructions` for explicit routing.
+   * BUG FIX (H-2, audit): previously sent as `""`, relying on
+   * kamino-impl's `loadReserveByMint` to pick the first matching reserve
+   * — silent contract violation if Kamino ever adds multiple reserves
+   * for the same mint.
+   */
+  kaminoVaultAddress: string;
   signOne: SignOneFn;
   signAll: SignAllFn;
 };
@@ -136,9 +146,29 @@ async function broadcastAndConfirm(
     preflightCommitment: "confirmed",
     maxRetries: 3,
   });
-  // getLatestBlockhash is cheap; we prefer its contextual
-  // (blockhash + lastValidBlockHeight) pair over relying on the stored
-  // nonce value for confirmation bounds.
+
+  // BUG FIX (M-5, audit): durable-nonce txs don't expire when
+  // blockhash rotates — they're tied to the on-chain nonce value.
+  // Confirming with a freshly-fetched blockhash + lastValidBlockHeight
+  // would incorrectly time out if the tx happens to land after that
+  // block height is exceeded, even though the tx is still valid on
+  // chain. The signature-only form is the correct strategy for
+  // durable-nonced transactions.
+  //
+  // Setup + cleanup txs use a regular recentBlockhash and DO need
+  // the (blockhash, lastValidBlockHeight) strategy for proper
+  // expiry handling. Detect via instruction[0] being the
+  // SystemProgram nonceAdvance.
+  if (isDurableNonceTx(tx)) {
+    // Use the deprecated signature-only form. web3.js' newer
+    // DurableNonceTransactionConfirmationStrategy requires nonce
+    // account + value lookup — the signature-only form polls
+    // getSignatureStatus which works regardless of nonce state.
+    await connection.confirmTransaction(signature, "confirmed");
+    return signature;
+  }
+
+  // Non-durable (setup, cleanup) — proper blockheight-based strategy.
   const { blockhash, lastValidBlockHeight } =
     await connection.getLatestBlockhash("confirmed");
   await connection.confirmTransaction(
@@ -174,6 +204,7 @@ export async function buildAndSignPlan(
     inputMint,
     totalAmount,
     sliceAmounts,
+    kaminoVaultAddress,
     signOne,
     signAll,
   } = args;
@@ -248,7 +279,7 @@ export async function buildAndSignPlan(
       sliceAmounts.map((amount) =>
         buildPartialWithdrawInstructions(
           walletPublicKey,
-          "",
+          kaminoVaultAddress,
           inputMint,
           amount,
         ),
@@ -333,11 +364,20 @@ export async function buildAndSignPlan(
         pool,
         connection,
       );
-      const signedClose = await signOne(closeTx);
-      await broadcastAndConfirm(signedClose, connection);
-      console.warn(
-        "[LIMINAL] Auto-reclaim succeeded — nonce accounts closed, rent refunded.",
-      );
+      // BUG FIX (H-3, audit): null return = nothing to close (e.g.
+      // setup tx confirmed but accounts somehow already drained).
+      // Skip cleanly without surfacing as an error.
+      if (closeTx) {
+        const signedClose = await signOne(closeTx);
+        await broadcastAndConfirm(signedClose, connection);
+        console.warn(
+          "[LIMINAL] Auto-reclaim succeeded — nonce accounts closed, rent refunded.",
+        );
+      } else {
+        console.warn(
+          "[LIMINAL] Auto-reclaim no-op: nonce accounts already drained.",
+        );
+      }
     } catch (cleanupErr) {
       console.warn(
         `[LIMINAL] Auto-reclaim failed: ${cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr)}. ` +
@@ -378,12 +418,16 @@ export async function closeNoncePool(
   connection: Connection,
   signOne: SignOneFn,
   walletPublicKey: PublicKey,
-): Promise<string> {
+): Promise<string | null> {
   const closeTx = await buildCloseNonceAccountsTx(
     walletPublicKey,
     plan.pool,
     connection,
   );
+  // BUG FIX (H-3, audit): build returns null when there's nothing to
+  // clean up. Skip the popup + broadcast in that case — caller treats
+  // this as a no-op success.
+  if (!closeTx) return null;
   const signed = await signOne(closeTx);
   return broadcastAndConfirm(signed, connection);
 }

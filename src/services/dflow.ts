@@ -132,6 +132,16 @@ export type DFlowQuote = {
   };
   slippageBps: number;
   timestamp: Date;
+  /**
+   * Input mint address — kept on the quote so the executeSwap fallback
+   * re-fetch path can resolve decimals correctly without a separate
+   * mint lookup. BUG FIX (M-1, audit): without this the fallback
+   * hardcoded 1e9 (SOL decimals), producing 1000× wrong amounts for
+   * 6-decimal tokens like USDC.
+   */
+  inputMint: string;
+  /** Input mint decimals — same purpose as inputMint above. */
+  inputDecimals: number;
 };
 
 export type ExecutionResult = {
@@ -581,6 +591,8 @@ export async function getQuote(
     },
     slippageBps,
     timestamp: new Date(now),
+    inputMint,
+    inputDecimals: inDecimals,
   };
 
   // BLOK 3 two-tier slippage: Ultra priceImpactPct is in percent
@@ -687,11 +699,15 @@ export async function executeSwap(
   //    which case we re-fetch with the wallet bound as taker.
   let b64 = quote.dflowQuote.transaction;
   if (!b64) {
+    // BUG FIX (M-1, audit): use the quote's stored inputDecimals
+    // instead of hardcoded 1e9. Quotes for 6-decimal tokens (USDC,
+    // USDT) were being re-fetched at 1000× the correct amount,
+    // routing through different pools or rejecting outright.
     const refreshed = await getJson<UltraOrderResponse>(ULTRA_ORDER_PATH, {
       inputMint: "", // caller's route is captured inside the requestId
       outputMint: "",
       amount: BigInt(
-        Math.floor(quote.dflowQuote.inAmount * 1e9),
+        Math.floor(quote.dflowQuote.inAmount * 10 ** quote.inputDecimals),
       ).toString(),
       slippageBps: quote.slippageBps,
       maxAccounts: ULTRA_MAX_ACCOUNTS,

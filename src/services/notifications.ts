@@ -218,15 +218,31 @@ export function notifySliceReady(sliceIndex: number, total: number): void {
   });
 }
 
-export function notifyExecutionDone(totalUsd: number): void {
+/**
+ * Notify execution complete. The trailing "One more popup..." hint is
+ * only relevant for autopilot mode (which has a cleanup popup); JIT
+ * mode finishes cleanly with no further popups, so the hint is
+ * suppressed for that case.
+ *
+ * BUG FIX (L-2, audit): previous version always appended "One more
+ * popup to reclaim nonce rent" even for JIT executions, which had
+ * no such popup. Misleading copy for the majority path.
+ */
+export function notifyExecutionDone(
+  totalUsd: number,
+  options?: { autopilot?: boolean },
+): void {
   const usdLabel =
     totalUsd > 0
       ? `+$${totalUsd.toFixed(2)}`
       : totalUsd < 0
         ? `-$${Math.abs(totalUsd).toFixed(2)}`
         : "$0.00";
+  const cleanupHint = options?.autopilot
+    ? " One more popup to reclaim nonce rent."
+    : "";
   notify("Execution complete", {
-    body: `All slices filled. Total value capture: ${usdLabel}. One more popup to reclaim nonce rent.`,
+    body: `All slices filled. Total value capture: ${usdLabel}.${cleanupHint}`,
     tag: "liminal-done",
     requireInteraction: false,
   });
