@@ -35,7 +35,7 @@ import { usePriceMonitor } from "../hooks/usePriceMonitor";
 import { useExecutionMachine } from "../hooks/useExecutionMachine";
 import { useDeviceDetection } from "../hooks/useDeviceDetection";
 import { useTokenRegistry } from "../hooks/useTokenRegistry";
-import { DFlowLogo, KaminoLogo, LiminalMark } from "./BrandLogos";
+import { DFlowLogo, KaminoIcon, LiminalMark } from "./BrandLogos";
 import { ExecutionStatus, IN_FLIGHT_STATUSES } from "../state/executionMachine";
 import { estimatePopups, MAX_AUTOPILOT_SLICES } from "../state/preSignPlan";
 import VaultPreview from "./VaultPreview";
@@ -565,10 +565,10 @@ export const ExecutionPanel: FC = () => {
                     style={{
                       display: "inline-flex",
                       alignItems: "center",
-                      color: "var(--color-text)",
+                      color: "var(--color-5-strong)",
                     }}
                   >
-                    <KaminoLogo height={16} />
+                    <KaminoIcon size={20} />
                   </span>
                 }
                 title="Kamino Yield"

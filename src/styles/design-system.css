@@ -17,7 +17,53 @@
  * Radius scale: 4 / 8 / 12 — üç tier.
  */
 
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+/* ABC Favorit Mono — self-hosted. Replaces Space Grotesk + JetBrains
+   Mono. Trading-terminal aesthetic: every glyph on the same advance
+   width grid means prices, slice indices, and addresses align without
+   font-variant-numeric tricks. ABC Dinamo commercial license assumed.
+
+   Font weights:
+     Book        — body, labels, metric values (default 400-equivalent)
+     Bold        — headings, primary CTAs (700)
+     BookItalic  — predicted/estimated values (italic 400)
+     BoldItalic  — emphasized prediction (italic 700)
+
+   Plus ABC Favorit (sans, Bold) for hero text only. */
+@font-face {
+  font-family: 'ABC Favorit Mono';
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/ABCFavoritMono-Book.otf') format('opentype');
+}
+@font-face {
+  font-family: 'ABC Favorit Mono';
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/ABCFavoritMono-Bold.otf') format('opentype');
+}
+@font-face {
+  font-family: 'ABC Favorit Mono';
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+  src: url('/fonts/ABCFavoritMono-BookItalic.otf') format('opentype');
+}
+@font-face {
+  font-family: 'ABC Favorit Mono';
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+  src: url('/fonts/ABCFavoritMono-BoldItalic.otf') format('opentype');
+}
+@font-face {
+  font-family: 'ABC Favorit';
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/ABCFavorit-Bold.otf') format('opentype');
+}
 
 :root {
   /* ----- Pastel palette tokens (kullanıcı seçimi) ----------------------
@@ -87,25 +133,32 @@
   --color-overlay: rgba(26, 26, 26, 0.45);
 
   /* ----- Tipografi --------------------------------------------------
-     Bütün UI Space Grotesk. Hiçbir yerde başka sans yüklenmiyor.
-     `--font-mono` da Space Grotesk — çünkü tüm component'ler içerikte
-     bu token'ı kullanıyor ve kullanıcı isteği bütün metinlerin Space
-     Grotesk olması. Sayısal hizalama için `font-variant-numeric: tabular-nums`
-     hala kullanılıyor (Space Grotesk tabular destekler).
-     `--font-code` sadece raw kod/hash gibi gerçekten monospace gereken
-     ender yerler için ayrı bırakıldı. */
-  --font-sans: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --font-mono: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --font-code: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+     ABC Favorit Mono — every glyph on a uniform grid. Used for ALL UI:
+     body, labels, numerics, headings. Single-typeface design system,
+     no Space Grotesk / JetBrains Mono mix. Trading-terminal aesthetic.
+     `--font-hero` = ABC Favorit (sans, Bold) — only for the largest
+     marketing-style hero text (Welcome H1) where mono can feel cramped.
+     `--font-code` keeps the same Mono — it IS monospace, so the
+     legacy `.liminal-code` references continue to render correctly. */
+  --font-sans: 'ABC Favorit Mono', ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  --font-mono: 'ABC Favorit Mono', ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  --font-code: 'ABC Favorit Mono', ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  --font-hero: 'ABC Favorit', 'ABC Favorit Mono', system-ui, -apple-system, sans-serif;
 
-  /* ----- Type scale (büyütülmüş — kullanıcı isteği) ----------------- */
+  /* ----- Type scale (1.25 ratio — major third) ---------------------
+     Smooth modular scale. Each step is 1.25× the previous, producing
+     a coherent vertical rhythm without the jarring 16→27 jump the
+     old scale had. Mono fonts read slightly smaller than equivalent
+     sans, so the base bumps up to 16 (was effectively 13-14 mixed).
+     14 / 16 / 20 / 25 / 31 / 39 / 49 px */
   --text-xs: 13px;
   --text-sm: 14px;
   --text-base: 16px;
-  --text-lg: 18px;
-  --text-xl: 21px;
-  --text-2xl: 27px;
-  --text-3xl: 36px;
+  --text-lg: 20px;
+  --text-xl: 25px;
+  --text-2xl: 31px;
+  --text-3xl: 39px;
+  --text-hero: 49px;
 
   /* ----- Spacing scale (8pt grid) ----------------------------------- */
   --space-1: 4px;
@@ -152,28 +205,29 @@ body,
   margin: 0;
   padding: 0;
   color: var(--color-text);
-  font-family: 'Space Grotesk', var(--font-sans);
+  font-family: var(--font-sans);
   font-size: var(--text-base);
+  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
 }
 
-/* Defense: even if a third-party stylesheet or a stray inline style sneaks in
-   another sans, the entire document tree inherits Space Grotesk. We're not
-   using !important on individual elements (would break code blocks), but on
-   the root we lock the cascade. */
+/* Defense lock: the entire document tree inherits ABC Favorit Mono
+   even if a third-party stylesheet sneaks in a different family.
+   We don't use !important on individual elements (would break the
+   `.liminal-hero` opt-out), but on the root we lock the cascade. */
 html {
-  font-family: 'Space Grotesk', system-ui, -apple-system, sans-serif !important;
+  font-family: var(--font-sans) !important;
 }
 
 body {
+  /* Trading-terminal aesthetic: static, calm body. Removed the
+     three radial gradient blobs (pink/sky/mint) that made it feel
+     like a marketing landing page — distracting on a dashboard
+     where the user's eye should track prices and progress, not
+     decorative backdrop motion when scrolling. */
   background: var(--color-1);
-  background-image:
-    radial-gradient(at 18% 22%, rgba(249, 178, 215, 0.20) 0, transparent 45%),
-    radial-gradient(at 82% 10%, rgba(207, 236, 243, 0.45) 0, transparent 50%),
-    radial-gradient(at 50% 95%, rgba(218, 249, 222, 0.50) 0, transparent 55%);
-  background-attachment: fixed;
   min-height: 100vh;
   min-height: 100svh;
   min-height: 100dvh;
@@ -195,8 +249,18 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* Wallet adresi / signature / hash gibi gerçekten monospace gereken yerler.
-   Diğer her şey Space Grotesk kalır. */
+/* Hero text — "Intelligent Execution Terminal" gibi marketing-style
+   start ekranlarında ABC Favorit Bold (sans). Mono'nun cramped
+   görüntüsünü kırmak için yalnızca bu opt-out elementlerde. */
+.liminal-hero {
+  font-family: var(--font-hero);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* Wallet adresi / signature / hash. ABC Favorit Mono zaten monospace
+   olduğu için ek istek yok ama tabular-nums explicit set edip OpenType
+   tabular feature'unu zorla aktive ediyoruz. */
 .liminal-code {
   font-family: var(--font-code);
   font-variant-numeric: tabular-nums;
