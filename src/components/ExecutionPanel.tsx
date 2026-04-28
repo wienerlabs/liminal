@@ -505,15 +505,32 @@ export const ExecutionPanel: FC = () => {
               {pendingRecovery.walletAddress.slice(-4)}).
             </div>
           )}
+          {/* BUG FIX (VV): if another tab is currently broadcasting
+              in-flight status via BroadcastChannel, the persisted state
+              we just read is THAT tab's live state — not stale. Resuming
+              here would create the exact duplicate-execution race that
+              the multi-tab service warns about. Block resume + redirect
+              the user to the active tab. */}
+          {otherTabsInFlight && (
+            <div style={styles.recoveryWarning}>
+              ⚠️ Another LIMINAL tab is currently running this execution
+              live. Switch to that tab to manage it — resuming here would
+              double-broadcast.
+            </div>
+          )}
           <div style={styles.recoveryActions}>
             <button
               type="button"
               onClick={resumeRecovery}
-              disabled={!pendingRecovery.canResume}
+              disabled={!pendingRecovery.canResume || otherTabsInFlight}
               style={{
                 ...styles.recoveryPrimary,
-                opacity: pendingRecovery.canResume ? 1 : 0.4,
-                cursor: pendingRecovery.canResume ? "pointer" : "not-allowed",
+                opacity:
+                  pendingRecovery.canResume && !otherTabsInFlight ? 1 : 0.4,
+                cursor:
+                  pendingRecovery.canResume && !otherTabsInFlight
+                    ? "pointer"
+                    : "not-allowed",
               }}
             >
               RESUME
