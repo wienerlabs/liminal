@@ -498,24 +498,81 @@ export async function getQuote(
     );
   }
 
-  // Auto-retry once on transient 5xx / network errors so a brief
-  // upstream blip doesn't drag the user into ERROR (Bug DDD).
-  const order = await withQuoteRetry(() =>
-    getJson<UltraOrderResponse>(ULTRA_ORDER_PATH, {
-      inputMint,
-      outputMint,
-      amount: amountLamports.toString(),
-      slippageBps,
-      // Cap route complexity to fit Solana's 1232-byte packet MTU.
-      // History: 64 (default) → 1872 bytes failed; 30 → still failed
-      // on some pairs; 20 + restrictIntermediateTokens reliably fits.
+  // BUG FIX (audit-followup): adaptive fallback chain.
+  //
+  // Mainnet observed: even with maxAccounts=20 + restrictIntermediate
+  // = true, Ultra occasionally returns a route whose base64 tx exceeds
+  // 1644 chars (raw > 1232 = Solana MTU). Static caps don't bound the
+  // worst case — we need to try, measure, and tighten.
+  //
+  // Stages (each strictly tighter than the last):
+  //   [0] maxAccounts: 20, restrict intermediate (regular route)
+  //   [1] maxAccounts: 12 (reduces ~30% of accounts → smaller tx)
+  //   [2] onlyDirectRoutes: true (single-hop AMM only)
+  //
+  // For each stage we fetch a quote, measure the returned base64
+  // transaction length, and accept if ≤ 1644. Otherwise advance.
+  // If all 3 stages fail to produce a fitting tx, surface the
+  // user-friendly "route too large" error which is already retryable
+  // (fresh quote on next attempt may differ).
+  //
+  // Skipping stages: if `taker` is not provided we don't get a
+  // transaction back, so size-check is moot — fall back to the
+  // first stage's quote without further attempts.
+  const stageParams: Array<Record<string, string | number | boolean>> = [
+    {
       maxAccounts: ULTRA_MAX_ACCOUNTS,
       restrictIntermediateTokens: ULTRA_RESTRICT_INTERMEDIATE,
-      // Ultra takes a taker address to pre-bind fee ATAs. If not known yet
-      // (pre-connect), we omit and ask the route-only (no signing).
-      taker,
-    }),
-  );
+    },
+    { maxAccounts: 12, restrictIntermediateTokens: true },
+    { onlyDirectRoutes: true, restrictIntermediateTokens: true },
+  ];
+  const baseParams = {
+    inputMint,
+    outputMint,
+    amount: amountLamports.toString(),
+    slippageBps,
+    taker,
+  };
+  let order: UltraOrderResponse | null = null;
+  let largestSeen = 0;
+  for (let i = 0; i < stageParams.length; i++) {
+    const stageOrder = await withQuoteRetry(() =>
+      getJson<UltraOrderResponse>(ULTRA_ORDER_PATH, {
+        ...baseParams,
+        ...stageParams[i],
+      }),
+    );
+    // Without a taker, Ultra doesn't return a transaction — accept
+    // first stage's quote as-is (size-check moot).
+    if (!taker || !stageOrder.transaction) {
+      order = stageOrder;
+      break;
+    }
+    const b64Size = stageOrder.transaction.length;
+    largestSeen = Math.max(largestSeen, b64Size);
+    if (b64Size <= 1644) {
+      order = stageOrder;
+      if (i > 0) {
+        console.warn(
+          `[LIMINAL] Quote fitted at fallback stage ${i + 1}/${stageParams.length} ` +
+            `(b64=${b64Size}/1644)`,
+        );
+      }
+      break;
+    }
+    // Too big — log and continue to next stage. Ultra may have
+    // returned an actionable error too; don't propagate it because we
+    // have more attempts.
+  }
+  if (!order || (taker && order.transaction && order.transaction.length > 1644)) {
+    throw new Error(
+      `VersionedTransaction too large: even direct-routes stage produced ` +
+        `${largestSeen}/1644 base64 bytes. Aggregator returned a route too ` +
+        `large for Solana's packet limit. Click Retry — Ultra may pick a ` +
+        `different path next time.`,
+    );
+  }
 
   if (order.errorCode && order.errorCode !== 0 && !order.transaction) {
     // Ultra returned an actionable error — surface it verbatim so the UI
