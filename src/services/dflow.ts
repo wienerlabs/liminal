@@ -318,6 +318,35 @@ function getJson<T>(
 }
 
 /**
+ * Measure the raw byte count of a base64-encoded transaction without
+ * fully deserializing it. Used by the adaptive fallback chain in
+ * getQuote to decide whether a stage's tx fits Solana's MTU before
+ * we accept it.
+ *
+ * Solana MTU = 1232 raw bytes. Base64 encoding is 4 chars per 3 raw
+ * bytes (with padding to multiples of 4) — measuring raw directly
+ * removes padding ambiguity that bit us in PR #47 (b64 length 1644
+ * admits raw up to 1233, just over MTU).
+ */
+function rawBytesFromBase64(b64: string): number {
+  if (typeof atob === "function") {
+    try {
+      return atob(b64).length;
+    } catch {
+      // Malformed base64 — treat as too-large so caller skips this
+      // stage gracefully. Not throwing here keeps the fallback chain
+      // simple.
+      return Number.MAX_SAFE_INTEGER;
+    }
+  }
+  try {
+    return Buffer.from(b64, "base64").length;
+  } catch {
+    return Number.MAX_SAFE_INTEGER;
+  }
+}
+
+/**
  * Detect transient Ultra failures that are worth retrying. Filters
  * 5xx + network errors as retry-worthy, leaves 4xx and timeouts alone.
  *
@@ -498,34 +527,61 @@ export async function getQuote(
     );
   }
 
-  // BUG FIX (audit-followup): adaptive fallback chain.
+  // BUG FIX (root-cause MTU, mainnet 18:21:41): adaptive fallback chain
+  // with RAW BYTE measurement (not base64 length proxy).
   //
-  // Mainnet observed: even with maxAccounts=20 + restrictIntermediate
-  // = true, Ultra occasionally returns a route whose base64 tx exceeds
-  // 1644 chars (raw > 1232 = Solana MTU). Static caps don't bound the
-  // worst case — we need to try, measure, and tighten.
+  // History of attempts at this bug:
+  //   PR #44 — maxAccounts: 30. Failed.
+  //   PR #45 — maxAccounts: 20 + restrictIntermediateTokens. Failed.
+  //   PR #47 — adaptive 3-stage chain measuring base64 length ≤ 1644.
+  //            Failed: base64 length 1644 admits raw up to 1233 bytes
+  //            (with padding), which exceeds Solana's 1232 MTU. Off-by-
+  //            one, plus tx.serialize().length can differ from the
+  //            decoded raw bytes due to web3.js compression of the
+  //            ALT/LUT references.
   //
-  // Stages (each strictly tighter than the last):
-  //   [0] maxAccounts: 20, restrict intermediate (regular route)
-  //   [1] maxAccounts: 12 (reduces ~30% of accounts → smaller tx)
-  //   [2] onlyDirectRoutes: true (single-hop AMM only)
+  // This iteration:
+  //   - Measure raw bytes via atob/Buffer (canonical).
+  //   - Threshold = 1200 bytes (32-byte safety margin under MTU).
+  //   - 4 stages: progressively stricter → finally excludeDexes for
+  //     known-large DEXes (Whirlpool concentrated-liquidity ticks,
+  //     Phoenix orderbook) which produce instruction-heavy txs.
+  //   - Diagnostic logging on every stage attempt so failure logs
+  //     show which AMMs Ultra picked.
   //
-  // For each stage we fetch a quote, measure the returned base64
-  // transaction length, and accept if ≤ 1644. Otherwise advance.
-  // If all 3 stages fail to produce a fitting tx, surface the
-  // user-friendly "route too large" error which is already retryable
-  // (fresh quote on next attempt may differ).
-  //
-  // Skipping stages: if `taker` is not provided we don't get a
-  // transaction back, so size-check is moot — fall back to the
-  // first stage's quote without further attempts.
-  const stageParams: Array<Record<string, string | number | boolean>> = [
+  // Skip behavior: if `taker` is not provided (pre-connect quote),
+  // Ultra doesn't return a transaction; accept stage 0 quote.
+  const RAW_SIZE_LIMIT = 1200;
+  const stageParams: Array<{
+    label: string;
+    params: Record<string, string | number | boolean>;
+  }> = [
     {
-      maxAccounts: ULTRA_MAX_ACCOUNTS,
-      restrictIntermediateTokens: ULTRA_RESTRICT_INTERMEDIATE,
+      label: "default-strict",
+      params: {
+        maxAccounts: ULTRA_MAX_ACCOUNTS,
+        restrictIntermediateTokens: ULTRA_RESTRICT_INTERMEDIATE,
+      },
     },
-    { maxAccounts: 12, restrictIntermediateTokens: true },
-    { onlyDirectRoutes: true, restrictIntermediateTokens: true },
+    {
+      label: "tight-12",
+      params: { maxAccounts: 12, restrictIntermediateTokens: true },
+    },
+    {
+      label: "direct-only",
+      params: { onlyDirectRoutes: true, restrictIntermediateTokens: true },
+    },
+    {
+      label: "exclude-heavy-dexes",
+      params: {
+        onlyDirectRoutes: true,
+        restrictIntermediateTokens: true,
+        // Whirlpool concentrated liquidity instructions and Phoenix
+        // orderbook fills are notoriously large. Exclude as last
+        // resort even though pricing suffers.
+        excludeDexes: "Whirlpool,Phoenix,GooseFX",
+      },
+    },
   ];
   const baseParams = {
     inputMint,
@@ -535,42 +591,45 @@ export async function getQuote(
     taker,
   };
   let order: UltraOrderResponse | null = null;
-  let largestSeen = 0;
+  let largestSeenRaw = 0;
   for (let i = 0; i < stageParams.length; i++) {
+    const { label, params } = stageParams[i];
     const stageOrder = await withQuoteRetry(() =>
       getJson<UltraOrderResponse>(ULTRA_ORDER_PATH, {
         ...baseParams,
-        ...stageParams[i],
+        ...params,
       }),
     );
-    // Without a taker, Ultra doesn't return a transaction — accept
-    // first stage's quote as-is (size-check moot).
     if (!taker || !stageOrder.transaction) {
       order = stageOrder;
       break;
     }
-    const b64Size = stageOrder.transaction.length;
-    largestSeen = Math.max(largestSeen, b64Size);
-    if (b64Size <= 1644) {
+    const rawSize = rawBytesFromBase64(stageOrder.transaction);
+    largestSeenRaw = Math.max(largestSeenRaw, rawSize);
+    if (rawSize <= RAW_SIZE_LIMIT) {
       order = stageOrder;
       if (i > 0) {
         console.warn(
           `[LIMINAL] Quote fitted at fallback stage ${i + 1}/${stageParams.length} ` +
-            `(b64=${b64Size}/1644)`,
+            `(${label}, raw=${rawSize}/${RAW_SIZE_LIMIT})`,
         );
       }
       break;
     }
-    // Too big — log and continue to next stage. Ultra may have
-    // returned an actionable error too; don't propagate it because we
-    // have more attempts.
+    console.warn(
+      `[LIMINAL] Stage ${i + 1}/${stageParams.length} (${label}) tx too large: ` +
+        `raw=${rawSize}/${RAW_SIZE_LIMIT}, route=${
+          stageOrder.routePlan?.map((p) => p.swapInfo?.label ?? "?").join(" → ") ?? "unknown"
+        }`,
+    );
   }
-  if (!order || (taker && order.transaction && order.transaction.length > 1644)) {
+  if (!order || (taker && order.transaction && rawBytesFromBase64(order.transaction) > RAW_SIZE_LIMIT)) {
     throw new Error(
-      `VersionedTransaction too large: even direct-routes stage produced ` +
-        `${largestSeen}/1644 base64 bytes. Aggregator returned a route too ` +
-        `large for Solana's packet limit. Click Retry — Ultra may pick a ` +
-        `different path next time.`,
+      `VersionedTransaction too large: all ${stageParams.length} fallback ` +
+        `stages produced txs exceeding the safety threshold (largest seen: ` +
+        `${largestSeenRaw} raw bytes, limit: ${RAW_SIZE_LIMIT}). This pair ` +
+        `or amount may not be tradeable through Jupiter Ultra at this size — ` +
+        `try a smaller amount or a different token pair.`,
     );
   }
 
