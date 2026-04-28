@@ -12,6 +12,12 @@ import App from "./App";
 import AppErrorBoundary from "./components/AppErrorBoundary";
 import "./styles/design-system.css";
 import { initTelemetry } from "./services/telemetry";
+import { bootstrapTheme } from "./hooks/useTheme";
+
+// Apply persisted theme synchronously before React mounts. Without
+// this the user briefly sees light theme even when their stored
+// preference is dark — no flash of incorrect theme (FOIT).
+bootstrapTheme();
 
 // Fire-and-forget. initTelemetry is a no-op when VITE_SENTRY_DSN is
 // unset, so this is zero cost for developers running locally without a
