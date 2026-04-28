@@ -575,6 +575,17 @@ export function useExecutionMachine(): UseExecutionMachineResult {
     return subscribeOtherTabsInFlight(setOtherTabsInFlight);
   }, []);
 
+  // BUG FIX (EEE): broadcast our current status once on mount. Without
+  // this, a tab that already has an in-flight execution (from
+  // recovery, or a status carried over from a fast remount) never
+  // tells other tabs about itself until its NEXT state transition.
+  // If another tab opens during that gap, it would see no broadcaster
+  // and not show the multi-tab warning. Firing once on mount with the
+  // current status closes that visibility hole.
+  useEffect(() => {
+    broadcastTabStatus(moduleState.status);
+  }, []);
+
   return {
     state,
     otherTabsInFlight,
