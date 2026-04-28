@@ -87,18 +87,21 @@
   --color-text-subtle: #8a93a0;     /* tertiary — sadece dekoratif */
   --color-text-inverse: #1a1a1a;    /* accent (pink) bg üstünde de siyah okunur */
 
-  /* ----- Stroke sistemi (light theme: siyah opacity) ----------------- */
-  --color-stroke: rgba(26, 26, 26, 0.08);
-  --color-stroke-nested: rgba(26, 26, 26, 0.12);
-  --color-stroke-hover: rgba(26, 26, 26, 0.20);
+  /* ----- Stroke sistemi (light theme: siyah opacity) -----------------
+     Kontrast tuning (audit follow-up): panel border'larını %50
+     güçlendirdik (0.08 → 0.12, 0.12 → 0.18). White panel on yellow
+     body kombinasyonunda öncesinde panel sınırı görünmüyordu. */
+  --color-stroke: rgba(26, 26, 26, 0.12);
+  --color-stroke-nested: rgba(26, 26, 26, 0.18);
+  --color-stroke-hover: rgba(26, 26, 26, 0.30);
 
-  /* ----- Shadow (light theme: koyu drop) ----------------------------- */
+  /* ----- Shadow (light theme: koyu drop, biraz daha güçlü) ---------- */
   --shadow-component:
-    0 1px 3px rgba(26, 26, 26, 0.06),
-    0 0 0 1px rgba(26, 26, 26, 0.04);
-  --shadow-raised:
-    0 8px 24px rgba(26, 26, 26, 0.10),
+    0 1px 3px rgba(26, 26, 26, 0.10),
     0 0 0 1px rgba(26, 26, 26, 0.06);
+  --shadow-raised:
+    0 8px 24px rgba(26, 26, 26, 0.14),
+    0 0 0 1px rgba(26, 26, 26, 0.08);
   --shadow-accent-glow: 0 0 24px rgba(249, 178, 215, 0.55);
 
   /* ----- Semantic success / danger (pastel zeminde okunabilir) ------- */
@@ -187,6 +190,78 @@
   --motion-base: 200ms;
   --motion-slow: 400ms;
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* ===================================================================== */
+/* Dark theme — opt-in via document.documentElement.dataset.theme=dark   */
+/* ===================================================================== */
+/*
+ * Trader-grade dark mode. Activates when the root element has
+ * `data-theme="dark"`. Token names match light theme exactly so all
+ * components automatically pick it up — no per-component refactor.
+ *
+ * Color philosophy:
+ *   - Body: #0a0a0a (near-black, NOT pure #000 → easier on the eyes
+ *     for long sessions, also less aggressive contrast bleed)
+ *   - Panels: #141414 (subtle elevation from body)
+ *   - Cards: #1f1f1f (one tier higher)
+ *   - Hover: #2a2a2a
+ *   - Accent (pink) stays branded but dimmed to feel less saccharine
+ *     against dark — paired with text-on-accent that contrasts both
+ *     light and dark schemes.
+ *   - Success/danger get a brighter shift (terminal-vibrant) since
+ *     pastel mint/red wash out on dark.
+ */
+:root[data-theme="dark"] {
+  --color-1: #0a0a0a;
+  --color-2: #141414;
+  --color-3: #1f1f1f;
+  --color-4: #2a2a2a;
+  /* Pink accent kept — branding consistency. Slightly desaturated
+     so it doesn't pop too aggressively against deep black. */
+  --color-5: #f9b2d7;
+  --color-5-strong: #f48cc4;
+
+  --color-text: #f5f5f5;
+  --color-text-muted: #a8a8a8;
+  --color-text-subtle: #6e6e6e;
+  --color-text-inverse: #0a0a0a;
+
+  --color-stroke: rgba(255, 255, 255, 0.10);
+  --color-stroke-nested: rgba(255, 255, 255, 0.16);
+  --color-stroke-hover: rgba(255, 255, 255, 0.28);
+
+  --shadow-component:
+    0 1px 3px rgba(0, 0, 0, 0.40),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
+  --shadow-raised:
+    0 8px 24px rgba(0, 0, 0, 0.50),
+    0 0 0 1px rgba(255, 255, 255, 0.06);
+  --shadow-accent-glow: 0 0 24px rgba(249, 178, 215, 0.40);
+
+  /* Terminal-vibrant variants of semantic colors */
+  --color-success: #4ade80;
+  --color-danger: #f87171;
+  --color-warn: #fbbf24;
+  --color-warn-bg: rgba(251, 191, 36, 0.12);
+  --color-warn-border: rgba(251, 191, 36, 0.40);
+  --color-success-bg: rgba(74, 222, 128, 0.10);
+  --color-success-border: rgba(74, 222, 128, 0.36);
+  --color-danger-bg: rgba(248, 113, 113, 0.10);
+  --color-danger-border: rgba(248, 113, 113, 0.36);
+
+  --color-accent-bg-soft: rgba(249, 178, 215, 0.10);
+  --color-accent-bg-strong: rgba(249, 178, 215, 0.22);
+  --color-accent-border: rgba(244, 140, 196, 0.40);
+
+  --surface-panel: #141414;
+  --surface-card: rgba(255, 255, 255, 0.03);
+  --surface-card-hover: rgba(255, 255, 255, 0.06);
+  --surface-raised: #1f1f1f;
+  --surface-raised-strong: #242424;
+  --surface-input: #1a1a1a;
+
+  --color-overlay: rgba(0, 0, 0, 0.65);
 }
 
 /* ===================================================================== */

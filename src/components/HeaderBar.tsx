@@ -21,6 +21,7 @@ import {
 } from "./BrandLogos";
 import { getMevStrategy } from "../services/mevProtection";
 import { useDeviceDetection } from "../hooks/useDeviceDetection";
+import ThemeSwitcher from "./ThemeSwitcher";
 
 const MONO = "var(--font-mono)";
 const SANS = "var(--font-sans)";
@@ -94,6 +95,7 @@ export const HeaderBar: FC<HeaderBarProps> = ({ networkStatus }) => {
       {device.isMobile && <div style={{ flex: 1 }} aria-hidden="true" />}
 
       <div style={styles.right}>
+        <ThemeSwitcher />
         {/* MEV badge: desktop + tablet only on mobile (saves ~50px). */}
         {!device.isMobile && <MevBadge />}
         {networkStatus && (
