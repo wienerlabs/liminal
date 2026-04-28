@@ -279,7 +279,7 @@ const NetworkBanner: FC = () => {
         textAlign: "center",
         fontSize: 12,
         fontWeight: 600,
-        letterSpacing: "0.02em",
+        letterSpacing: 0,
       }}
     >
       {config.testBanner}
@@ -359,7 +359,7 @@ const styles: Record<string, CSSProperties> = {
     fontFamily: SANS,
     fontSize: "var(--text-xs)",
     color: THEME.accent,
-    letterSpacing: "0.04em",
+    letterSpacing: 0,
   },
   solflareDot: {
     width: 8,
@@ -491,8 +491,8 @@ const styles: Record<string, CSSProperties> = {
     fontFamily: SANS,
     fontSize: 14,
     fontWeight: 600,
-    letterSpacing: "0.06em",
-    textTransform: "uppercase",
+    letterSpacing: 0,
+    textTransform: "none",
     padding: "10px var(--space-1)",
     position: "relative",
     display: "flex",

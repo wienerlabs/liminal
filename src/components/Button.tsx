@@ -35,7 +35,7 @@ export const Button: FC<ButtonProps> = ({
     fontFamily: MONO,
     fontSize: 15,
     fontWeight: 700,
-    letterSpacing: 1,
+    letterSpacing: 0,
     border: isPrimary ? "none" : "1px solid var(--color-stroke)",
     borderRadius: "var(--radius-md)",
     padding: "12px 20px",
@@ -55,7 +55,7 @@ export const Button: FC<ButtonProps> = ({
     transform: pressed && !disabled ? "scale(0.97)" : "scale(1)",
     transition:
       "transform 100ms ease, box-shadow 150ms ease, filter 150ms ease",
-    textTransform: "uppercase",
+    textTransform: "none",
     ...style,
   };
 

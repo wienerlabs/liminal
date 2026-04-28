@@ -35,7 +35,13 @@ import { usePriceMonitor } from "../hooks/usePriceMonitor";
 import { useExecutionMachine } from "../hooks/useExecutionMachine";
 import { useDeviceDetection } from "../hooks/useDeviceDetection";
 import { useTokenRegistry } from "../hooks/useTokenRegistry";
-import { DFlowLogo, KaminoIcon, LiminalMark } from "./BrandLogos";
+import {
+  DFlowLogo,
+  KaminoIcon,
+  LiminalMark,
+  PARTNER_LOGOS,
+  LOGO_CAP,
+} from "./BrandLogos";
 import { ExecutionStatus, IN_FLIGHT_STATUSES } from "../state/executionMachine";
 import { estimatePopups, MAX_AUTOPILOT_SLICES } from "../state/preSignPlan";
 import VaultPreview from "./VaultPreview";
@@ -470,7 +476,7 @@ export const ExecutionPanel: FC = () => {
   // ------------------------------------------------------------------------
   return (
     <section style={styles.panel} aria-label="Execution panel">
-      <header style={styles.header}>EXECUTE</header>
+      <header style={styles.header}>Execute</header>
 
       {/* Multi-tab warning — surfaces only when ANOTHER tab in the
           same browser profile is mid-execution. Suppress while we
@@ -591,7 +597,7 @@ export const ExecutionPanel: FC = () => {
               disabled={wallet.connecting}
               style={{ width: "100%", marginTop: 8, padding: "14px 28px" }}
             >
-              {wallet.connecting ? "CONNECTING…" : "CONNECT SOLFLARE"}
+              {wallet.connecting ? "Connecting…" : "Connect Solflare"}
             </Button>
             {connectError && (
               <div
@@ -612,6 +618,57 @@ export const ExecutionPanel: FC = () => {
                 {connectError}
               </div>
             )}
+
+            {/* Partner logos relocated from header (PR #4 audit
+                follow-up). Welcome state is the right surface — first-
+                time users see who's powering this thing. Subtle row,
+                muted color, no gradient flourish. */}
+            <div
+              style={{
+                marginTop: 28,
+                paddingTop: 18,
+                borderTop: "1px solid var(--color-stroke)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 14,
+                opacity: 0.55,
+                color: "var(--color-text-muted)",
+                fontFamily: MONO,
+                fontSize: 12,
+              }}
+              aria-label="Built with"
+            >
+              <span>Built with</span>
+              {PARTNER_LOGOS.map(({ name, logo: Logo }, i) => (
+                <span
+                  key={name}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 8,
+                  }}
+                >
+                  {i > 0 && (
+                    <span aria-hidden="true" style={{ opacity: 0.5 }}>
+                      ·
+                    </span>
+                  )}
+                  <span
+                    title={name}
+                    aria-label={`${name} logo`}
+                    role="img"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      height: LOGO_CAP,
+                    }}
+                  >
+                    <Logo height={LOGO_CAP} size={LOGO_CAP} />
+                  </span>
+                </span>
+              ))}
+            </div>
           </div>
         </div>
       ) : state.status === ExecutionStatus.DONE ? (
@@ -1389,12 +1446,12 @@ const styles: Record<string, CSSProperties> = {
   header: {
     fontFamily: MONO,
     fontSize: 13,
-    letterSpacing: "0.18em",
+    letterSpacing: 0,
     fontWeight: 600,
     color: THEME.textMuted,
     padding: "14px 16px 12px",
     borderBottom: `1px solid ${THEME.border}`,
-    textTransform: "uppercase",
+    textTransform: "none",
   },
   emptyBody: {
     flex: 1,
@@ -1418,16 +1475,16 @@ const styles: Record<string, CSSProperties> = {
     fontFamily: MONO,
     fontSize: 13,
     color: THEME.textMuted,
-    letterSpacing: "0.16em",
+    letterSpacing: 0,
     fontWeight: 600,
     marginBottom: 8,
-    textTransform: "uppercase",
+    textTransform: "none",
   },
   sectionHint: {
     fontFamily: MONO,
     fontSize: 11,
     color: THEME.textMuted,
-    letterSpacing: "0.06em",
+    letterSpacing: 0,
     fontWeight: 400,
     textTransform: "none",
     opacity: 0.75,
@@ -1472,8 +1529,8 @@ const styles: Record<string, CSSProperties> = {
     fontFamily: MONO,
     fontSize: 12,
     color: THEME.textMuted,
-    letterSpacing: 1,
-    textTransform: "uppercase",
+    letterSpacing: 0,
+    textTransform: "none",
   },
   select: {
     fontFamily: MONO,
@@ -1532,8 +1589,8 @@ const styles: Record<string, CSSProperties> = {
     fontFamily: MONO,
     fontSize: 13,
     fontWeight: 700,
-    letterSpacing: "0.06em",
-    textTransform: "uppercase",
+    letterSpacing: 0,
+    textTransform: "none",
     color: "var(--color-5)",
     background: "var(--color-accent-bg-soft)",
     border: "1px solid var(--color-accent-border)",
@@ -1634,7 +1691,7 @@ const styles: Record<string, CSSProperties> = {
     border: `1px solid ${THEME.border}`,
     borderRadius: "var(--radius-md)",
     padding: "8px 16px",
-    letterSpacing: 0.5,
+    letterSpacing: 0,
     transition: "all 150ms ease",
   },
   slippageRow: {
@@ -1649,7 +1706,7 @@ const styles: Record<string, CSSProperties> = {
     fontFamily: MONO,
     fontSize: 13,
     color: THEME.textMuted,
-    letterSpacing: 0.5,
+    letterSpacing: 0,
   },
   flexSpacer: {
     flex: 1,
@@ -1692,7 +1749,7 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 13,
     fontWeight: 700,
     color: THEME.text,
-    letterSpacing: 0.4,
+    letterSpacing: 0,
   },
   autopilotSub: {
     fontFamily: MONO,
@@ -1710,7 +1767,7 @@ const styles: Record<string, CSSProperties> = {
     color: "var(--color-text-muted)",
     textAlign: "center",
     marginTop: 6,
-    letterSpacing: 0.5,
+    letterSpacing: 0,
   },
   disabledHint: {
     marginTop: 10,
@@ -1749,7 +1806,7 @@ const styles: Record<string, CSSProperties> = {
     borderRadius: 8,
     padding: "14px 28px",
     width: "100%",
-    letterSpacing: 1,
+    letterSpacing: 0,
   },
   recoveryBanner: {
     margin: "12px 16px 0",
@@ -1765,8 +1822,8 @@ const styles: Record<string, CSSProperties> = {
     fontFamily: MONO,
     fontSize: 13,
     color: THEME.accent,
-    letterSpacing: 1.5,
-    textTransform: "uppercase",
+    letterSpacing: 0,
+    textTransform: "none",
     fontWeight: 700,
   },
   recoveryText: {
@@ -1795,7 +1852,7 @@ const styles: Record<string, CSSProperties> = {
     border: "none",
     borderRadius: 6,
     padding: "8px 16px",
-    letterSpacing: 1,
+    letterSpacing: 0,
   },
   recoverySecondary: {
     fontFamily: MONO,
@@ -1806,7 +1863,7 @@ const styles: Record<string, CSSProperties> = {
     borderRadius: 6,
     padding: "8px 16px",
     cursor: "pointer",
-    letterSpacing: 1,
+    letterSpacing: 0,
   },
 
   // Welcome/Onboarding (Item 4)
@@ -1824,7 +1881,7 @@ const styles: Record<string, CSSProperties> = {
     fontWeight: 700,
     color: "var(--color-text)",
     textAlign: "center",
-    letterSpacing: 0.5,
+    letterSpacing: 0,
   },
   welcomeFeatures: {
     display: "flex",
@@ -1856,7 +1913,7 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 14,
     fontWeight: 700,
     color: "var(--color-text)",
-    letterSpacing: 0.5,
+    letterSpacing: 0,
   },
   welcomeFeatureDesc: {
     fontFamily: MONO,

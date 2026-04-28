@@ -106,7 +106,7 @@ export const VaultPreview: FC<VaultPreviewProps> = ({
         <span style={{ color: "var(--color-text)" }}>
           <KaminoLogo height={13} />
         </span>
-        <span style={styles.label}>VAULT</span>
+        <span style={styles.label}>Vault</span>
       </div>
         <SkeletonBox width="70%" height={18} />
         <div style={styles.gap} />
@@ -142,7 +142,7 @@ export const VaultPreview: FC<VaultPreviewProps> = ({
         <span style={{ color: "var(--color-text)" }}>
           <KaminoLogo height={13} />
         </span>
-        <span style={styles.label}>VAULT</span>
+        <span style={styles.label}>Vault</span>
       </div>
 
       <div style={styles.vaultName}>
@@ -212,8 +212,8 @@ const styles: Record<string, CSSProperties> = {
     fontFamily: MONO,
     fontSize: 12,
     color: THEME.accent,
-    letterSpacing: 1.5,
-    textTransform: "uppercase",
+    letterSpacing: 0,
+    textTransform: "none",
   },
   labelWithLogo: {
     display: "inline-flex",
@@ -240,8 +240,8 @@ const styles: Record<string, CSSProperties> = {
     fontFamily: MONO,
     fontSize: 13,
     color: THEME.textMuted,
-    letterSpacing: 1,
-    textTransform: "uppercase",
+    letterSpacing: 0,
+    textTransform: "none",
   },
   apyValue: {
     fontFamily: MONO,
@@ -259,7 +259,7 @@ const styles: Record<string, CSSProperties> = {
     fontFamily: MONO,
     fontSize: 13,
     color: THEME.textMuted,
-    letterSpacing: 0.5,
+    letterSpacing: 0,
     marginTop: 8,
     marginBottom: 4,
   },
@@ -277,8 +277,8 @@ const styles: Record<string, CSSProperties> = {
     fontFamily: MONO,
     fontSize: 13,
     color: THEME.amber,
-    letterSpacing: 1.5,
-    textTransform: "uppercase",
+    letterSpacing: 0,
+    textTransform: "none",
   },
   warningText: {
     fontFamily: MONO,
