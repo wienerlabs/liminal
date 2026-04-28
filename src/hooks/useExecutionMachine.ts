@@ -166,13 +166,57 @@ function persist(state: ExecutionState): void {
   }
 }
 
+/**
+ * BUG FIX (H-4, audit): defensive schema validation. JSON.parse +
+ * `as` cast is a compile-time lie. Stale data from an older app
+ * version (or malformed localStorage from external editing) would
+ * pass through and crash deserializeState with `new
+ * PublicKey(undefined)` or `.slices.map` on a non-array. That
+ * throw fires inside resumeRecoveryAction (a React event handler),
+ * which error boundaries DO NOT catch.
+ *
+ * Validation policy: require the top-level shape (`status`,
+ * `slices`-as-array, `executionResults`-as-array, `config`-as-
+ * object-or-null). Anything failing → log + clearPersisted +
+ * return null. The user starts fresh, no crash.
+ */
+function isValidPersistedState(raw: unknown): raw is PersistedExecutionState {
+  if (!raw || typeof raw !== "object") return false;
+  const v = raw as Record<string, unknown>;
+  if (typeof v.status !== "string") return false;
+  if (!Array.isArray(v.slices)) return false;
+  if (!Array.isArray(v.executionResults)) return false;
+  // config may be null (pre-configure) or an object with a
+  // walletPublicKey string. Reject everything else (e.g. number, bool).
+  if (v.config !== null) {
+    if (typeof v.config !== "object") return false;
+    const cfg = v.config as Record<string, unknown>;
+    if (typeof cfg.walletPublicKey !== "string") return false;
+    if (typeof cfg.inputMint !== "string") return false;
+    if (typeof cfg.outputMint !== "string") return false;
+  }
+  return true;
+}
+
 function loadPersisted(): PersistedExecutionState | null {
   const storage = safeStorage();
   if (!storage) return null;
   try {
     const raw = storage.getItem(STORAGE_KEY);
     if (!raw) return null;
-    return JSON.parse(raw) as PersistedExecutionState;
+    const parsed: unknown = JSON.parse(raw);
+    if (!isValidPersistedState(parsed)) {
+      console.warn(
+        "[LIMINAL] Persisted execution state failed schema validation — clearing.",
+      );
+      try {
+        storage.removeItem(STORAGE_KEY);
+      } catch {
+        /* removal failure is non-fatal — next save will overwrite */
+      }
+      return null;
+    }
+    return parsed;
   } catch (err) {
     console.warn(
       `[LIMINAL] Persisted execution state parse edilemedi: ${err instanceof Error ? err.message : String(err)}`,

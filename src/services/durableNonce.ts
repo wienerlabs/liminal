@@ -261,21 +261,26 @@ export function buildAdvanceNonceIx(
  * `payer`. Intended to run AFTER the execution completes (DONE state) so
  * the user reclaims the ~0.00148 SOL × N upfront cost.
  *
- * Safe to call even if some nonces were consumed — `nonceWithdraw` just
- * drains whatever's left and zeroes the account. If the account no
- * longer exists (already closed) the tx will fail; caller should tolerate
- * partial cleanup as non-fatal.
+ * Returns `null` (not an error) if there is nothing to close — every
+ * caller treats cleanup as best-effort, so a no-op should not propagate
+ * as an exception that some catch blocks log and others swallow
+ * inconsistently. Empty pool / all-already-closed = no-op.
+ *
+ * BUG FIX (H-3, audit): originally threw on the empty-instructions
+ * case, which propagated through different callers inconsistently.
+ * The recovery-time auto-reclaim in buildAndSignPlan would log it as a
+ * warning, but the resetAction's background cleanup would only catch
+ * the throw and warn — fine for that path but the resetAction itself
+ * had no way to distinguish "couldn't reach RPC" from "nothing to
+ * clean up", confusing telemetry. Returning null makes the no-op case
+ * explicit and lets callers skip the broadcast step entirely.
  */
 export async function buildCloseNonceAccountsTx(
   payer: PublicKey,
   pool: NoncePoolEntry[],
   connection: Connection,
-): Promise<VersionedTransaction> {
-  if (pool.length === 0) {
-    throw new Error(
-      "durableNonce.buildCloseNonceAccountsTx: empty pool — nothing to close.",
-    );
-  }
+): Promise<VersionedTransaction | null> {
+  if (pool.length === 0) return null;
 
   // Drain each account's full lamports balance — that's the rent we paid
   // plus anything else that's been deposited. Using the full balance is
@@ -302,11 +307,7 @@ export async function buildCloseNonceAccountsTx(
     );
   }
 
-  if (instructions.length === 0) {
-    throw new Error(
-      "durableNonce.buildCloseNonceAccountsTx: all accounts already closed — nothing to do.",
-    );
-  }
+  if (instructions.length === 0) return null;
 
   const { blockhash } = await connection.getLatestBlockhash("confirmed");
   const message = new TransactionMessage({

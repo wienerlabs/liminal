@@ -467,10 +467,31 @@ async function buildPreSignPlanAndReport(
     kaminoVaultAddress: config.kaminoVaultAddress,
   }));
 
-  // Dilim miktarlarını hesapla — preSignPlan tarafı TWAP dilimlerini bilmez,
-  // her slice için ayrı Kamino withdraw ix'i gerekli.
-  const perSlice = config.totalAmount / config.sliceCount;
-  const sliceAmounts: number[] = new Array(config.sliceCount).fill(perSlice);
+  // BUG FIX (H-1, audit): use the canonical slice amounts from state
+  // (computed by calculateTWAPSlices, which gives the LAST slice the
+  // float-drift residual to keep the sum exactly equal to totalAmount).
+  // The naïve formula `totalAmount / sliceCount` ignores that drift and
+  // would (a) make the pre-signed last withdraw consume the wrong
+  // lamports, and (b) leave the difference stranded in Kamino so the
+  // final withdraw must clean it up. Using state.slices[i].amount keeps
+  // pre-signed plan consistent with the state machine's view.
+  const stateSlices = getState().slices;
+  const sliceAmounts: number[] = stateSlices.map((sl) => sl.amount);
+  if (sliceAmounts.length !== config.sliceCount) {
+    setState((s) => ({
+      ...s,
+      status: ExecutionStatus.ERROR,
+      error: {
+        code: ErrorCode.UNKNOWN,
+        message:
+          "State slice count drift mid-build. Reset and reconfigure to recover.",
+        sliceIndex: null,
+        retryable: false,
+        timestamp: new Date(),
+      },
+    }));
+    return false;
+  }
 
   try {
     const connection = createConnection();
@@ -480,6 +501,7 @@ async function buildPreSignPlanAndReport(
       inputMint: config.inputMint,
       totalAmount: config.totalAmount,
       sliceAmounts,
+      kaminoVaultAddress: config.kaminoVaultAddress,
       signOne: config.signTransaction,
       signAll: config.signAllTransactions,
     });
@@ -912,14 +934,24 @@ async function executePreSignedSlice(
   // returning to the tab to sign. If <10s of validity left, re-fetch
   // so Ultra's `requestId` is fresh; otherwise /execute will reject
   // the swap with a stale-quote error.
+  //
+  // BUG FIX (H-1, audit): use the canonical slice.amount from state
+  // for the re-quote, NOT the formula `totalAmount / sliceCount`.
+  // For the last slice these differ by float drift, and re-quoting
+  // with the wrong amount would mismatch what the pre-signed withdraw
+  // delivered — Ultra /execute would reject the swap with size error.
   let liveQuote: DFlowQuote = quote;
   const msLeft = liveQuote.dflowQuote.expiresAt - nowMs();
   if (msLeft < 10_000) {
+    const liveState = getState();
+    const sliceAmount =
+      liveState.slices[idx]?.amount ??
+      config.totalAmount / config.sliceCount;
     try {
       liveQuote = await dflowGetQuote(
         config.inputMint,
         config.outputMint,
-        config.totalAmount / config.sliceCount,
+        sliceAmount,
         config.slippageBps,
         config.walletPublicKey.toBase58(),
       );
@@ -1134,6 +1166,7 @@ export async function completeEffect(
   const final = getState();
   notifyExecutionDone(
     final.totalPriceImprovementUsd + final.totalYieldEarned,
+    { autopilot: !!s0.config.preSignEnabled },
   );
 }
 

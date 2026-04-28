@@ -199,6 +199,21 @@ describe("convenience helpers", () => {
     expect(MockNotification.instances[0].options?.body).toContain("+$1234.56");
   });
 
+  it("notifyExecutionDone JIT mode: no cleanup-popup hint", () => {
+    MockNotification.permission = "granted";
+    notifyExecutionDone(10, { autopilot: false });
+    const body = MockNotification.instances[0].options?.body ?? "";
+    expect(body).not.toContain("nonce rent");
+    expect(body).not.toContain("One more popup");
+  });
+
+  it("notifyExecutionDone autopilot mode: includes cleanup-popup hint", () => {
+    MockNotification.permission = "granted";
+    notifyExecutionDone(10, { autopilot: true });
+    const body = MockNotification.instances[0].options?.body ?? "";
+    expect(body).toContain("nonce rent");
+  });
+
   it("notifyExecutionError truncates long messages", () => {
     MockNotification.permission = "granted";
     const long = "x".repeat(200);
