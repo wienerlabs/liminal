@@ -73,6 +73,32 @@ export const DFlowLogo: FC<{ size?: number }> = ({ size = LOGO_CAP }) => (
   </svg>
 );
 
+/**
+ * Kamino mark — icon-only (the leftmost K-glyph from the full
+ * wordmark, viewBox crop 0–35). Use in WelcomeFeature cards / inline
+ * contexts where the full "kamino" wordmark overlaps with adjacent
+ * text labels.
+ *
+ * Bug fix: the previous WelcomeFeature for "Kamino Yield" rendered
+ * the full `KaminoLogo` (viewBox 0 0 216.6 50, includes the
+ * "kamino" wordmark), which visually collided with the "Kamino
+ * Yield" title text right next to it. Switching to this icon-only
+ * variant in narrow inline contexts removes the duplication.
+ */
+export const KaminoIcon: FC<{ size?: number }> = ({ size = LOGO_CAP }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 35 50"
+    fill="currentColor"
+    aria-hidden="true"
+    style={{ flexShrink: 0, display: "block" }}
+  >
+    <path d="M10.263 2.782H0v46.684h10.263V2.782z" />
+    <path d="M33.347 48.876c-4.835-3.334-8.102-9.534-8.102-16.64s3.267-13.307 8.102-16.64v-.562H19.97c-3.13 4.85-4.97 10.78-4.97 17.202s1.837 12.348 4.97 17.202h13.377v-.562z" />
+  </svg>
+);
+
 export const KaminoLogo: FC<{ height?: number }> = ({ height = LOGO_CAP }) => (
   <svg
     height={height}
