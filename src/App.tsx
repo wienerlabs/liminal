@@ -10,7 +10,14 @@
  * Safe-area inset hem tab bar hem body padding'inde uygulanır.
  */
 
-import { useEffect, useMemo, useState, type CSSProperties, type FC } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type FC,
+} from "react";
 import "./styles/design-system.css";
 import { useDeviceDetection } from "./hooks/useDeviceDetection";
 import { useExecutionMachine } from "./hooks/useExecutionMachine";
@@ -38,6 +45,8 @@ import CommandPalette, {
   type CommandAction,
 } from "./components/CommandPalette";
 import ProfileSetup from "./components/ProfileSetup";
+import CompletionFlourish from "./components/CompletionFlourish";
+import { ExecutionStatus } from "./state/executionMachine";
 import { ToastContainer } from "./components/ToastProvider";
 import DisclaimerModal, {
   hasAcceptedDisclaimer,
@@ -127,6 +136,22 @@ export const App: FC = () => {
   const inFlight = IN_FLIGHT_STATUSES.has(state.status);
   const sliceN = state.currentSliceIndex + 1;
   const sliceM = state.slices.length;
+
+  // Completion flourish — fires once on each IDLE/in-flight → DONE
+  // transition. The ASCII overlay auto-dismisses after 3s, but the
+  // edge-trigger here means it doesn't re-pop on later state writes
+  // that keep the same DONE status.
+  const [flourishVisible, setFlourishVisible] = useState(false);
+  const prevStatusRef = useRef<ExecutionStatus>(state.status);
+  useEffect(() => {
+    if (
+      prevStatusRef.current !== ExecutionStatus.DONE &&
+      state.status === ExecutionStatus.DONE
+    ) {
+      setFlourishVisible(true);
+    }
+    prevStatusRef.current = state.status;
+  }, [state.status]);
 
   const executeBadge = inFlight && sliceM > 0 ? `${sliceN}/${sliceM}` : undefined;
 
@@ -223,6 +248,17 @@ export const App: FC = () => {
     }
     return list;
   }, [theme, toggleTheme, device.isMobile, wallet.connected, wallet.address, profile]);
+
+  // ---------------------------------------------------------------------
+  // Completion flourish element — same JSX rendered in all three
+  // layouts. Visible only during the 3-second post-DONE celebration.
+  // ---------------------------------------------------------------------
+  const completionFlourish = (
+    <CompletionFlourish
+      visible={flourishVisible}
+      onDismiss={() => setFlourishVisible(false)}
+    />
+  );
 
   // ---------------------------------------------------------------------
   // ProfileSetup modal element — same JSX rendered in all three layouts.
@@ -364,6 +400,7 @@ export const App: FC = () => {
           <DisclaimerModal onAccept={() => setDisclaimerOpen(false)} />
         )}
         {profileSetupModal}
+        {completionFlourish}
 
         {inFlight && (
           <div style={{ position: "sticky", top: "var(--header-height)", zIndex: 40 }}>
@@ -447,6 +484,7 @@ export const App: FC = () => {
           <DisclaimerModal onAccept={() => setDisclaimerOpen(false)} />
         )}
         {profileSetupModal}
+        {completionFlourish}
         <div style={styles.tabletLayoutOuter}>
           <div style={styles.tabletLayout}>
             <main style={{ ...styles.tabletPane, ...panelEntranceStyle(0) }}>
@@ -476,6 +514,7 @@ export const App: FC = () => {
           <DisclaimerModal onAccept={() => setDisclaimerOpen(false)} />
         )}
         {profileSetupModal}
+        {completionFlourish}
       <div style={styles.desktopLayoutOuter}>
         <div style={styles.desktopLayout}>
           <aside style={{ ...styles.sideCol, ...panelEntranceStyle(0) }}>
