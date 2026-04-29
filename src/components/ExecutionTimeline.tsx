@@ -363,6 +363,7 @@ const SliceRow: FC<{
   now: Date;
 }> = ({ slice, isActive, now }) => {
   const status = slice.status;
+  const [expanded, setExpanded] = useState(false);
 
   const iconColor =
     status === "completed"
@@ -373,15 +374,6 @@ const SliceRow: FC<{
           ? THEME.amber
           : THEME.textMuted;
 
-  const iconGlyph =
-    status === "completed"
-      ? "✓"
-      : status === "executing"
-        ? "●"
-        : status === "skipped"
-          ? "⚠"
-          : "○";
-
   const isExecutingNow = status === "executing" || isActive;
 
   const secondsUntil = Math.max(
@@ -389,31 +381,70 @@ const SliceRow: FC<{
     Math.floor((slice.targetExecutionTime.getTime() - now.getTime()) / 1000),
   );
 
+  // Time-elapsed counter (mm:ss) for the actively-executing slice. Counts
+  // from targetExecutionTime if it has passed, otherwise from now.
+  const elapsedSec =
+    status === "executing"
+      ? Math.max(
+          0,
+          Math.floor((now.getTime() - slice.targetExecutionTime.getTime()) / 1000),
+        )
+      : 0;
+
+  const expandable = status === "completed" && slice.result != null;
+
   return (
     <div
-      style={styles.sliceRow}
-      className={undefined}
+      style={{
+        ...styles.sliceRow,
+        cursor: expandable ? "pointer" : "default",
+        // Soft halo when active so the eye locks onto the row that's
+        // currently working.
+        boxShadow: isExecutingNow
+          ? "0 0 0 1px var(--color-accent-border), 0 0 12px rgba(249, 178, 215, 0.25)"
+          : undefined,
+      }}
+      onClick={() => expandable && setExpanded((v) => !v)}
+      role={expandable ? "button" : undefined}
+      aria-expanded={expandable ? expanded : undefined}
+      aria-label={
+        expandable
+          ? `Slice ${slice.sliceIndex + 1} details — ${expanded ? "collapse" : "expand"}`
+          : undefined
+      }
     >
       <div
         style={{
           ...styles.sliceIcon,
           color: iconColor,
-          animation: isExecutingNow
-            ? "liminal-pulse 1.2s ease-in-out infinite"
-            : undefined,
         }}
       >
-        {iconGlyph}
+        {status === "completed" ? (
+          <CheckmarkSvg color={iconColor} />
+        ) : status === "executing" ? (
+          <span style={styles.executingDot} aria-hidden="true" />
+        ) : status === "skipped" ? (
+          <span style={{ fontSize: 18 }}>⚠</span>
+        ) : (
+          <span style={styles.pendingRing} aria-hidden="true" />
+        )}
       </div>
       <div style={styles.sliceBody}>
         <div style={styles.sliceHeader}>
           <span style={styles.sliceNumber}>
             Slice {slice.sliceIndex + 1}
           </span>
-          <span style={styles.sliceAmount}>
-            {slice.amount.toLocaleString("en-US", {
-              maximumFractionDigits: 6,
-            })}
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+            {status === "executing" && (
+              <span style={styles.elapsedBadge} aria-label="Time elapsed">
+                {Math.floor(elapsedSec / 60)}:{String(elapsedSec % 60).padStart(2, "0")}
+              </span>
+            )}
+            <span style={styles.sliceAmount}>
+              {slice.amount.toLocaleString("en-US", {
+                maximumFractionDigits: 6,
+              })}
+            </span>
           </span>
         </div>
         <div style={styles.sliceSubtle}>
@@ -430,6 +461,120 @@ const SliceRow: FC<{
             <CompletedDetails result={slice.result} />
           )}
         </div>
+        {/* Expanded — explorer details, fee, signature copy. Only on
+            completed slices with a result. */}
+        {expanded && slice.result && (
+          <SliceExpanded result={slice.result} />
+        )}
+      </div>
+      {expandable && (
+        <span
+          aria-hidden="true"
+          style={{
+            ...styles.expandChevron,
+            transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
+          }}
+        >
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+            <path
+              d="M2 4l3 3 3-3"
+              stroke="var(--color-text-muted)"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </span>
+      )}
+    </div>
+  );
+};
+
+// Animated draw-on checkmark — replaces the static "✓" glyph for
+// completed slices. The path animates from 0 to full length over 360ms
+// using stroke-dasharray, then settles at the success color. Each row
+// animates independently when it transitions to "completed", giving the
+// timeline a satisfying "tick, tick, tick" rhythm during execution.
+const CheckmarkSvg: FC<{ color: string }> = ({ color }) => (
+  <svg
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    aria-hidden="true"
+    style={{ display: "block" }}
+  >
+    <circle cx="12" cy="12" r="10" stroke={color} strokeWidth="1.5" opacity="0.4" />
+    <path
+      d="M7 12.5l3 3 7-7"
+      stroke={color}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={{
+        // Existing keyframe `liminal-checkmark-draw` animates
+        // `stroke-dashoffset` from 40 → 0; matching dasharray here keeps
+        // the path invisible at start and fully drawn at end.
+        strokeDasharray: 40,
+        strokeDashoffset: 40,
+        animation: "liminal-checkmark-draw 360ms var(--ease-out) forwards",
+      }}
+    />
+  </svg>
+);
+
+const SliceExpanded: FC<{
+  result: NonNullable<TWAPSlice["result"]>;
+}> = ({ result }) => {
+  const [copied, setCopied] = useState(false);
+  const sigShort = `${result.signature.slice(0, 8)}…${result.signature.slice(-8)}`;
+  const explorerUrl = `https://solscan.io/tx/${result.signature}`;
+  return (
+    <div
+      style={styles.sliceExpanded}
+      // Don't propagate row click into the expanded panel.
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div style={styles.expandedRow}>
+        <span style={styles.expandedLabel}>Tx</span>
+        <button
+          type="button"
+          onClick={() => {
+            void navigator.clipboard.writeText(result.signature).then(() => {
+              setCopied(true);
+              setTimeout(() => setCopied(false), 1500);
+            });
+          }}
+          style={styles.expandedSig}
+          title="Click to copy full signature"
+        >
+          {copied ? "Copied" : sigShort}
+        </button>
+        <a
+          href={explorerUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={styles.explorerLink}
+          aria-label="View on Solscan"
+        >
+          Explorer ↗
+        </a>
+      </div>
+      <div style={styles.expandedRow}>
+        <span style={styles.expandedLabel}>Fee</span>
+        <span style={styles.expandedValue}>
+          {result.fee.toFixed(6)} SOL
+        </span>
+      </div>
+      <div style={styles.expandedRow}>
+        <span style={styles.expandedLabel}>Confirmed</span>
+        <span style={styles.expandedValue}>
+          {result.confirmedAt.toLocaleTimeString("en-US", {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+          })}
+        </span>
       </div>
     </div>
   );
@@ -544,13 +689,111 @@ const styles: Record<string, CSSProperties> = {
     borderRadius: 6,
     position: "relative",
     overflow: "hidden",
+    transition:
+      "box-shadow var(--motion-base) var(--ease-out), transform var(--motion-base) var(--ease-out)",
   },
   sliceIcon: {
     fontSize: 21,
     width: 22,
+    height: 22,
     textAlign: "center",
     flexShrink: 0,
     lineHeight: 1,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  // Pulsing dot for the actively-executing slice — replaces the bare
+  // "●" glyph, larger and with a soft accent halo.
+  executingDot: {
+    width: 12,
+    height: 12,
+    borderRadius: "50%",
+    background: "var(--color-5)",
+    boxShadow: "0 0 0 4px rgba(249, 178, 215, 0.18), 0 0 12px var(--color-5)",
+    animation: "liminal-active-pulse 1.4s var(--ease-out) infinite",
+  },
+  // Pending ring — replaces the "○" character so it actually looks like
+  // a thin outline, not a fat zero.
+  pendingRing: {
+    width: 12,
+    height: 12,
+    borderRadius: "50%",
+    border: "1.5px solid var(--color-text-subtle)",
+    background: "transparent",
+  },
+  elapsedBadge: {
+    fontFamily: MONO,
+    fontSize: 11,
+    fontWeight: 600,
+    color: "var(--color-5-strong)",
+    background: "var(--color-accent-bg-soft)",
+    border: "1px solid var(--color-accent-border)",
+    padding: "2px 6px",
+    borderRadius: 999,
+    fontVariantNumeric: "tabular-nums",
+  },
+  expandChevron: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: 18,
+    height: 18,
+    flexShrink: 0,
+    alignSelf: "flex-start",
+    marginTop: 2,
+    transition: "transform var(--motion-base) var(--ease-out)",
+  },
+  // Expanded panel — appears under the slice subtitle when a completed
+  // slice is clicked. Three rows: tx (with copy + explorer), fee,
+  // confirmed timestamp. Light-touch border so it reads as a sub-pane,
+  // not a separate card.
+  sliceExpanded: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 4,
+    marginTop: 8,
+    padding: "8px 10px",
+    borderRadius: 6,
+    background: "var(--color-accent-bg-soft)",
+    border: "1px solid var(--color-accent-border)",
+    fontFamily: MONO,
+    fontSize: 11,
+  },
+  expandedRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+  },
+  expandedLabel: {
+    color: "var(--color-text-muted)",
+    width: 64,
+    flexShrink: 0,
+    textTransform: "uppercase",
+    letterSpacing: "0.04em",
+    fontSize: 10,
+  },
+  expandedSig: {
+    fontFamily: MONO,
+    fontSize: 11,
+    color: "var(--color-text)",
+    background: "transparent",
+    border: "none",
+    padding: 0,
+    cursor: "pointer",
+    fontVariantNumeric: "tabular-nums",
+  },
+  expandedValue: {
+    color: "var(--color-text)",
+    fontVariantNumeric: "tabular-nums",
+  },
+  explorerLink: {
+    marginLeft: "auto",
+    color: "var(--color-5-strong)",
+    fontFamily: MONO,
+    fontSize: 11,
+    fontWeight: 600,
+    textDecoration: "none",
   },
   sliceBody: {
     flex: 1,

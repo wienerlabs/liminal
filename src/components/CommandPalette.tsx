@@ -102,8 +102,11 @@ export type CommandAction = {
   icon?: ReactNode;
   /** Search keywords beyond the label. */
   keywords?: string[];
-  /** Action — receives no args; close-on-execute is automatic. */
+  /** Action — receives no args; close-on-execute is automatic unless
+   * `keepOpen` is true (used by slash help rows that want to prefill
+   * the input rather than execute). */
   run: () => void;
+  keepOpen?: boolean;
 };
 
 export type CommandToken = {
@@ -119,6 +122,15 @@ export type CommandPaletteProps = {
   /** When a token is picked, what target slot does the consumer want
    * to fill? Returns one or two CommandActions per token. */
   onTokenSelect?: (token: CommandToken) => CommandAction[];
+  /**
+   * Slash commands. When the query starts with "/", the palette
+   * switches to slash mode: input is parsed as `/<verb> <args…>` and
+   * the consumer's resolver returns 0 or more candidate CommandActions.
+   * If the query is just "/" we render a help row showing the registry
+   * of available verbs from `slashHelp`.
+   */
+  resolveSlash?: (raw: string) => CommandAction[];
+  slashHelp?: { verb: string; description: string; example?: string }[];
 };
 
 // ---------------------------------------------------------------------------
@@ -167,6 +179,8 @@ export const CommandPalette: FC<CommandPaletteProps> = ({
   tokens = [],
   lookup,
   onTokenSelect,
+  resolveSlash,
+  slashHelp,
 }) => {
   const { open, hide } = useCommandPalette();
   const [query, setQuery] = useState("");
@@ -193,7 +207,35 @@ export const CommandPalette: FC<CommandPaletteProps> = ({
     return [...actions, ...tokenItems];
   }, [actions, tokens, onTokenSelect]);
 
+  // Slash mode — when input starts with "/", we route entirely to the
+  // resolver + help registry. The action/token list is suppressed so
+  // the user gets a focused single-purpose view.
+  const isSlash = query.startsWith("/");
+  const slashItems: CommandAction[] = useMemo(() => {
+    if (!isSlash) return [];
+    const raw = query.slice(1).trim();
+    if (raw === "" && slashHelp) {
+      // Show the help registry as virtual actions that paste the verb
+      // into the input on Enter (rather than executing — gives the
+      // user a chance to type the args).
+      return slashHelp.map((h) => ({
+        id: `slash.help.${h.verb}`,
+        label: `/${h.verb}`,
+        hint: h.example ?? h.description,
+        category: "Slash commands",
+        keepOpen: true,
+        run: () => {
+          // Don't close — prefill the input so the user can finish.
+          setQuery(`/${h.verb} `);
+          setTimeout(() => inputRef.current?.focus(), 0);
+        },
+      }));
+    }
+    return resolveSlash ? resolveSlash(query) : [];
+  }, [isSlash, query, resolveSlash, slashHelp]);
+
   const filtered = useMemo(() => {
+    if (isSlash) return slashItems.slice(0, 20);
     if (!query.trim()) {
       // No query: just show all items in original order, capped.
       return items.slice(0, 20);
@@ -205,7 +247,7 @@ export const CommandPalette: FC<CommandPaletteProps> = ({
       .slice(0, 20)
       .map((x) => x.a);
     return scored;
-  }, [items, query]);
+  }, [isSlash, items, query, slashItems]);
 
   // Clamp selection when filter changes.
   useEffect(() => {
@@ -238,7 +280,7 @@ export const CommandPalette: FC<CommandPaletteProps> = ({
         const item = filtered[selected];
         if (item) {
           item.run();
-          hide();
+          if (!item.keepOpen) hide();
         }
       }
     },
@@ -312,7 +354,7 @@ export const CommandPalette: FC<CommandPaletteProps> = ({
                     onMouseDown={(e) => {
                       e.preventDefault();
                       item.run();
-                      hide();
+                      if (!item.keepOpen) hide();
                     }}
                     style={{
                       ...styles.row,

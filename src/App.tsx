@@ -194,6 +194,111 @@ export const App: FC = () => {
     return list;
   }, [theme, toggleTheme, device.isMobile, wallet.connected, wallet.address]);
 
+  // Slash commands — terse keyboard-first verbs the power user types
+  // instead of arrow-keying through the action list. Routed through the
+  // same palette UI; consumer just needs to translate "/<verb> <args>"
+  // into one or more CommandAction candidates. Help registry surfaces
+  // when the user types just "/".
+  const paletteSlashHelp = useMemo(
+    () => [
+      { verb: "theme", description: "Toggle or set theme", example: "/theme dark" },
+      { verb: "connect", description: "Connect Solflare wallet" },
+      { verb: "disconnect", description: "Disconnect wallet" },
+      { verb: "go", description: "Jump to a panel (mobile only)", example: "/go execute" },
+      { verb: "copy", description: "Copy connected wallet address" },
+    ],
+    [],
+  );
+  const resolveSlash = useMemo(
+    () => (raw: string): CommandAction[] => {
+      const body = raw.replace(/^\//, "").trim().toLowerCase();
+      if (!body) return [];
+      const [verb, ...rest] = body.split(/\s+/);
+      const arg = rest.join(" ");
+      const out: CommandAction[] = [];
+
+      if (verb === "theme") {
+        if (arg === "dark" || arg === "light") {
+          const target = arg === "dark";
+          if ((theme === "dark") !== target) {
+            out.push({
+              id: `slash.theme.${arg}`,
+              label: `Switch to ${arg} theme`,
+              category: "Slash → theme",
+              run: toggleTheme,
+            });
+          } else {
+            out.push({
+              id: `slash.theme.noop`,
+              label: `Theme is already ${arg}`,
+              category: "Slash → theme",
+              run: () => {},
+            });
+          }
+        } else {
+          out.push({
+            id: `slash.theme.toggle`,
+            label: `Toggle theme (currently ${theme})`,
+            category: "Slash → theme",
+            run: toggleTheme,
+          });
+        }
+      } else if (verb === "connect") {
+        out.push({
+          id: "slash.connect",
+          label: wallet.connected ? "Already connected" : "Connect Solflare",
+          category: "Slash → wallet",
+          run: () => {
+            if (!wallet.connected) void connectWallet();
+          },
+        });
+      } else if (verb === "disconnect") {
+        out.push({
+          id: "slash.disconnect",
+          label: wallet.connected ? "Disconnect Solflare" : "Not connected",
+          category: "Slash → wallet",
+          run: () => {
+            if (wallet.connected) void disconnectWallet();
+          },
+        });
+      } else if (verb === "copy") {
+        if (wallet.connected && wallet.address) {
+          out.push({
+            id: "slash.copy",
+            label: "Copy wallet address",
+            hint: `${wallet.address.slice(0, 4)}…${wallet.address.slice(-4)}`,
+            category: "Slash → wallet",
+            run: () => {
+              if (wallet.address) {
+                void navigator.clipboard.writeText(wallet.address);
+              }
+            },
+          });
+        }
+      } else if (verb === "go") {
+        if (device.isMobile && (arg === "wallet" || arg === "execute" || arg === "analytics")) {
+          out.push({
+            id: `slash.go.${arg}`,
+            label: `Go to ${arg}`,
+            category: "Slash → navigation",
+            run: () => setMobileTab(arg as MobileTab),
+          });
+        } else if (device.isMobile) {
+          ["wallet", "execute", "analytics"].forEach((tab) =>
+            out.push({
+              id: `slash.go.${tab}`,
+              label: `Go to ${tab}`,
+              category: "Slash → navigation",
+              run: () => setMobileTab(tab as MobileTab),
+            }),
+          );
+        }
+      }
+      return out;
+    },
+    [theme, toggleTheme, wallet.connected, wallet.address, device.isMobile],
+  );
+
   // ------------------------------------------------------------------
   // Mobile layout
   // ------------------------------------------------------------------
@@ -204,7 +309,7 @@ export const App: FC = () => {
         {device.isSolflareInAppBrowser && <SolflareBanner />}
         <NetworkBanner />
         <ToastContainer />
-        <CommandPalette actions={paletteActions} />
+        <CommandPalette actions={paletteActions} slashHelp={paletteSlashHelp} resolveSlash={resolveSlash} />
         {disclaimerOpen && (
           <DisclaimerModal onAccept={() => setDisclaimerOpen(false)} />
         )}
@@ -286,7 +391,7 @@ export const App: FC = () => {
         {device.isSolflareInAppBrowser && <SolflareBanner />}
         <NetworkBanner />
         <ToastContainer />
-        <CommandPalette actions={paletteActions} />
+        <CommandPalette actions={paletteActions} slashHelp={paletteSlashHelp} resolveSlash={resolveSlash} />
         {disclaimerOpen && (
           <DisclaimerModal onAccept={() => setDisclaimerOpen(false)} />
         )}
@@ -314,7 +419,7 @@ export const App: FC = () => {
       {device.isSolflareInAppBrowser && <SolflareBanner />}
         <NetworkBanner />
       <ToastContainer />
-        <CommandPalette actions={paletteActions} />
+        <CommandPalette actions={paletteActions} slashHelp={paletteSlashHelp} resolveSlash={resolveSlash} />
         {disclaimerOpen && (
           <DisclaimerModal onAccept={() => setDisclaimerOpen(false)} />
         )}
