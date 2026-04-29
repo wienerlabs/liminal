@@ -1691,7 +1691,10 @@ const styles: Record<string, CSSProperties> = {
     flexDirection: "column",
     width: "100%",
     minHeight: 560,
-    background: "var(--color-2)",
+    // Frosted glass — see WalletPanel for rationale.
+    background: "var(--surface-panel-glass)",
+    backdropFilter: "blur(20px) saturate(140%)",
+    WebkitBackdropFilter: "blur(20px) saturate(140%)",
     color: THEME.text,
     border: `1px solid ${THEME.border}`,
     borderRadius: "var(--radius-lg)",

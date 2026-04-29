@@ -134,6 +134,12 @@
   /* Sticky header glass — translucent panel that lets background bleed
      through under backdrop-filter. Light theme: warm white wash. */
   --surface-glass: rgba(255, 255, 255, 0.78);
+  /* Panel glass — full frosted-glass treatment for the 3 main panel
+     containers (Wallet / Execute / Analytics). Lower opacity than the
+     header so the Unicorn Studio scene + body palette bleed through
+     more visibly. Pair with backdrop-filter on the consumer to get
+     the actual blur. */
+  --surface-panel-glass: rgba(255, 255, 255, 0.55);
 
   /* ----- Overlay (modal arkası) ------------------------------------- */
   --color-overlay: rgba(26, 26, 26, 0.45);
@@ -266,6 +272,9 @@
   /* Dark theme glass: deep panel-tinted translucency so the sticky
      header reads as a soft layer above the body, not a light bar. */
   --surface-glass: rgba(20, 20, 20, 0.78);
+  /* Dark panel glass — same translucency story but darker so glyphs
+     stay readable against deep-black body. */
+  --surface-panel-glass: rgba(20, 20, 20, 0.55);
 
   --color-overlay: rgba(0, 0, 0, 0.65);
 }

@@ -1891,7 +1891,10 @@ const styles: Record<string, CSSProperties> = {
     flexDirection: "column",
     width: "100%",
     minHeight: 600,
-    background: "var(--color-2)",
+    // Frosted glass — see WalletPanel for rationale.
+    background: "var(--surface-panel-glass)",
+    backdropFilter: "blur(20px) saturate(140%)",
+    WebkitBackdropFilter: "blur(20px) saturate(140%)",
     color: THEME.text,
     border: `1px solid ${THEME.border}`,
     borderRadius: "var(--radius-lg)",
@@ -1950,7 +1953,12 @@ const styles: Record<string, CSSProperties> = {
   formCard: {
     margin: "10px 16px",
     padding: "16px 18px",
+    // surface-card is already 65% translucent in light, 3% in dark.
+    // Add backdrop-filter so the Unicorn Studio scene blurs cleanly
+    // through the card instead of pixelating raw.
     background: "var(--surface-card)",
+    backdropFilter: "blur(12px) saturate(130%)",
+    WebkitBackdropFilter: "blur(12px) saturate(130%)",
     border: `1px solid ${THEME.border}`,
     borderRadius: 12,
     boxShadow: "var(--shadow-component-soft, none)",

@@ -177,8 +177,10 @@ if (
 ) {
   const tag = document.createElement("style");
   tag.id = UNICORN_HIDE_ATTRIBUTION_STYLE_ID;
+  // Descendant selector (not direct child) — Unicorn Studio nests the
+  // attribution anchor inside its own wrapper div, so `>` was missing.
   tag.textContent = `
-    [data-us-project] > a[href*="unicorn.studio"] {
+    [data-us-project] a[href*="unicorn.studio"] {
       display: none !important;
     }
   `;

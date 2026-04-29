@@ -688,7 +688,13 @@ const styles: Record<string, CSSProperties> = {
     width: "100%",
     minHeight: 600,
     maxHeight: "calc(100vh - var(--header-height) - var(--space-8))",
-    background: "var(--color-2)",
+    // Frosted glass — let the Unicorn Studio background bleed through
+    // the panel surface. backdrop-filter blurs whatever's underneath
+    // (the animated scene + body palette) so card content stays
+    // legible without a fully opaque white block.
+    background: "var(--surface-panel-glass)",
+    backdropFilter: "blur(20px) saturate(140%)",
+    WebkitBackdropFilter: "blur(20px) saturate(140%)",
     color: THEME.text,
     border: `1px solid ${THEME.border}`,
     borderRadius: "var(--radius-lg)",
