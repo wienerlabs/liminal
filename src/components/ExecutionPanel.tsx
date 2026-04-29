@@ -49,6 +49,7 @@ import ExecutionTimeline from "./ExecutionTimeline";
 import NotificationBanner from "./NotificationBanner";
 import ExecutionSummaryCard from "./ExecutionSummaryCard";
 import StepIndicator from "./StepIndicator";
+import AnimatedNumber from "./AnimatedNumber";
 import Sparkline from "./Sparkline";
 import Button from "./Button";
 import Tooltip from "./Tooltip";
@@ -552,7 +553,7 @@ export const ExecutionPanel: FC = () => {
       )}
 
       {!wallet.connected ? (
-        <div style={styles.emptyBody}>
+        <div style={styles.emptyBody} className="liminal-aurora">
           <div style={styles.welcomeSection}>
             <div style={{ display: "flex", justifyContent: "center", marginBottom: 4 }}>
               <LiminalMark size={88} />
@@ -709,6 +710,19 @@ export const ExecutionPanel: FC = () => {
                   />
                 </div>
 
+                {/* Smart "to" chips — once From is picked but To is
+                    still empty, surface up to 3 popular targets as
+                    one-tap chips. Saves the user from opening the
+                    full dropdown when they just want USDC. */}
+                {fromMint && !toMint && !isInFlight && (
+                  <SmartToChips
+                    fromMint={fromMint}
+                    tokens={tokens}
+                    onPick={setToMint}
+                    lookup={tokenRegistry.lookup}
+                  />
+                )}
+
                 {/* Amount row — same card, immediately under the pair so
                     the user sees "I'm swapping X of A → B" as one
                     continuous thought. */}
@@ -771,7 +785,15 @@ export const ExecutionPanel: FC = () => {
                     })}{" "}
                     {fromToken.symbol}
                     {amountNum > 0 && fromUsdPrice > 0 && (
-                      <span style={{ marginLeft: 8 }}>≈ {formatUSD(amountUsd)}</span>
+                      <span style={{ marginLeft: 8 }}>
+                        ≈{" "}
+                        <AnimatedNumber
+                          value={amountUsd}
+                          prefix="$"
+                          decimals={amountUsd < 1 ? 4 : 2}
+                          duration={350}
+                        />
+                      </span>
                     )}
                   </div>
                 )}
@@ -1128,6 +1150,94 @@ export const ExecutionPanel: FC = () => {
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// SmartToChips — quick-pick targets for the "To" leg of the pair.
+//
+// Heuristic ranking:
+//   1. Stables (USDC, USDT) bubble up if From is volatile (SOL/BONK)
+//   2. SOL bubbles up if From is a stable
+//   3. Otherwise: just whatever the user holds, sorted by USD balance
+// We render the top 3, dedup'd against fromMint.
+//
+// One-tap UX: clicking a chip sets toMint and the user moves directly
+// to the amount input. They can still open the full dropdown for niche
+// targets — these are shortcuts, not a replacement.
+// ---------------------------------------------------------------------------
+
+const STABLE_SYMBOLS = new Set(["USDC", "USDT", "USDS", "PYUSD"]);
+
+const SmartToChips: FC<{
+  fromMint: string;
+  tokens: AvailableToken[];
+  onPick: (mint: string) => void;
+  lookup: (mint: string) => TokenInfo | null;
+}> = ({ fromMint, tokens, onPick, lookup }) => {
+  const fromToken = tokens.find((t) => t.mint === fromMint);
+  const fromIsStable = fromToken
+    ? STABLE_SYMBOLS.has(fromToken.symbol.toUpperCase())
+    : false;
+
+  const candidates = tokens.filter((t) => t.mint !== fromMint);
+  const sorted = [...candidates].sort((a, b) => {
+    const aStable = STABLE_SYMBOLS.has(a.symbol.toUpperCase()) ? 1 : 0;
+    const bStable = STABLE_SYMBOLS.has(b.symbol.toUpperCase()) ? 1 : 0;
+    // If From is volatile, stables bubble up. If From is stable, SOL
+    // (and other non-stables) bubble up.
+    if (fromIsStable) {
+      if (aStable !== bStable) return aStable - bStable; // non-stable first
+    } else {
+      if (aStable !== bStable) return bStable - aStable; // stable first
+    }
+    // Tie-breaker: larger balance first.
+    return b.balance - a.balance;
+  });
+  const top = sorted.slice(0, 3);
+
+  if (top.length === 0) return null;
+
+  return (
+    <div style={styles.smartChipsRow} aria-label="Quick pick targets">
+      <span style={styles.smartChipsLabel}>Quick pick →</span>
+      {top.map((t) => {
+        const info = lookup(t.mint);
+        const url = info?.logoURI ?? null;
+        return (
+          <button
+            key={t.mint}
+            type="button"
+            onClick={() => onPick(t.mint)}
+            style={styles.smartChip}
+            title={`Set To = ${t.symbol}`}
+          >
+            {url ? (
+              <img
+                src={url}
+                alt=""
+                width={16}
+                height={16}
+                style={{ borderRadius: "50%" }}
+                aria-hidden="true"
+              />
+            ) : (
+              <span
+                aria-hidden="true"
+                style={{
+                  width: 16,
+                  height: 16,
+                  borderRadius: "50%",
+                  background: "var(--color-5)",
+                  display: "inline-block",
+                }}
+              />
+            )}
+            <span>{t.symbol}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+};
 
 // ---------------------------------------------------------------------------
 // FormCard — grouped step card used by the new fluid form flow.
@@ -1789,6 +1899,38 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 12,
     color: THEME.textMuted,
     lineHeight: 1.5,
+  },
+  // Smart-pick chip row — appears under the token pair when From is
+  // set but To is empty. Tight spacing so it reads as a hint, not a
+  // separate config step.
+  smartChipsRow: {
+    display: "flex",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: -4,
+  },
+  smartChipsLabel: {
+    fontFamily: MONO,
+    fontSize: 11,
+    color: THEME.textMuted,
+    letterSpacing: 0,
+  },
+  smartChip: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    padding: "5px 10px",
+    borderRadius: 999,
+    border: "1px solid var(--color-accent-border)",
+    background: "var(--color-accent-bg-soft)",
+    color: THEME.text,
+    fontFamily: MONO,
+    fontSize: 12,
+    fontWeight: 600,
+    cursor: "pointer",
+    transition:
+      "background var(--motion-base) var(--ease-out), transform var(--motion-base) var(--ease-out)",
   },
   // Info card — silent intelligence the user verifies but doesn't
   // configure (auto-selected Kamino vault, route stats, etc.). Visually

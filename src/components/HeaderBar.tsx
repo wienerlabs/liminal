@@ -17,7 +17,14 @@
  * filter uygulanmaz.
  */
 
-import { useCallback, useEffect, useState, type CSSProperties, type FC } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type FC,
+} from "react";
 import {
   getWalletState,
   subscribeWallet,
@@ -27,7 +34,9 @@ import { LiminalMark } from "./BrandLogos";
 import { getMevStrategy } from "../services/mevProtection";
 import { useDeviceDetection } from "../hooks/useDeviceDetection";
 import { useWalletSummary } from "../hooks/useWalletSummary";
+import { openPalette } from "./CommandPalette";
 import ThemeSwitcher from "./ThemeSwitcher";
+import AnimatedNumber from "./AnimatedNumber";
 
 const MONO = "var(--font-mono)";
 const SANS = "var(--font-sans)";
@@ -136,6 +145,22 @@ export const HeaderBar: FC<HeaderBarProps> = ({ networkStatus, inFlight }) => {
       </div>
 
       <div style={styles.right}>
+        {/* Command palette launcher — visible affordance for the
+            ⌘K hotkey. Hidden on mobile because the on-screen keyboard
+            covers most of the palette and the bottom-tab nav already
+            covers the same routing actions. */}
+        {!device.isMobile && (
+          <button
+            type="button"
+            onClick={() => openPalette()}
+            style={styles.kbdLauncher}
+            aria-label="Open command palette"
+            title="Command palette · ⌘K"
+          >
+            <span aria-hidden="true">⌘</span>
+            <span aria-hidden="true">K</span>
+          </button>
+        )}
         <ThemeSwitcher />
         {/* MEV badge: hidden on mobile (saves ~50px on a 375px viewport). */}
         {!device.isMobile && <MevBadge />}
@@ -249,8 +274,17 @@ const InFlightChip: FC<{ sliceN: number; sliceM: number; gainUsd: number }> = ({
           }}
         />
       </span>
+      {/* Animated gain — count up on each slice settlement so the win
+          feels earned, not popped. AnimatedNumber's prefix wraps the
+          formatted absolute value, so we render the sign separately and
+          pass abs(gainUsd). */}
       <span style={{ ...styles.inFlightGain, color: gainColor }}>
-        {formatGainShort(gainUsd)}
+        <AnimatedNumber
+          value={Math.abs(gainUsd)}
+          prefix={gainUsd >= 0 ? "+$" : "−$"}
+          decimals={2}
+          duration={500}
+        />
       </span>
     </span>
   );
@@ -274,73 +308,161 @@ const BalanceChip: FC<{ summary: ReturnType<typeof useWalletSummary> }> = ({
 }) => {
   const { solBalance, solUsdValue, loading } = summary;
 
-  let text: string;
+  // Loading + empty placeholders are static text; rich rendering only
+  // when we actually have a number to animate.
   if (loading && solBalance == null) {
-    text = "◎ …";
-  } else if (solBalance == null) {
-    text = "◎ —";
-  } else {
-    const balStr =
-      solBalance < 0.001
-        ? "<0.001"
-        : solBalance.toLocaleString("en-US", {
-            maximumFractionDigits: solBalance < 1 ? 4 : 2,
-          });
-    text =
-      solUsdValue != null
-        ? `◎ ${balStr} · ${formatUsdShort(solUsdValue)}`
-        : `◎ ${balStr} SOL`;
+    return (
+      <span style={styles.balanceChip} aria-label="Loading balance">
+        ◎ …
+      </span>
+    );
+  }
+  if (solBalance == null) {
+    return (
+      <span style={styles.balanceChip} aria-label="Balance unavailable">
+        ◎ —
+      </span>
+    );
   }
 
+  const balDecimals = solBalance < 1 ? 4 : 2;
   return (
     <span
       style={styles.balanceChip}
       title={
-        solBalance != null && solUsdValue != null
+        solUsdValue != null
           ? `${solBalance} SOL ≈ ${formatUsdShort(solUsdValue)}`
-          : "SOL balance"
+          : `${solBalance} SOL`
       }
-      aria-label={`SOL balance: ${text.replace("◎", "")}`}
+      aria-label={`SOL balance ${solBalance}${solUsdValue != null ? `, USD ${solUsdValue.toFixed(2)}` : ""}`}
     >
-      {text}
+      <span aria-hidden="true">◎</span>
+      {/* Balance ticks softly when SPL transfers / receives land. The
+          dot separator is decorative — animation hides between two
+          synced spans. */}
+      <AnimatedNumber
+        value={solBalance}
+        decimals={balDecimals}
+        duration={500}
+      />
+      {solUsdValue != null && (
+        <>
+          <span aria-hidden="true" style={{ opacity: 0.5 }}>·</span>
+          <AnimatedNumber
+            value={solUsdValue}
+            prefix="$"
+            decimals={solUsdValue < 1 ? 4 : 2}
+            duration={500}
+          />
+        </>
+      )}
     </span>
   );
 };
 
 // ---------------------------------------------------------------------------
 // MEV protection badge — subtle chip next to the network pill that signals
-// the active MEV-protection stack. Links to the Analytics Protocol tab
-// where the full explanation lives.
+// the active MEV-protection stack. Hovering / focusing surfaces a rich
+// popover that visualises both layers (Jupiter Ultra + Constellation),
+// their active status, and a one-sentence description per layer. Click
+// also pins the popover so users on touch devices can read it.
 // ---------------------------------------------------------------------------
 
 function MevBadge() {
   const strategy = getMevStrategy();
   const [hovered, setHovered] = useState(false);
+  const [pinned, setPinned] = useState(false);
+  const wrapRef = useRef<HTMLSpanElement | null>(null);
   const activeCount = strategy.layers.filter((l) => l.active).length;
   const short =
     activeCount === 2 ? "MEV: Hybrid" : `MEV: ${activeCount}/2`;
+
+  // Click-outside dismissal for the pinned state.
+  useEffect(() => {
+    if (!pinned) return;
+    function onDocClick(e: MouseEvent) {
+      if (!wrapRef.current) return;
+      if (!wrapRef.current.contains(e.target as Node)) setPinned(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [pinned]);
+
+  const open = hovered || pinned;
+
   return (
-    <span
-      style={{
-        ...styles.mevBadge,
-        background: hovered
-          ? "var(--color-accent-bg-strong)"
-          : "var(--color-accent-bg-soft)",
-      }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      title={`${strategy.label}${
-        strategy.constellationReady && !strategy.constellationActive
-          ? " · Constellation-ready"
-          : ""
-      }`}
-      aria-label={`MEV protection: ${strategy.label}`}
-    >
-      <span style={styles.mevBadgeDot} aria-hidden="true" />
-      <span>{short}</span>
+    <span ref={wrapRef} style={{ position: "relative", display: "inline-flex" }}>
+      <button
+        type="button"
+        style={{
+          ...styles.mevBadge,
+          background: open
+            ? "var(--color-accent-bg-strong)"
+            : "var(--color-accent-bg-soft)",
+        }}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        onFocus={() => setHovered(true)}
+        onBlur={() => setHovered(false)}
+        onClick={() => setPinned((v) => !v)}
+        aria-label={`MEV protection: ${strategy.label}`}
+        aria-expanded={open}
+      >
+        <span style={styles.mevBadgeDot} aria-hidden="true" />
+        <span>{short}</span>
+      </button>
+      {open && <MevPopover strategy={strategy} />}
     </span>
   );
 }
+
+const MevPopover: FC<{ strategy: ReturnType<typeof getMevStrategy> }> = ({
+  strategy,
+}) => (
+  <div role="tooltip" style={styles.mevPopover}>
+    <div style={styles.mevPopoverHeader}>
+      <span style={styles.mevPopoverTitle}>{strategy.label}</span>
+      {strategy.constellationReady && !strategy.constellationActive && (
+        <span style={styles.mevPopoverPill}>Constellation-ready</span>
+      )}
+    </div>
+    <ul style={styles.mevPopoverLayers}>
+      {strategy.layers.map((layer) => (
+        <li key={layer.name} style={styles.mevPopoverLayer}>
+          <span
+            aria-hidden="true"
+            style={{
+              ...styles.mevPopoverLayerDot,
+              background: layer.active
+                ? "var(--color-success)"
+                : "var(--color-text-subtle)",
+              boxShadow: layer.active
+                ? "0 0 8px var(--color-success)"
+                : "none",
+            }}
+          />
+          <div style={{ minWidth: 0 }}>
+            <div style={styles.mevPopoverLayerName}>
+              {layer.name}{" "}
+              <span
+                style={{
+                  color: layer.active
+                    ? "var(--color-success)"
+                    : "var(--color-text-subtle)",
+                  fontWeight: 600,
+                  fontSize: 10,
+                }}
+              >
+                · {layer.active ? "ACTIVE" : "READY"}
+              </span>
+            </div>
+            <div style={styles.mevPopoverLayerDesc}>{layer.description}</div>
+          </div>
+        </li>
+      ))}
+    </ul>
+  </div>
+);
 
 // ---------------------------------------------------------------------------
 // Styles
@@ -456,7 +578,7 @@ const styles: Record<string, CSSProperties> = {
   balanceChip: {
     display: "inline-flex",
     alignItems: "center",
-    gap: 6,
+    gap: 5,
     padding: "5px 10px",
     borderRadius: "var(--radius-sm)",
     border: "1px solid var(--color-stroke)",
@@ -467,8 +589,27 @@ const styles: Record<string, CSSProperties> = {
     fontVariantNumeric: "tabular-nums",
     height: 28,
     whiteSpace: "nowrap",
+    transition:
+      "border-color var(--motion-base) var(--ease-out), background var(--motion-base) var(--ease-out)",
   },
-  // ----- Right cluster (unchanged) ---------------------------------------
+  // ----- Right cluster ---------------------------------------------------
+  kbdLauncher: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 3,
+    padding: "0 8px",
+    height: 28,
+    borderRadius: "var(--radius-sm)",
+    border: "1px solid var(--color-stroke)",
+    background: "transparent",
+    color: "var(--color-text-muted)",
+    fontFamily: MONO,
+    fontSize: 12,
+    fontWeight: 600,
+    cursor: "pointer",
+    transition:
+      "color var(--motion-base) var(--ease-out), border-color var(--motion-base) var(--ease-out), background var(--motion-base) var(--ease-out)",
+  },
   walletBadge: {
     display: "inline-flex",
     alignItems: "center",
@@ -501,7 +642,85 @@ const styles: Record<string, CSSProperties> = {
     whiteSpace: "nowrap",
     height: 28,
     cursor: "help",
+    background: "var(--color-accent-bg-soft)",
     transition: "background var(--motion-base) var(--ease-out)",
+  },
+  // Popover anchored under the MEV badge — wide enough to fit the
+  // long "DFlow-endorsed routing (Jupiter Ultra)" header on one line.
+  mevPopover: {
+    position: "absolute",
+    top: "calc(100% + 8px)",
+    right: 0,
+    width: 340,
+    background: "var(--surface-raised)",
+    border: "1px solid var(--color-stroke)",
+    borderRadius: 12,
+    boxShadow: "var(--shadow-component, 0 8px 24px rgba(0,0,0,0.12))",
+    padding: 14,
+    zIndex: 60,
+    animation: "liminal-scale-in 180ms var(--ease-out, ease)",
+    transformOrigin: "top right",
+  },
+  mevPopoverHeader: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    flexWrap: "wrap",
+    paddingBottom: 8,
+    borderBottom: "1px solid var(--color-stroke)",
+    marginBottom: 10,
+  },
+  mevPopoverTitle: {
+    fontFamily: SANS,
+    fontWeight: 700,
+    fontSize: 13,
+    color: "var(--color-text)",
+  },
+  mevPopoverPill: {
+    fontFamily: MONO,
+    fontSize: 10,
+    fontWeight: 700,
+    letterSpacing: 0,
+    color: "var(--color-5-strong)",
+    background: "var(--color-accent-bg-soft)",
+    border: "1px solid var(--color-accent-border)",
+    padding: "2px 6px",
+    borderRadius: 999,
+    marginLeft: "auto",
+  },
+  mevPopoverLayers: {
+    listStyle: "none",
+    margin: 0,
+    padding: 0,
+    display: "flex",
+    flexDirection: "column",
+    gap: 12,
+  },
+  mevPopoverLayer: {
+    display: "flex",
+    gap: 10,
+    alignItems: "flex-start",
+  },
+  mevPopoverLayerDot: {
+    width: 8,
+    height: 8,
+    borderRadius: "50%",
+    flexShrink: 0,
+    marginTop: 6,
+  },
+  mevPopoverLayerName: {
+    fontFamily: SANS,
+    fontSize: 12,
+    fontWeight: 600,
+    color: "var(--color-text)",
+    lineHeight: 1.3,
+  },
+  mevPopoverLayerDesc: {
+    fontFamily: SANS,
+    fontSize: 11,
+    color: "var(--color-text-muted)",
+    lineHeight: 1.5,
+    marginTop: 4,
   },
   mevBadgeDot: {
     width: 6,
