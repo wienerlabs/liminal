@@ -196,7 +196,7 @@ const styles: Record<string, CSSProperties> = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: 21,
+    fontSize: 23,
     fontWeight: 700,
     flexShrink: 0,
   },
@@ -207,13 +207,13 @@ const styles: Record<string, CSSProperties> = {
     gap: 2,
   },
   title: {
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: 700,
     letterSpacing: 0,
     textTransform: "none",
   },
   timestamp: {
-    fontSize: 13,
+    fontSize: 15,
     color: THEME.textMuted,
     fontVariantNumeric: "tabular-nums",
   },
@@ -222,12 +222,12 @@ const styles: Record<string, CSSProperties> = {
     color: THEME.textMuted,
   },
   message: {
-    fontSize: 15,
+    fontSize: 17,
     color: THEME.text,
     lineHeight: 1.5,
   },
   fundsSafe: {
-    fontSize: 13,
+    fontSize: 15,
     color: THEME.textMuted,
     lineHeight: 1.5,
     padding: "8px 10px",
@@ -242,7 +242,7 @@ const styles: Record<string, CSSProperties> = {
   },
   retryButton: {
     fontFamily: MONO,
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: 600,
     color: "var(--color-text-inverse)",
     background: THEME.accent,
@@ -254,7 +254,7 @@ const styles: Record<string, CSSProperties> = {
   },
   resetButton: {
     fontFamily: MONO,
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: 600,
     color: "var(--color-text-inverse)",
     background: THEME.danger,

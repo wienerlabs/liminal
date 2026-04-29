@@ -33,7 +33,7 @@ export const Button: FC<ButtonProps> = ({
 
   const baseStyle: CSSProperties = {
     fontFamily: MONO,
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: 700,
     letterSpacing: 0,
     border: isPrimary ? "none" : "1px solid var(--color-stroke)",

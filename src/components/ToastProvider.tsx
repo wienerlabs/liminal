@@ -161,7 +161,7 @@ const styles: Record<string, CSSProperties> = {
   toast: {
     pointerEvents: "auto",
     fontFamily: "var(--font-mono)",
-    fontSize: 15,
+    fontSize: 17,
     color: "var(--color-text)",
     background: "var(--surface-raised-strong)",
     backdropFilter: "blur(12px)",
@@ -182,7 +182,7 @@ const styles: Record<string, CSSProperties> = {
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: 700,
     flexShrink: 0,
     lineHeight: 1,

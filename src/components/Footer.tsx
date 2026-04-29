@@ -70,7 +70,7 @@ const styles: Record<string, CSSProperties> = {
     background: "transparent",
     color: "var(--color-text-muted)",
     fontFamily: MONO,
-    fontSize: 12,
+    fontSize: 14,
     opacity: 0.6,
   },
   label: {

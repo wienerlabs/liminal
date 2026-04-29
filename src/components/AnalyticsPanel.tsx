@@ -644,13 +644,13 @@ const DFlowBarChart: FC<{
             <XAxis
               dataKey="name"
               stroke={THEME.textMuted}
-              tick={{ fontSize: 13, fontFamily: MONO }}
+              tick={{ fontSize: 15, fontFamily: MONO }}
               tickLine={false}
               axisLine={{ stroke: THEME.border }}
             />
             <YAxis
               stroke={THEME.textMuted}
-              tick={{ fontSize: 13, fontFamily: MONO }}
+              tick={{ fontSize: 15, fontFamily: MONO }}
               tickLine={false}
               axisLine={{ stroke: THEME.border }}
               width={40}
@@ -663,7 +663,7 @@ const DFlowBarChart: FC<{
                 border: `1px solid ${THEME.border}`,
                 borderRadius: 6,
                 fontFamily: MONO,
-                fontSize: 14,
+                fontSize: 16,
               }}
               labelStyle={{ color: THEME.textMuted }}
               formatter={(_v: unknown, _n: unknown, item: { payload?: BarDatum }) => {
@@ -822,14 +822,14 @@ const KaminoYieldChart: FC<{
             <XAxis
               dataKey="label"
               stroke={THEME.textMuted}
-              tick={{ fontSize: 12, fontFamily: MONO }}
+              tick={{ fontSize: 14, fontFamily: MONO }}
               tickLine={false}
               axisLine={{ stroke: THEME.border }}
               minTickGap={20}
             />
             <YAxis
               stroke={THEME.textMuted}
-              tick={{ fontSize: 12, fontFamily: MONO }}
+              tick={{ fontSize: 14, fontFamily: MONO }}
               tickLine={false}
               axisLine={{ stroke: THEME.border }}
               width={44}
@@ -841,7 +841,7 @@ const KaminoYieldChart: FC<{
                 border: `1px solid ${THEME.border}`,
                 borderRadius: 6,
                 fontFamily: MONO,
-                fontSize: 14,
+                fontSize: 16,
               }}
               labelStyle={{ color: THEME.textMuted }}
               formatter={(v: number) => [formatUSD(v), "yield"]}
@@ -1550,13 +1550,13 @@ const ProtocolTab: FC<{ isMobile: boolean }> = ({ isMobile }) => {
                 <XAxis
                   dataKey="date"
                   stroke={THEME.textMuted}
-                  tick={{ fontSize: 12, fontFamily: MONO }}
+                  tick={{ fontSize: 14, fontFamily: MONO }}
                   tickLine={false}
                   axisLine={{ stroke: THEME.border }}
                 />
                 <YAxis
                   stroke={THEME.textMuted}
-                  tick={{ fontSize: 12, fontFamily: MONO }}
+                  tick={{ fontSize: 14, fontFamily: MONO }}
                   tickLine={false}
                   axisLine={{ stroke: THEME.border }}
                   width={44}
@@ -1568,7 +1568,7 @@ const ProtocolTab: FC<{ isMobile: boolean }> = ({ isMobile }) => {
                     border: `1px solid ${THEME.border}`,
                     borderRadius: 6,
                     fontFamily: MONO,
-                    fontSize: 14,
+                    fontSize: 16,
                   }}
                   labelStyle={{ color: THEME.textMuted }}
                   formatter={(v: number) => [formatUSD(v), "cumulative"]}
@@ -1705,7 +1705,7 @@ const styles: Record<string, CSSProperties> = {
   },
   header: {
     fontFamily: MONO,
-    fontSize: 12,
+    fontSize: 14,
     letterSpacing: 0,
     color: THEME.textMuted,
     opacity: 0.5,
@@ -1725,7 +1725,7 @@ const styles: Record<string, CSSProperties> = {
   },
   tabButton: {
     fontFamily: MONO,
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: 600,
     background: "transparent",
     border: "none",
@@ -1742,7 +1742,7 @@ const styles: Record<string, CSSProperties> = {
   },
   emptyHint: {
     fontFamily: MONO,
-    fontSize: 15,
+    fontSize: 17,
     color: THEME.textMuted,
     textAlign: "center",
     padding: "40px 20px",
@@ -1765,7 +1765,7 @@ const styles: Record<string, CSSProperties> = {
     borderRadius: 999,
     background: "var(--color-accent-bg-soft)",
     border: "1px solid var(--color-accent-border)",
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: 600,
     letterSpacing: 0,
     color: "var(--color-5-strong)",
@@ -1779,7 +1779,7 @@ const styles: Record<string, CSSProperties> = {
     display: "inline-block",
   } as CSSProperties,
   heroTitle: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: 700,
     color: "var(--color-text)",
     lineHeight: 1.2,
@@ -1787,7 +1787,7 @@ const styles: Record<string, CSSProperties> = {
     letterSpacing: "-0.01em",
   },
   heroSubtitle: {
-    fontSize: 13,
+    fontSize: 15,
     color: "var(--color-text-muted)",
     lineHeight: 1.55,
     margin: 0,
@@ -1818,13 +1818,13 @@ const styles: Record<string, CSSProperties> = {
     flexShrink: 0,
   },
   heroFeatureTitle: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: 600,
     color: "var(--color-text)",
     marginBottom: 2,
   },
   heroFeatureDesc: {
-    fontSize: 12,
+    fontSize: 14,
     color: "var(--color-text-muted)",
     lineHeight: 1.45,
   },
@@ -1843,7 +1843,7 @@ const styles: Record<string, CSSProperties> = {
     padding: "14px 12px 10px",
   },
   skeletonChartLabel: {
-    fontSize: 12,
+    fontSize: 14,
     color: THEME.textMuted,
     letterSpacing: 0,
     textTransform: "none",
@@ -1860,7 +1860,7 @@ const styles: Record<string, CSSProperties> = {
     padding: "0 16px",
   },
   skeletonHintText: {
-    fontSize: 14,
+    fontSize: 16,
     color: THEME.textMuted,
     textAlign: "center",
     padding: "8px 20px",
@@ -1883,7 +1883,7 @@ const styles: Record<string, CSSProperties> = {
     overflow: "hidden",
   },
   valueCaptureLabel: {
-    fontSize: 13,
+    fontSize: 15,
     color: THEME.textMuted,
     letterSpacing: 0,
     textTransform: "none",
@@ -1905,7 +1905,7 @@ const styles: Record<string, CSSProperties> = {
   breakdownRow: {
     display: "flex",
     gap: 6,
-    fontSize: 14,
+    fontSize: 16,
     fontVariantNumeric: "tabular-nums",
   },
   breakdownKey: {
@@ -1925,7 +1925,7 @@ const styles: Record<string, CSSProperties> = {
     padding: "14px 12px 10px",
   },
   chartLabel: {
-    fontSize: 12,
+    fontSize: 14,
     color: THEME.accent,
     letterSpacing: 0,
     textTransform: "none",
@@ -1936,7 +1936,7 @@ const styles: Record<string, CSSProperties> = {
     width: "100%",
   },
   yieldEmpty: {
-    fontSize: 14,
+    fontSize: 16,
     color: THEME.textMuted,
     padding: "28px 16px",
     textAlign: "center",
@@ -1961,19 +1961,19 @@ const styles: Record<string, CSSProperties> = {
     marginBottom: 4,
   },
   timelineTitle: {
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: 600,
     color: THEME.text,
   },
   timelineTime: {
-    fontSize: 13,
+    fontSize: 15,
     color: THEME.textMuted,
     fontVariantNumeric: "tabular-nums",
   },
   timelineMetrics: {
     display: "flex",
     gap: 12,
-    fontSize: 13,
+    fontSize: 15,
     color: THEME.textMuted,
     fontVariantNumeric: "tabular-nums",
   },
@@ -2000,7 +2000,7 @@ const styles: Record<string, CSSProperties> = {
     textAlign: "center",
   },
   historyEmptyText: {
-    fontSize: 15,
+    fontSize: 17,
     color: THEME.textMuted,
     lineHeight: 1.5,
   },
@@ -2038,21 +2038,21 @@ const styles: Record<string, CSSProperties> = {
     gap: 2,
   },
   historyPair: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 600,
   },
   historyDate: {
-    fontSize: 13,
+    fontSize: 15,
     color: THEME.textMuted,
   },
   historyRow: {
-    fontSize: 14,
+    fontSize: 16,
     color: THEME.textMuted,
     marginBottom: 6,
     fontVariantNumeric: "tabular-nums",
   },
   historyValueRow: {
-    fontSize: 13,
+    fontSize: 15,
     color: THEME.textMuted,
     fontVariantNumeric: "tabular-nums",
     display: "flex",
@@ -2075,7 +2075,7 @@ const styles: Record<string, CSSProperties> = {
     borderRadius: "var(--radius-sm)",
     color: THEME.textMuted,
     cursor: "pointer",
-    fontSize: 19,
+    fontSize: 21,
     width: 32,
     height: 32,
     lineHeight: 1,
@@ -2091,7 +2091,7 @@ const styles: Record<string, CSSProperties> = {
     alignItems: "center",
   },
   confirmText: {
-    fontSize: 13,
+    fontSize: 15,
     color: THEME.amber,
   },
   confirmYes: {
@@ -2101,7 +2101,7 @@ const styles: Record<string, CSSProperties> = {
     border: "none",
     borderRadius: 4,
     padding: "4px 8px",
-    fontSize: 13,
+    fontSize: 15,
     cursor: "pointer",
     fontWeight: 600,
   },
@@ -2112,7 +2112,7 @@ const styles: Record<string, CSSProperties> = {
     border: `1px solid ${THEME.border}`,
     borderRadius: 4,
     padding: "4px 8px",
-    fontSize: 13,
+    fontSize: 15,
     cursor: "pointer",
   },
 
@@ -2146,12 +2146,12 @@ const styles: Record<string, CSSProperties> = {
     marginBottom: 16,
   },
   modalTitle: {
-    fontSize: 19,
+    fontSize: 21,
     fontWeight: 700,
     color: THEME.text,
   },
   modalSubtitle: {
-    fontSize: 13,
+    fontSize: 15,
     color: THEME.textMuted,
     marginTop: 2,
   },
@@ -2181,7 +2181,7 @@ const styles: Record<string, CSSProperties> = {
     gap: 3,
   },
   summaryMetricLabel: {
-    fontSize: 12,
+    fontSize: 14,
     color: THEME.textMuted,
     letterSpacing: 0,
     textTransform: "none",
@@ -2190,7 +2190,7 @@ const styles: Record<string, CSSProperties> = {
     fontVariantNumeric: "tabular-nums",
   },
   modalSectionTitle: {
-    fontSize: 13,
+    fontSize: 15,
     color: THEME.accent,
     letterSpacing: 0,
     textTransform: "none",
@@ -2204,13 +2204,13 @@ const styles: Record<string, CSSProperties> = {
   table: {
     width: "100%",
     borderCollapse: "collapse",
-    fontSize: 14,
+    fontSize: 16,
   },
   th: {
     textAlign: "left",
     padding: "6px 8px",
     color: THEME.textMuted,
-    fontSize: 12,
+    fontSize: 14,
     letterSpacing: 0,
     textTransform: "none",
     borderBottom: `1px solid ${THEME.border}`,
@@ -2231,7 +2231,7 @@ const styles: Record<string, CSSProperties> = {
     gap: 6,
   },
   explorerLink: {
-    fontSize: 14,
+    fontSize: 16,
     color: THEME.accent,
     textDecoration: "none",
     padding: "4px 0",
@@ -2254,7 +2254,7 @@ const styles: Record<string, CSSProperties> = {
     gap: 6,
   },
   protocolLabel: {
-    fontSize: 12,
+    fontSize: 14,
     color: THEME.textMuted,
     letterSpacing: 0,
     textTransform: "none",
@@ -2296,14 +2296,14 @@ const styles: Record<string, CSSProperties> = {
     display: "inline-block",
   },
   mevTitle: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: 700,
     letterSpacing: 0,
     color: "var(--color-5-strong)",
     textTransform: "none",
   },
   mevMode: {
-    fontSize: 12,
+    fontSize: 14,
     color: THEME.textMuted,
     letterSpacing: 0,
   },
@@ -2328,7 +2328,7 @@ const styles: Record<string, CSSProperties> = {
     minWidth: 54,
     padding: "3px 8px",
     borderRadius: 999,
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: 700,
     letterSpacing: 0,
     textTransform: "none",
@@ -2341,25 +2341,25 @@ const styles: Record<string, CSSProperties> = {
     minWidth: 0,
   },
   mevLayerName: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: 600,
     color: THEME.text,
     marginBottom: 3,
   },
   mevLayerDesc: {
-    fontSize: 12,
+    fontSize: 14,
     color: THEME.textMuted,
     lineHeight: 1.5,
   },
   mevLayerArrow: {
     color: "var(--color-5-strong)",
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: 700,
     alignSelf: "flex-start",
     marginTop: 2,
   },
   mevFooter: {
-    fontSize: 11,
+    fontSize: 13,
     color: THEME.textMuted,
     lineHeight: 1.5,
     margin: 0,

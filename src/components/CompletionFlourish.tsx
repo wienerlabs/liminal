@@ -142,7 +142,7 @@ export const CompletionFlourish: FC<CompletionFlourishProps> = ({
           right: 0,
           textAlign: "center",
           fontFamily: "var(--font-mono)",
-          fontSize: 11,
+          fontSize: 13,
           color: "var(--color-text-muted)",
           letterSpacing: "0.1em",
           textTransform: "uppercase",
