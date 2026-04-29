@@ -100,13 +100,25 @@ export const App: FC = () => {
 
   const executeBadge = inFlight && sliceM > 0 ? `${sliceN}/${sliceM}` : undefined;
 
+  // Header summary bar — only populated while an execution is in flight.
+  // HeaderBar handles its own breakpoint visibility (mobile = hidden,
+  // tablet = chip only, desktop = chip + balance).
+  const headerInFlight =
+    inFlight && sliceM > 0
+      ? {
+          sliceN,
+          sliceM,
+          gainUsd: state.totalPriceImprovementUsd,
+        }
+      : undefined;
+
   // ------------------------------------------------------------------
   // Mobile layout
   // ------------------------------------------------------------------
   if (device.isMobile) {
     return (
       <div className="liminal-root" style={styles.mobileRoot}>
-        <HeaderBar networkStatus={networkStatus} />
+        <HeaderBar networkStatus={networkStatus} inFlight={headerInFlight} />
         {device.isSolflareInAppBrowser && <SolflareBanner />}
         <NetworkBanner />
         <ToastContainer />
@@ -187,7 +199,7 @@ export const App: FC = () => {
   if (device.isTablet) {
     return (
       <div className="liminal-root" style={styles.appRoot}>
-        <HeaderBar networkStatus={networkStatus} />
+        <HeaderBar networkStatus={networkStatus} inFlight={headerInFlight} />
         {device.isSolflareInAppBrowser && <SolflareBanner />}
         <NetworkBanner />
         <ToastContainer />
@@ -214,7 +226,7 @@ export const App: FC = () => {
   // ------------------------------------------------------------------
   return (
     <div className="liminal-root" style={styles.appRoot}>
-      <HeaderBar networkStatus={networkStatus} />
+      <HeaderBar networkStatus={networkStatus} inFlight={headerInFlight} />
       {device.isSolflareInAppBrowser && <SolflareBanner />}
         <NetworkBanner />
       <ToastContainer />

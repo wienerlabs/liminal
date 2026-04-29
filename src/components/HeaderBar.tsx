@@ -1,11 +1,20 @@
 /**
  * LIMINAL — HeaderBar
  *
- * 48px sticky height, full width. Sol: logo + wordmark. Sağ: network pill +
- * wallet badge. Partner logoları "Powered by" şerit olarak ortada.
+ * 48px sticky height, full width.
  *
- * Tüm logolar 14px capital height, baseline ortak. Filter normalizasyonu
- * tek yerden (ikon path'leri zaten beyaz, filter gereksiz tekrar yapmıyoruz).
+ * Layout (left → right):
+ *   - Brand (LiminalMark + LIMINAL wordmark)
+ *   - Connected-state summary bar (PR #5b):
+ *       · In-flight slice progress chip (only while an execution is mid-flight)
+ *       · SOL portfolio chip (only when wallet connected)
+ *     Both hidden on mobile to keep the 48px header readable; mobile gets
+ *     a dedicated sticky "active execution" bar below the header instead
+ *     (handled in App.tsx).
+ *   - Right cluster: ThemeSwitcher · MEV badge · network pill · wallet badge
+ *
+ * Filter normalizasyonu tek yerden — ikon path'leri zaten beyaz, gereksiz
+ * filter uygulanmaz.
  */
 
 import { useCallback, useEffect, useState, type CSSProperties, type FC } from "react";
@@ -17,23 +26,57 @@ import {
 import { LiminalMark } from "./BrandLogos";
 import { getMevStrategy } from "../services/mevProtection";
 import { useDeviceDetection } from "../hooks/useDeviceDetection";
+import { useWalletSummary } from "../hooks/useWalletSummary";
 import ThemeSwitcher from "./ThemeSwitcher";
 
 const MONO = "var(--font-mono)";
 const SANS = "var(--font-sans)";
 
 // ---------------------------------------------------------------------------
-// Component
+// Types
 // ---------------------------------------------------------------------------
 
 export type HeaderBarProps = {
   networkStatus?: { status: "connected" | "slow" | "offline"; slot: number | null };
+  /**
+   * In-flight execution snapshot — when present, the header renders a
+   * compact slice-progress chip (e.g. "▶ 2/4 · +$3.21"). Undefined means
+   * no execution is active.
+   */
+  inFlight?: {
+    sliceN: number;
+    sliceM: number;
+    gainUsd: number;
+  };
 };
 
-export const HeaderBar: FC<HeaderBarProps> = ({ networkStatus }) => {
+// ---------------------------------------------------------------------------
+// Formatting helpers (local — header-only, kept off the global formatters
+// path because they're tuned for tight chip rendering)
+// ---------------------------------------------------------------------------
+
+function formatUsdShort(n: number): string {
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
+  if (n >= 10_000) return `$${(n / 1_000).toFixed(1)}K`;
+  if (n >= 1) return `$${n.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
+  return `$${n.toFixed(2)}`;
+}
+
+function formatGainShort(n: number): string {
+  const sign = n >= 0 ? "+" : "−";
+  const abs = Math.abs(n);
+  return `${sign}${formatUsdShort(abs)}`;
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
+export const HeaderBar: FC<HeaderBarProps> = ({ networkStatus, inFlight }) => {
   const [wallet, setWallet] = useState<WalletState>(() => getWalletState());
   useEffect(() => subscribeWallet(setWallet), []);
   const device = useDeviceDetection();
+  const summary = useWalletSummary();
 
   const shortAddr = wallet.address
     ? `${wallet.address.slice(0, 4)}…${wallet.address.slice(-4)}`
@@ -62,28 +105,39 @@ export const HeaderBar: FC<HeaderBarProps> = ({ networkStatus }) => {
         ? "Slow"
         : "Offline";
 
+  // Summary bar visibility rules:
+  //   - Mobile: nothing (App.tsx renders a sticky exec bar below the header)
+  //   - Tablet: in-flight chip only (balance chip would crowd the bar)
+  //   - Desktop: both chips
+  const showInFlight = !!inFlight && !device.isMobile;
+  const showBalance =
+    summary.connected && !device.isMobile && !device.isTablet;
+
   return (
     <header style={styles.header}>
-      <a
-        href="/"
-        style={styles.brand}
-        aria-label="LIMINAL home"
-      >
+      <a href="/" style={styles.brand} aria-label="LIMINAL home">
         <LiminalMark size={40} />
         <span style={styles.wordmark}>LIMINAL</span>
       </a>
 
-      {/* Partner logos relocated out of the header (audit feedback):
-          - Welcome state in ExecutionPanel renders a "Built with"
-            row at the bottom — that's where new users see them.
-          - Analytics > Protocol tab carries the integration depth
-            story for jurors / curious users.
-          The header is now status-only (network, wallet, theme). */}
-      <div style={{ flex: 1 }} aria-hidden="true" />
+      {/* Connected-state summary bar — sits between the brand and the
+          right-side controls. Stays empty (just a flex spacer) when
+          wallet disconnected and no execution is mid-flight, which is
+          the IDLE landing experience. */}
+      <div style={styles.summary} aria-live="polite" aria-atomic="false">
+        {showInFlight && inFlight && (
+          <InFlightChip
+            sliceN={inFlight.sliceN}
+            sliceM={inFlight.sliceM}
+            gainUsd={inFlight.gainUsd}
+          />
+        )}
+        {showBalance && <BalanceChip summary={summary} />}
+      </div>
 
       <div style={styles.right}>
         <ThemeSwitcher />
-        {/* MEV badge: desktop + tablet only on mobile (saves ~50px). */}
+        {/* MEV badge: hidden on mobile (saves ~50px on a 375px viewport). */}
         {!device.isMobile && <MevBadge />}
         {networkStatus && (
           <div
@@ -137,8 +191,6 @@ export const HeaderBar: FC<HeaderBarProps> = ({ networkStatus }) => {
           {wallet.connected && (
             <span style={{ ...styles.netDot, background: "var(--color-5)" }} aria-hidden="true" />
           )}
-          {/* Mobile: short address only when connected, hide entirely otherwise.
-              Desktop/tablet: full text. */}
           <span>
             {copiedAddr
               ? "Copied"
@@ -151,6 +203,107 @@ export const HeaderBar: FC<HeaderBarProps> = ({ networkStatus }) => {
         </button>
       </div>
     </header>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// In-flight slice progress chip
+//
+// Renders only while an execution is mid-flight. Shows:
+//   - pulsing accent dot (caught the user's attention back when we lived in
+//     the body; here it pulls focus to the header instead)
+//   - slice progress as N/M
+//   - mini progress bar (12px tall) underneath the text
+//   - signed cumulative gain in USD (green if positive, muted otherwise)
+//
+// Tooltip mirrors the long form for screen reader coverage.
+// ---------------------------------------------------------------------------
+
+const InFlightChip: FC<{ sliceN: number; sliceM: number; gainUsd: number }> = ({
+  sliceN,
+  sliceM,
+  gainUsd,
+}) => {
+  const pct = sliceM > 0 ? Math.min(100, (sliceN / sliceM) * 100) : 0;
+  const gainColor =
+    gainUsd > 0
+      ? "var(--color-success)"
+      : gainUsd < 0
+        ? "var(--color-danger)"
+        : "var(--color-text-muted)";
+  return (
+    <span
+      style={styles.inFlightChip}
+      title={`Slice ${sliceN} of ${sliceM} · gain ${formatGainShort(gainUsd)}`}
+      aria-label={`Execution in flight: slice ${sliceN} of ${sliceM}, gain ${formatGainShort(gainUsd)}`}
+    >
+      <span style={styles.inFlightDot} aria-hidden="true" />
+      <span style={styles.inFlightSlices}>
+        Slice {sliceN}/{sliceM}
+      </span>
+      <span style={styles.inFlightTrack} aria-hidden="true">
+        <span
+          style={{
+            ...styles.inFlightFill,
+            width: `${pct}%`,
+          }}
+        />
+      </span>
+      <span style={{ ...styles.inFlightGain, color: gainColor }}>
+        {formatGainShort(gainUsd)}
+      </span>
+    </span>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Balance chip — connected-state SOL portfolio anchor
+//
+// Reads from useWalletSummary. Three render branches:
+//   - solUsdValue available → "◎ {balance} SOL · ${usd}"
+//   - solBalance only       → "◎ {balance} SOL"
+//   - loading / no price    → "◎ —"
+//
+// SOL is intentional: it's the gas token, the most reliable Pyth feed and
+// a universally meaningful anchor. Total-portfolio (SPL incl.) is left to
+// the WalletPanel where we can afford the multi-feed cost.
+// ---------------------------------------------------------------------------
+
+const BalanceChip: FC<{ summary: ReturnType<typeof useWalletSummary> }> = ({
+  summary,
+}) => {
+  const { solBalance, solUsdValue, loading } = summary;
+
+  let text: string;
+  if (loading && solBalance == null) {
+    text = "◎ …";
+  } else if (solBalance == null) {
+    text = "◎ —";
+  } else {
+    const balStr =
+      solBalance < 0.001
+        ? "<0.001"
+        : solBalance.toLocaleString("en-US", {
+            maximumFractionDigits: solBalance < 1 ? 4 : 2,
+          });
+    text =
+      solUsdValue != null
+        ? `◎ ${balStr} · ${formatUsdShort(solUsdValue)}`
+        : `◎ ${balStr} SOL`;
+  }
+
+  return (
+    <span
+      style={styles.balanceChip}
+      title={
+        solBalance != null && solUsdValue != null
+          ? `${solBalance} SOL ≈ ${formatUsdShort(solUsdValue)}`
+          : "SOL balance"
+      }
+      aria-label={`SOL balance: ${text.replace("◎", "")}`}
+    >
+      {text}
+    </span>
   );
 };
 
@@ -201,9 +354,7 @@ const styles: Record<string, CSSProperties> = {
     alignItems: "center",
     justifyContent: "space-between",
     padding: "0 var(--space-5)",
-    // Frosted glass — translucent panel color, backdrop blur on top.
-    // Matches the pastel theme while staying legible on any scroll bg.
-    background: "rgba(255, 255, 255, 0.78)",
+    background: "var(--surface-glass)",
     borderBottom: "1px solid var(--color-stroke)",
     fontFamily: SANS,
     fontSize: "var(--text-xs)",
@@ -235,14 +386,89 @@ const styles: Record<string, CSSProperties> = {
     color: "var(--color-text)",
     lineHeight: 1,
   },
-  /* Partner row styles removed — partners moved to ExecutionPanel
-     welcome footer + (future) Analytics > Protocol tab. */
+  // Center summary region — flex:1 absorbs free space, contents are
+  // pushed to the left edge so the right cluster always anchors right.
+  summary: {
+    flex: 1,
+    minWidth: 0,
+    display: "flex",
+    alignItems: "center",
+    gap: "var(--space-2)",
+    paddingLeft: "var(--space-4)",
+    overflow: "hidden",
+  },
   right: {
     display: "flex",
     alignItems: "center",
     gap: "var(--space-2)",
     flexShrink: 0,
   },
+  // ----- Connected-state chips -------------------------------------------
+  inFlightChip: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "var(--space-2)",
+    padding: "4px 10px",
+    borderRadius: 999,
+    border: "1px solid var(--color-accent-border)",
+    background: "var(--color-accent-bg-soft)",
+    color: "var(--color-text)",
+    fontFamily: MONO,
+    fontSize: 12,
+    fontWeight: 600,
+    height: 28,
+    whiteSpace: "nowrap",
+  },
+  inFlightDot: {
+    width: 7,
+    height: 7,
+    borderRadius: "50%",
+    background: "var(--color-5)",
+    boxShadow: "0 0 8px var(--color-5)",
+    animation: "liminal-active-pulse 1.4s var(--ease-out) infinite",
+    flexShrink: 0,
+  },
+  inFlightSlices: {
+    fontVariantNumeric: "tabular-nums",
+  },
+  inFlightTrack: {
+    position: "relative",
+    width: 60,
+    height: 4,
+    borderRadius: 2,
+    background: "var(--color-accent-bg-strong)",
+    overflow: "hidden",
+    flexShrink: 0,
+  },
+  inFlightFill: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    background:
+      "linear-gradient(90deg, var(--color-5-strong) 0%, var(--color-5) 100%)",
+    transition: "width var(--motion-slow) var(--ease-out)",
+  },
+  inFlightGain: {
+    fontVariantNumeric: "tabular-nums",
+    fontWeight: 700,
+  },
+  balanceChip: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    padding: "5px 10px",
+    borderRadius: "var(--radius-sm)",
+    border: "1px solid var(--color-stroke)",
+    background: "transparent",
+    color: "var(--color-text)",
+    fontFamily: MONO,
+    fontSize: 12,
+    fontVariantNumeric: "tabular-nums",
+    height: 28,
+    whiteSpace: "nowrap",
+  },
+  // ----- Right cluster (unchanged) ---------------------------------------
   walletBadge: {
     display: "inline-flex",
     alignItems: "center",
@@ -256,7 +482,8 @@ const styles: Record<string, CSSProperties> = {
     fontVariantNumeric: "tabular-nums",
     height: 28,
     whiteSpace: "nowrap",
-    transition: "border-color var(--motion-base) var(--ease-out), color var(--motion-base) var(--ease-out)",
+    transition:
+      "border-color var(--motion-base) var(--ease-out), color var(--motion-base) var(--ease-out)",
   },
   mevBadge: {
     display: "inline-flex",

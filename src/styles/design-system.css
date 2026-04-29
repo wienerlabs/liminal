@@ -131,6 +131,9 @@
   --surface-raised: #ffffff;                       /* tier 3: floating */
   --surface-raised-strong: rgba(255, 255, 255, 0.95);
   --surface-input: #ffffff;
+  /* Sticky header glass — translucent panel that lets background bleed
+     through under backdrop-filter. Light theme: warm white wash. */
+  --surface-glass: rgba(255, 255, 255, 0.78);
 
   /* ----- Overlay (modal arkası) ------------------------------------- */
   --color-overlay: rgba(26, 26, 26, 0.45);
@@ -260,6 +263,9 @@
   --surface-raised: #1f1f1f;
   --surface-raised-strong: #242424;
   --surface-input: #1a1a1a;
+  /* Dark theme glass: deep panel-tinted translucency so the sticky
+     header reads as a soft layer above the body, not a light bar. */
+  --surface-glass: rgba(20, 20, 20, 0.78);
 
   --color-overlay: rgba(0, 0, 0, 0.65);
 }
