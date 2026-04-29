@@ -1368,10 +1368,14 @@ const FormCard: FC<{
   subtitle?: string;
   children: React.ReactNode;
 }> = ({ step, title, subtitle, children }) => (
-  // `liminal-lift` adds the desktop-only hover lift + soft shadow. The
-  // border-radius lives in styles.formCard so the lift doesn't fight
-  // the card's own outline.
-  <section style={styles.formCard} className="liminal-lift">
+  // `liminal-lift` adds the desktop-only hover lift + soft shadow.
+  // `liminal-form-card-glass` applies the dark-theme background
+  // override (inline styles can't see the [data-theme="dark"] selector,
+  // so we delegate via a class).
+  <section
+    style={styles.formCard}
+    className="liminal-lift liminal-form-card-glass"
+  >
     <header style={styles.formCardHeader}>
       <span style={styles.formCardStep}>{String(step).padStart(2, "0")}</span>
       <span style={styles.formCardTitle}>{title}</span>
@@ -1953,13 +1957,15 @@ const styles: Record<string, CSSProperties> = {
   formCard: {
     margin: "10px 16px",
     padding: "16px 18px",
-    // surface-card is already 65% translucent in light, 3% in dark.
-    // Add backdrop-filter so the Unicorn Studio scene blurs cleanly
-    // through the card instead of pixelating raw.
-    background: "var(--surface-card)",
-    backdropFilter: "blur(12px) saturate(130%)",
-    WebkitBackdropFilter: "blur(12px) saturate(130%)",
-    border: `1px solid ${THEME.border}`,
+    // Aggressive transparency so the Unicorn Studio scene + the
+    // ExecutionPanel glass behind it both bleed through. Light theme
+    // gets a 30% white wash; dark theme uses a tinted 22% black.
+    // Both pair with backdrop-filter so the visual underneath blurs
+    // softly rather than pixelating through the card.
+    background: "rgba(255, 255, 255, 0.30)",
+    backdropFilter: "blur(14px) saturate(140%)",
+    WebkitBackdropFilter: "blur(14px) saturate(140%)",
+    border: `1px solid var(--color-stroke)`,
     borderRadius: 12,
     boxShadow: "var(--shadow-component-soft, none)",
     display: "flex",

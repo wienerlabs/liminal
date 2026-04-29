@@ -494,6 +494,14 @@ input:focus:not(:focus-visible) {
   to   { opacity: 1; }
 }
 
+/* Dark-theme override for the FormCard glass surface. Inline styles
+   can't reference [data-theme="dark"], so the background is set
+   here and !important-ed so it wins over the inline rgba(255…) rule
+   set in ExecutionPanel.tsx. Same trick as the modal scrim. */
+:root[data-theme="dark"] .liminal-form-card-glass {
+  background: rgba(20, 20, 20, 0.30) !important;
+}
+
 /* TwapLoadingState — concentric rings rotating in alternating
    directions. Two keyframes, components apply the right one based on
    ring index parity. */
