@@ -51,6 +51,7 @@ import ExecutionSummaryCard from "./ExecutionSummaryCard";
 import StepIndicator from "./StepIndicator";
 import AnimatedNumber from "./AnimatedNumber";
 import Sparkline from "./Sparkline";
+import ExecutionStack from "./ExecutionStack";
 import Button from "./Button";
 import Tooltip from "./Tooltip";
 
@@ -646,6 +647,20 @@ export const ExecutionPanel: FC = () => {
                 <div style={styles.heroStatHint}>Live execution, no testnet sim</div>
               </li>
             </ul>
+
+            {/* Welcome teaser — fan-out card stack with sample
+                executions so first-time visitors see immediately
+                what their history will look like. Desktop only;
+                mobile welcome state is already content-heavy. */}
+            {!isMobile && (
+              <div style={styles.welcomeStackWrap}>
+                <ExecutionStack
+                  executions={[]}
+                  demoMode
+                  title="Preview · sample executions"
+                />
+              </div>
+            )}
           </div>
         </div>
       ) : state.status === ExecutionStatus.DONE ? (
@@ -2583,6 +2598,15 @@ const styles: Record<string, CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     gap: 12,
+  },
+  // Welcome teaser stack — sits below the hero stats on desktop so
+  // first-time visitors see a fan-out preview of what their history
+  // will look like. Padding-top creates breathing room; min-height
+  // covers the absolute-positioned cards.
+  welcomeStackWrap: {
+    marginTop: 24,
+    paddingTop: 16,
+    borderTop: "1px dashed var(--color-stroke)",
   },
   // Hero stats strip — 3-cell grid of terse "vital signs" beneath the
   // connect CTA. Each cell has a big number, a 1-word label, and a
