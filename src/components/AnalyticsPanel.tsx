@@ -60,6 +60,8 @@ import {
 } from "../state/analyticsNav";
 import AnimatedNumber from "./AnimatedNumber";
 import MorphicTabs from "./MorphicTabs";
+import LeaderboardTab from "./LeaderboardTab";
+import { getWalletState } from "../services/solflare";
 import ProgressRingsCard from "./ProgressRingsCard";
 import TwapLoadingState from "./TwapLoadingState";
 import ExecutionStack from "./ExecutionStack";
@@ -213,6 +215,7 @@ export const AnalyticsPanel: FC = () => {
           items={[
             { key: "live", label: "Live" },
             { key: "history", label: "History", badge: getHistory().length || undefined },
+            { key: "leaders", label: "Leaders" },
             { key: "protocol", label: "Protocol" },
           ]}
           active={activeTab}
@@ -225,6 +228,9 @@ export const AnalyticsPanel: FC = () => {
           <LiveTab state={state} isMobile={device.isMobile} />
         )}
         {activeTab === "history" && <HistoryTab isMobile={device.isMobile} />}
+        {activeTab === "leaders" && (
+          <LeaderboardTab walletAddress={getWalletState().address ?? null} />
+        )}
         {activeTab === "protocol" && (
           <ProtocolTab isMobile={device.isMobile} />
         )}

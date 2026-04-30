@@ -6,7 +6,7 @@
  * kullanır. AnalyticsPanel mount olduğunda subscribe eder.
  */
 
-export type AnalyticsTab = "live" | "history" | "protocol";
+export type AnalyticsTab = "live" | "history" | "protocol" | "leaders";
 
 let currentTab: AnalyticsTab = "live";
 const listeners = new Set<(tab: AnalyticsTab) => void>();
