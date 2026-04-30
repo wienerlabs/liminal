@@ -53,6 +53,12 @@ import AnimatedNumber from "./AnimatedNumber";
 import Sparkline from "./Sparkline";
 import ExecutionStack from "./ExecutionStack";
 import RiskAdvisor from "./RiskAdvisor";
+import DcaSchedulesPanel from "./DcaSchedulesPanel";
+import {
+  CADENCE_PRESETS,
+  createSchedule,
+  type DcaPlan,
+} from "../services/dcaScheduler";
 import Button from "./Button";
 import Tooltip from "./Tooltip";
 
@@ -668,6 +674,11 @@ export const ExecutionPanel: FC = () => {
         <ExecutionSummaryCard state={state} onReset={reset} />
       ) : (
         <>
+          {/* Active DCA schedules — visible whenever the user has any
+              recurring plan running so they can pause / cancel even
+              from inside an in-flight execution. */}
+          <DcaSchedulesPanel />
+
           {/* Risk Advisor — proactive tips derived from the user's
               local execution history. Sits above the FormCards so the
               user sees relevant nudges before they configure their
@@ -1184,6 +1195,28 @@ export const ExecutionPanel: FC = () => {
             >
               START EXECUTION
             </Button>
+
+            {/* Schedule-as-DCA — only shown when the form is valid and
+                the user is in IDLE/CONFIGURED. Picks the cadence with
+                a small inline select; cycles default to 6 (~1 week of
+                daily DCA, or whatever the cadence implies). The
+                runner in App.tsx handles auto-firing. */}
+            {canConfigure && fromToken && (
+              <DcaQuickAdd
+                inputMint={fromMint}
+                outputMint={toMint}
+                inputSymbol={fromToken.symbol}
+                outputSymbol={(() => {
+                  const tt = tokens.find((t) => t.mint === toMint);
+                  return tt?.symbol ?? "—";
+                })()}
+                amountPerCycle={amountNum}
+                windowDurationMs={windowMs}
+                sliceCount={sliceCount}
+                slippageBps={slippageBps}
+                preSignEnabled={preSignEnabled}
+              />
+            )}
             {(() => {
               const reason = disabledReason({
                 walletConnected: wallet.connected,
@@ -1423,6 +1456,128 @@ const FormCard: FC<{
 //     tooltip on hover
 //   - Empty `value` shows a neutral "Select token" placeholder
 // ---------------------------------------------------------------------------
+
+// DcaQuickAdd — compact "schedule this as DCA" entry point shown
+// below the START EXECUTION button. Cadence preset dropdown + cycle
+// count + Add button → creates a schedule via dcaScheduler. The
+// runner in App.tsx picks it up and auto-fires.
+const DcaQuickAdd: FC<{
+  inputMint: string;
+  outputMint: string;
+  inputSymbol: string;
+  outputSymbol: string;
+  amountPerCycle: number;
+  windowDurationMs: number;
+  sliceCount: number;
+  slippageBps: number;
+  preSignEnabled: boolean;
+}> = (p) => {
+  const [intervalMs, setIntervalMs] = useState<number>(
+    CADENCE_PRESETS[2].intervalMs, // every 24h default
+  );
+  const [totalCycles, setTotalCycles] = useState<number>(7);
+  const [created, setCreated] = useState<boolean>(false);
+
+  const handleCreate = (): void => {
+    const plan: DcaPlan = {
+      inputMint: p.inputMint,
+      outputMint: p.outputMint,
+      inputSymbol: p.inputSymbol,
+      outputSymbol: p.outputSymbol,
+      amountPerCycle: p.amountPerCycle,
+      windowDurationMs: p.windowDurationMs,
+      sliceCount: p.sliceCount,
+      slippageBps: p.slippageBps,
+      preSignEnabled: p.preSignEnabled,
+    };
+    createSchedule({ cadence: { intervalMs, totalCycles }, plan });
+    setCreated(true);
+    setTimeout(() => setCreated(false), 2400);
+  };
+
+  return (
+    <div
+      style={{
+        marginTop: 12,
+        padding: "10px 12px",
+        borderRadius: 10,
+        border: "1px dashed var(--color-stroke)",
+        background: "transparent",
+        display: "flex",
+        flexWrap: "wrap",
+        alignItems: "center",
+        gap: 8,
+        fontFamily: "var(--font-mono)",
+        fontSize: 13,
+        color: "var(--color-text-muted)",
+      }}
+    >
+      <span>↻ Or schedule as DCA:</span>
+      <select
+        value={intervalMs}
+        onChange={(e) => setIntervalMs(parseInt(e.target.value, 10))}
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: 13,
+          padding: "4px 8px",
+          background: "var(--surface-input)",
+          border: "1px solid var(--color-stroke)",
+          borderRadius: 6,
+          color: "var(--color-text)",
+        }}
+      >
+        {CADENCE_PRESETS.map((c) => (
+          <option key={c.intervalMs} value={c.intervalMs}>
+            {c.label}
+          </option>
+        ))}
+      </select>
+      <span>×</span>
+      <input
+        type="number"
+        min={1}
+        max={365}
+        value={totalCycles}
+        onChange={(e) => {
+          const n = parseInt(e.target.value, 10);
+          if (Number.isFinite(n) && n > 0 && n <= 365) setTotalCycles(n);
+        }}
+        style={{
+          width: 60,
+          fontFamily: "var(--font-mono)",
+          fontSize: 13,
+          padding: "4px 8px",
+          background: "var(--surface-input)",
+          border: "1px solid var(--color-stroke)",
+          borderRadius: 6,
+          color: "var(--color-text)",
+        }}
+      />
+      <span>cycles</span>
+      <button
+        type="button"
+        onClick={handleCreate}
+        disabled={created}
+        style={{
+          marginLeft: "auto",
+          padding: "5px 12px",
+          fontFamily: "var(--font-mono)",
+          fontSize: 13,
+          fontWeight: 700,
+          color: "var(--color-text)",
+          background: created ? "var(--color-success)" : "var(--color-accent-bg-soft)",
+          border: "1px solid var(--color-accent-border)",
+          borderRadius: 6,
+          cursor: created ? "default" : "pointer",
+          transition: "background var(--motion-base) var(--ease-out)",
+        }}
+        className="liminal-press"
+      >
+        {created ? "✓ Scheduled" : "Schedule"}
+      </button>
+    </div>
+  );
+};
 
 // VerifiedMark — small ✓ pill for tokens flagged verified by the
 // Jupiter v2 search (or our hardcoded canonical allowlist), or ⚠ for
