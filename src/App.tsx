@@ -54,6 +54,7 @@ import DisclaimerModal, {
 } from "./components/DisclaimerModal";
 import { useProfile } from "./hooks/useProfile";
 import { useDcaRunner } from "./hooks/useDcaRunner";
+import Tutorial, { replayTutorial } from "./components/Tutorial";
 import { getActiveNetworkConfig } from "./services/network";
 
 // ---------------------------------------------------------------------------
@@ -197,6 +198,17 @@ export const App: FC = () => {
       category: "Appearance",
       run: toggleTheme,
     });
+    list.push({
+      id: "tutorial.replay",
+      label: "Replay tutorial tour",
+      category: "Help",
+      hint: "4 steps · ~30s",
+      run: () => {
+        replayTutorial();
+        // Bump the key to force-remount the Tutorial with forceOpen=true.
+        setTutorialReplayKey((k) => k + 1);
+      },
+    });
     if (device.isMobile) {
       list.push(
         {
@@ -270,6 +282,17 @@ export const App: FC = () => {
     <CompletionFlourish
       visible={flourishVisible}
       onDismiss={() => setFlourishVisible(false)}
+    />
+  );
+
+  // Tutorial — first-time tour. forceOpen flips when the user runs
+  // the "Replay tour" palette action; it bumps a counter to remount.
+  const [tutorialReplayKey, setTutorialReplayKey] = useState(0);
+  const tutorialOverlay = (
+    <Tutorial
+      key={tutorialReplayKey}
+      forceOpen={tutorialReplayKey > 0}
+      onClose={() => setTutorialReplayKey(0)}
     />
   );
 
@@ -429,6 +452,7 @@ export const App: FC = () => {
         )}
         {profileSetupModal}
         {completionFlourish}
+        {tutorialOverlay}
 
         {inFlight && (
           <div style={{ position: "sticky", top: "var(--header-height)", zIndex: 40 }}>
@@ -514,6 +538,7 @@ export const App: FC = () => {
         )}
         {profileSetupModal}
         {completionFlourish}
+        {tutorialOverlay}
         <div style={styles.tabletLayoutOuter}>
           <div style={styles.tabletLayout}>
             <main style={{ ...styles.tabletPane, ...panelEntranceStyle(0) }}>
@@ -545,6 +570,7 @@ export const App: FC = () => {
         )}
         {profileSetupModal}
         {completionFlourish}
+        {tutorialOverlay}
       <div style={styles.desktopLayoutOuter}>
         <div style={styles.desktopLayout}>
           <aside style={{ ...styles.sideCol, ...panelEntranceStyle(0) }}>
