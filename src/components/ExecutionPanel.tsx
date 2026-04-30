@@ -1424,6 +1424,43 @@ const FormCard: FC<{
 //   - Empty `value` shows a neutral "Select token" placeholder
 // ---------------------------------------------------------------------------
 
+// VerifiedMark — small ✓ pill for tokens flagged verified by the
+// Jupiter v2 search (or our hardcoded canonical allowlist), or ⚠ for
+// unverified. Helps the user spot honeypot / scam tokens before
+// committing to a swap. Tooltip explains the source so the user knows
+// "verified" isn't an absolute audit guarantee.
+const VerifiedMark: FC<{ verified: boolean }> = ({ verified }) => (
+  <span
+    title={
+      verified
+        ? "Verified — recognized by Jupiter's strict list or LIMINAL canonical allowlist"
+        : "Unverified — exercise caution; this mint isn't in any well-known verified list"
+    }
+    aria-label={verified ? "Verified token" : "Unverified token"}
+    style={{
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 2,
+      marginLeft: 6,
+      padding: "1px 5px",
+      borderRadius: 4,
+      fontFamily: "var(--font-mono)",
+      fontSize: 9,
+      fontWeight: 700,
+      letterSpacing: "0.04em",
+      textTransform: "uppercase",
+      color: verified ? "var(--color-success)" : "var(--color-warn)",
+      background: verified
+        ? "rgba(34, 197, 94, 0.12)"
+        : "rgba(245, 158, 11, 0.12)",
+      border: `1px solid ${verified ? "rgba(34, 197, 94, 0.4)" : "rgba(245, 158, 11, 0.4)"}`,
+      verticalAlign: "middle",
+    }}
+  >
+    {verified ? "✓" : "⚠"}
+  </span>
+);
+
 const TokenLogo: FC<{
   mint: string;
   symbol: string;
@@ -1560,6 +1597,7 @@ const TokenSelect: FC<{
               />
               <span style={styles.tokenTriggerSymbol}>
                 {selectedToken.symbol}
+                {selectedInfo && <VerifiedMark verified={selectedInfo.verified} />}
               </span>
               {selectedPrice != null && (
                 <span style={styles.tokenTriggerPrice}>
@@ -1640,7 +1678,10 @@ const TokenSelect: FC<{
                       size={28}
                     />
                     <div style={styles.tokenMenuMain}>
-                      <div style={styles.tokenMenuSymbol}>{t.symbol}</div>
+                      <div style={styles.tokenMenuSymbol}>
+                        {t.symbol}
+                        {info && <VerifiedMark verified={info.verified} />}
+                      </div>
                       <div style={styles.tokenMenuName}>
                         {info?.name ?? `${t.mint.slice(0, 4)}…${t.mint.slice(-4)}`}
                       </div>

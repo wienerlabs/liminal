@@ -27,6 +27,12 @@ export type TokenInfo = {
   name: string;
   decimals: number;
   logoURI: string | null;
+  /** Verification flag derived from Jupiter v2 `tags` (verified ⇢ true)
+   * plus a hardcoded known-good allowlist for the canonical mints
+   * the Jupiter search occasionally misclassifies. UI surfaces a ✓
+   * for verified, ⚠ for unverified to help the user spot honeypot /
+   * scam tokens before swapping. */
+  verified: boolean;
 };
 
 type StoredPayload = {
@@ -70,6 +76,16 @@ function readCache(): Record<string, TokenInfo> | null {
     const parsed = JSON.parse(raw) as StoredPayload;
     if (!parsed?.fetchedAt || typeof parsed.tokens !== "object") return null;
     if (Date.now() - parsed.fetchedAt > STORAGE_TTL_MS) return null;
+    // Backfill missing fields from older cache entries — `verified` was
+    // added in PR #5q. Default to allowlist membership so canonical
+    // mints don't suddenly read as unverified after a token-registry
+    // upgrade.
+    for (const mint of Object.keys(parsed.tokens)) {
+      const t = parsed.tokens[mint];
+      if (typeof (t as Partial<TokenInfo>).verified !== "boolean") {
+        (t as TokenInfo).verified = ALLOWLIST_MINTS.has(mint);
+      }
+    }
     return parsed.tokens;
   } catch {
     return null;
@@ -117,7 +133,23 @@ type JupSearchRow = {
   symbol?: string;
   icon?: string;
   decimals?: number;
+  tags?: string[];
+  isVerified?: boolean;
 };
+
+// Hardcoded canonical mints we trust regardless of what Jupiter's
+// classifier says. Covers the major SPL tokens LIMINAL users hold.
+const ALLOWLIST_MINTS = new Set<string>([
+  "So11111111111111111111111111111111111111112", // SOL (wrapped)
+  "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", // USDC
+  "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB", // USDT
+  "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263", // BONK
+  "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",  // JUP
+  "jtojtomepa8beP8AuQc6eXt5FriJwfFMwQx2v2f9mCL",  // JTO
+  "5oVNBeEEQvYi1cX3ir8Dx5n1P7pdxydbGF2X4TxVusJm", // INF
+  "mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So",  // mSOL
+  "7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs", // ETH (Wormhole)
+]);
 
 /** Normalize various IPFS/Arweave URI schemes into browser-loadable HTTPS URLs. */
 function normalizeLogoURI(uri: string | undefined | null): string | null {
@@ -149,12 +181,27 @@ async function fetchOne(mint: string): Promise<TokenInfo | null> {
     // exact mint match is authoritative.
     const match = data.find((r) => r.id === mint);
     if (!match || !match.symbol) return null;
+    // Verified iff (a) Jupiter tagged it explicitly OR (b) the mint
+    // is in our hardcoded canonical allowlist. Either signal alone
+    // is sufficient — the allowlist exists because Jupiter v2 search
+    // sometimes returns canonical mints without the verified tag.
+    const tagSet = new Set(
+      Array.isArray(match.tags)
+        ? match.tags.map((t) => String(t).toLowerCase())
+        : [],
+    );
+    const verified =
+      tagSet.has("verified") ||
+      tagSet.has("strict") ||
+      match.isVerified === true ||
+      ALLOWLIST_MINTS.has(match.id!);
     const info: TokenInfo = {
       mint: match.id!,
       symbol: match.symbol,
       name: typeof match.name === "string" ? match.name : match.symbol,
       decimals: typeof match.decimals === "number" ? match.decimals : 0,
       logoURI: normalizeLogoURI(match.icon),
+      verified,
     };
     return info;
   } catch (err) {
