@@ -223,10 +223,72 @@ export const ExecutionSummaryCard: FC<ExecutionSummaryCardProps> = ({
         <Button variant="secondary" onClick={handleViewDetails} style={{ width: "100%" }}>
           VIEW DETAILS
         </Button>
+        <button
+          type="button"
+          onClick={() => {
+            const url = buildShareIntent({
+              inputSymbol,
+              outputSymbol,
+              totalInputTokens: totalInput,
+              vsJupiterUsd: state.totalPriceImprovementUsd,
+              vsJupiterBps: state.totalPriceImprovementBps,
+              durationMs,
+            });
+            window.open(url, "_blank", "noopener,noreferrer");
+          }}
+          style={styles.shareButton}
+          className="liminal-press"
+          aria-label="Share execution result on Twitter / X"
+        >
+          <span aria-hidden="true" style={{ fontWeight: 800 }}>𝕏</span>
+          <span>Share this win</span>
+        </button>
       </div>
     </div>
   );
 };
+
+// ---------------------------------------------------------------------------
+// buildShareIntent — composes a Twitter / X intent URL with auto-text
+// from the execution summary. Kept text under 280 chars even before
+// URL encoding so the intent doesn't get truncated.
+// ---------------------------------------------------------------------------
+
+function buildShareIntent(args: {
+  inputSymbol: string;
+  outputSymbol: string;
+  totalInputTokens: number;
+  vsJupiterUsd: number;
+  vsJupiterBps: number;
+  durationMs: number;
+}): string {
+  const sizeStr = args.totalInputTokens.toLocaleString("en-US", {
+    maximumFractionDigits: 4,
+  });
+  const usdStr = (args.vsJupiterUsd >= 0 ? "+" : "−") +
+    "$" +
+    Math.abs(args.vsJupiterUsd).toLocaleString("en-US", {
+      maximumFractionDigits: 2,
+    });
+  const bpsStr = (args.vsJupiterBps >= 0 ? "+" : "") +
+    args.vsJupiterBps.toFixed(1) +
+    " bps";
+  const durStr = formatDuration(args.durationMs);
+
+  const text = [
+    `Just executed ${sizeStr} ${args.inputSymbol} → ${args.outputSymbol} on @liminal.`,
+    `${usdStr} (${bpsStr}) vs. Jupiter direct over ${durStr}.`,
+    `Earn while you trade.`,
+  ].join("\n");
+
+  // Twitter/X accepts up to 280 chars; trim if a giant size pushes us over.
+  const trimmed = text.length > 270 ? text.slice(0, 267) + "…" : text;
+  const params = new URLSearchParams({
+    text: trimmed,
+    url: typeof window !== "undefined" ? window.location.origin : "https://liminal.app",
+  });
+  return `https://twitter.com/intent/tweet?${params.toString()}`;
+}
 
 // ---------------------------------------------------------------------------
 // Sub-components
@@ -360,6 +422,23 @@ const styles: Record<string, CSSProperties> = {
     gap: 8,
     width: "100%",
     marginTop: 14,
+  },
+  shareButton: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    padding: "10px 14px",
+    background: "transparent",
+    border: `1px dashed ${THEME.border}`,
+    borderRadius: 10,
+    fontFamily: MONO,
+    fontSize: 14,
+    fontWeight: 600,
+    color: THEME.textMuted,
+    cursor: "pointer",
+    width: "100%",
+    transition: "border-color var(--motion-base) var(--ease-out), color var(--motion-base) var(--ease-out)",
   },
   primaryButton: {
     fontFamily: MONO,
