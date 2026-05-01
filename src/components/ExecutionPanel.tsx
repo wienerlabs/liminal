@@ -53,6 +53,7 @@ import AnimatedNumber from "./AnimatedNumber";
 import Sparkline from "./Sparkline";
 import ExecutionStack from "./ExecutionStack";
 import RiskAdvisor from "./RiskAdvisor";
+import SizeImpactPill from "./SizeImpactPill";
 import DcaSchedulesPanel from "./DcaSchedulesPanel";
 import {
   CADENCE_PRESETS,
@@ -853,15 +854,23 @@ export const ExecutionPanel: FC = () => {
                     })}{" "}
                     {fromToken.symbol}
                     {amountNum > 0 && fromUsdPrice > 0 && (
-                      <span style={{ marginLeft: 8 }}>
-                        ≈{" "}
-                        <AnimatedNumber
-                          value={amountUsd}
-                          prefix="$"
-                          decimals={amountUsd < 1 ? 4 : 2}
-                          duration={350}
-                        />
-                      </span>
+                      <>
+                        <span style={{ marginLeft: 8 }}>
+                          ≈{" "}
+                          <AnimatedNumber
+                            value={amountUsd}
+                            prefix="$"
+                            decimals={amountUsd < 1 ? 4 : 2}
+                            duration={350}
+                          />
+                        </span>
+                        <span style={{ marginLeft: 8 }}>
+                          <SizeImpactPill
+                            symbol={fromToken.symbol}
+                            amountUsd={amountUsd}
+                          />
+                        </span>
+                      </>
                     )}
                   </div>
                 )}
