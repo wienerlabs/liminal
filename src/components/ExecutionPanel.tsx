@@ -628,9 +628,19 @@ export const ExecutionPanel: FC = () => {
         <ExecutionSummaryCard state={state} onReset={reset} />
       ) : (
         <>
-          {/* Token pair */}
-          <div style={styles.section}>
-            <div style={styles.sectionLabel}>TOKEN PAIR</div>
+          {/* ============================================================
+              CARD 1 — TRADE
+              Token pair + amount + inline live price + vault note. PR #5b
+              groups what was previously 5 disjoint sections (token pair,
+              live price, vault preview, divider, amount) into a single
+              visually-cohesive card with a numbered header. Internally it
+              still flows top-to-bottom — the user picks From → To, then
+              types the amount — but the visual grouping makes the
+              "what am I trading" step feel like one mental task instead
+              of three. The Pyth price line + Kamino vault hint sit at
+              the bottom as muted supporting info, not as separate cards.
+              ============================================================ */}
+          <FormCard step={1} title="Trade" subtitle="Pair, size, and price">
             {tokensLoading ? (
               <div style={styles.row} aria-busy="true" aria-label="Loading tokens">
                 <SkeletonBox width="48%" height={44} />
@@ -646,77 +656,153 @@ export const ExecutionPanel: FC = () => {
                 No swappable tokens found in your wallet.
               </div>
             ) : (
-              <div
-                style={{
-                  ...styles.row,
-                  flexDirection: isMobile ? "column" : "row",
-                  alignItems: "flex-end",
-                }}
-              >
-                <TokenSelect
-                  label="From"
-                  value={fromMint}
-                  tokens={tokens}
-                  onChange={(mint) => !isInFlight && setFromMint(mint)}
-                  disabled={isInFlight}
-                  lockedTooltip={lockedTooltip}
-                  prices={prices}
-                  lookup={tokenRegistry.lookup}
-                />
-                <button
-                  type="button"
-                  disabled={isInFlight || !fromMint || !toMint}
-                  onClick={() => {
-                    if (isInFlight) return;
-                    const tmp = fromMint;
-                    setFromMint(toMint);
-                    setToMint(tmp);
-                  }}
+              <>
+                {/* Token pair row */}
+                <div
                   style={{
-                    ...styles.swapButton,
-                    opacity: isInFlight || !fromMint || !toMint ? 0.3 : 1,
-                    cursor: isInFlight || !fromMint || !toMint ? "not-allowed" : "pointer",
+                    ...styles.row,
+                    flexDirection: isMobile ? "column" : "row",
+                    alignItems: "flex-end",
                   }}
-                  title="Swap tokens"
-                  aria-label="Swap from and to tokens"
                 >
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                    {/* Horizontal swap arrows — left/right exchange */}
-                    <path d="M3 6h10M10 3l3 3-3 3" stroke="var(--color-5)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                    <path d="M13 10H3M6 13l-3-3 3-3" stroke="var(--color-5)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </button>
-                <TokenSelect
-                  label="To"
-                  value={toMint}
-                  tokens={tokens.filter((t) => t.mint !== fromMint)}
-                  onChange={(mint) => !isInFlight && setToMint(mint)}
-                  disabled={isInFlight || !fromMint}
-                  lockedTooltip={lockedTooltip}
-                  prices={prices}
-                  lookup={tokenRegistry.lookup}
-                />
-              </div>
+                  <TokenSelect
+                    label="From"
+                    value={fromMint}
+                    tokens={tokens}
+                    onChange={(mint) => !isInFlight && setFromMint(mint)}
+                    disabled={isInFlight}
+                    lockedTooltip={lockedTooltip}
+                    prices={prices}
+                    lookup={tokenRegistry.lookup}
+                  />
+                  <button
+                    type="button"
+                    disabled={isInFlight || !fromMint || !toMint}
+                    onClick={() => {
+                      if (isInFlight) return;
+                      const tmp = fromMint;
+                      setFromMint(toMint);
+                      setToMint(tmp);
+                    }}
+                    style={{
+                      ...styles.swapButton,
+                      opacity: isInFlight || !fromMint || !toMint ? 0.3 : 1,
+                      cursor: isInFlight || !fromMint || !toMint ? "not-allowed" : "pointer",
+                    }}
+                    title="Swap tokens"
+                    aria-label="Swap from and to tokens"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                      <path d="M3 6h10M10 3l3 3-3 3" stroke="var(--color-5)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      <path d="M13 10H3M6 13l-3-3 3-3" stroke="var(--color-5)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                  <TokenSelect
+                    label="To"
+                    value={toMint}
+                    tokens={tokens.filter((t) => t.mint !== fromMint)}
+                    onChange={(mint) => !isInFlight && setToMint(mint)}
+                    disabled={isInFlight || !fromMint}
+                    lockedTooltip={lockedTooltip}
+                    prices={prices}
+                    lookup={tokenRegistry.lookup}
+                  />
+                </div>
+
+                {/* Amount row — same card, immediately under the pair so
+                    the user sees "I'm swapping X of A → B" as one
+                    continuous thought. */}
+                <div style={styles.formCardSubLabel}>Amount</div>
+                <div style={styles.amountInputWrap}>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="0.00"
+                    value={amountStr}
+                    onChange={(e) => {
+                      if (isInFlight) return;
+                      const v = e.target.value;
+                      if (v === "" || /^\d*\.?\d{0,8}$/.test(v)) {
+                        setAmountStr(v);
+                      }
+                    }}
+                    disabled={isInFlight}
+                    title={isInFlight ? lockedTooltip : undefined}
+                    aria-invalid={amountExceedsBalance}
+                    style={{
+                      ...styles.numericInput,
+                      borderColor: amountExceedsBalance
+                        ? "var(--color-danger)"
+                        : THEME.border,
+                      opacity: isInFlight ? 0.5 : 1,
+                      cursor: isInFlight ? "not-allowed" : "text",
+                      paddingRight: fromToken && !isInFlight ? 56 : 12,
+                    }}
+                  />
+                  {fromToken && !isInFlight && (
+                    <button
+                      type="button"
+                      // BUG FIX (UU): for SOL, leave a buffer for transaction
+                      // fees (and nonce rent in autopilot mode). 0.05 SOL
+                      // covers ~250 typical transactions + up to 8 nonce
+                      // account rents — well over the worst-case autopilot
+                      // pool (6 slices = N+2 = 8 accounts at ~0.00148 SOL
+                      // each = 0.012 SOL).
+                      onClick={() => {
+                        const buffer = fromMint === SOL_MINT ? 0.05 : 0;
+                        const max = Math.max(0, fromBalance - buffer);
+                        setAmountStr(max.toString());
+                      }}
+                      style={styles.maxButton}
+                      title={
+                        fromMint === SOL_MINT
+                          ? "Leaves 0.05 SOL for transaction fees + autopilot nonce rent."
+                          : undefined
+                      }
+                    >
+                      MAX
+                    </button>
+                  )}
+                </div>
+                {fromToken && (
+                  <div style={styles.amountHint}>
+                    Balance: {fromBalance.toLocaleString("en-US", {
+                      maximumFractionDigits: 4,
+                    })}{" "}
+                    {fromToken.symbol}
+                    {amountNum > 0 && fromUsdPrice > 0 && (
+                      <span style={{ marginLeft: 8 }}>≈ {formatUSD(amountUsd)}</span>
+                    )}
+                  </div>
+                )}
+                {amountExceedsBalance && (
+                  <div style={styles.amountError}>Amount exceeds balance.</div>
+                )}
+
+                {/* Inline live price (Pyth) — used to be its own section,
+                    now sits as a quiet footnote inside the Trade card. */}
+                <div style={styles.formCardFootnote}>
+                  <PriceDisplay
+                    mints={activeMints}
+                    tokens={tokens}
+                    prices={prices}
+                    isLoading={priceMonitor.isLoading}
+                    error={priceMonitor.error}
+                    lastUpdated={priceLastUpdated}
+                    now={now}
+                  />
+                </div>
+              </>
             )}
-          </div>
+          </FormCard>
 
-          {/* Canlı fiyat */}
-          <div style={styles.section}>
-            <div style={styles.sectionLabel}>LIVE PRICE (PYTH)</div>
-            <PriceDisplay
-              mints={activeMints}
-              tokens={tokens}
-              prices={prices}
-              isLoading={priceMonitor.isLoading}
-              error={priceMonitor.error}
-              lastUpdated={priceLastUpdated}
-              now={now}
-            />
-          </div>
-
-          {/* Vault preview (otomatik seçilmiş Kamino vault) */}
+          {/* Vault preview — sits between cards 1 and 2, framed as an
+              "info card" rather than a step the user configures. The
+              auto-vault selection is silent intelligence; surfacing it
+              here lets the user verify the choice without giving it the
+              weight of a numbered step. */}
           {fromMint && (
-            <div style={styles.section}>
+            <div style={styles.infoCard}>
               <VaultPreview
                 vault={optimalVault}
                 isLoading={vaultLoading}
@@ -726,84 +812,14 @@ export const ExecutionPanel: FC = () => {
             </div>
           )}
 
-          <div style={styles.divider} />
-
-          {/* Miktar */}
-          <div style={styles.section}>
-            <div style={styles.sectionLabel}>AMOUNT</div>
-            <div style={styles.amountInputWrap}>
-              <input
-                type="text"
-                inputMode="decimal"
-                placeholder="0.00"
-                value={amountStr}
-                onChange={(e) => {
-                  if (isInFlight) return;
-                  const v = e.target.value;
-                  // Sadece sayı + tek nokta + max 8 decimal kabul et.
-                  if (v === "" || /^\d*\.?\d{0,8}$/.test(v)) {
-                    setAmountStr(v);
-                  }
-                }}
-                disabled={isInFlight}
-                title={isInFlight ? lockedTooltip : undefined}
-                aria-invalid={amountExceedsBalance}
-                style={{
-                  ...styles.numericInput,
-                  borderColor: amountExceedsBalance
-                    ? "var(--color-danger)"
-                    : THEME.border,
-                  opacity: isInFlight ? 0.5 : 1,
-                  cursor: isInFlight ? "not-allowed" : "text",
-                  paddingRight: fromToken && !isInFlight ? 56 : 12,
-                }}
-              />
-              {fromToken && !isInFlight && (
-                <button
-                  type="button"
-                  // BUG FIX (UU): for SOL, leave a buffer for transaction
-                  // fees (and nonce rent in autopilot mode). Without it,
-                  // clicking MAX would empty the wallet and the first
-                  // tx broadcast would fail with "insufficient lamports
-                  // for fee". 0.05 SOL covers ~250 typical transactions
-                  // + up to 8 nonce account rents — well over the worst-
-                  // case autopilot pool (6 slices = N+2 = 8 accounts at
-                  // ~0.00148 SOL each = 0.012 SOL).
-                  onClick={() => {
-                    const buffer = fromMint === SOL_MINT ? 0.05 : 0;
-                    const max = Math.max(0, fromBalance - buffer);
-                    setAmountStr(max.toString());
-                  }}
-                  style={styles.maxButton}
-                  title={
-                    fromMint === SOL_MINT
-                      ? "Leaves 0.05 SOL for transaction fees + autopilot nonce rent."
-                      : undefined
-                  }
-                >
-                  MAX
-                </button>
-              )}
-            </div>
-            {fromToken && (
-              <div style={styles.amountHint}>
-                Balance: {fromBalance.toLocaleString("en-US", {
-                  maximumFractionDigits: 4,
-                })}{" "}
-                {fromToken.symbol}
-                {amountNum > 0 && fromUsdPrice > 0 && (
-                  <span style={{ marginLeft: 8 }}>≈ {formatUSD(amountUsd)}</span>
-                )}
-              </div>
-            )}
-            {amountExceedsBalance && (
-              <div style={styles.amountError}>Amount exceeds balance.</div>
-            )}
-          </div>
-
-          {/* Execution window */}
-          <div style={styles.section}>
-            <div style={styles.sectionLabel}>EXECUTION WINDOW</div>
+          {/* ============================================================
+              CARD 2 — SCHEDULE
+              Window + slice count. The TWAP "schedule" is the second
+              mental task: now that you know what you're trading, decide
+              how the engine should pace it.
+              ============================================================ */}
+          <FormCard step={2} title="Schedule" subtitle="When and how many slices">
+            <div style={styles.formCardSubLabel}>Execution window</div>
             <div
               style={{
                 ...styles.windowRow,
@@ -838,14 +854,9 @@ export const ExecutionPanel: FC = () => {
                 );
               })}
             </div>
-          </div>
 
-          {/* Slice count — capped at MAX_AUTOPILOT_SLICES when autopilot
-              is on (the setup tx can only fit so many nonce accounts).
-              JIT mode has no such ceiling, so we relax to 20. */}
-          <div style={styles.section}>
-            <div style={styles.sectionLabel}>
-              SLICE COUNT
+            <div style={styles.formCardSubLabel}>
+              Slice count
               {preSignEnabled && (
                 <span style={styles.sectionHint}>
                   {" "}(max {MAX_AUTOPILOT_SLICES} in autopilot)
@@ -871,13 +882,31 @@ export const ExecutionPanel: FC = () => {
                 cursor: isInFlight ? "not-allowed" : "text",
               }}
             />
-          </div>
+            {windowMs > 0 && sliceCount > 0 && (
+              <div style={styles.formCardFootnote}>
+                One slice every{" "}
+                <strong>
+                  {Math.round(windowMs / sliceCount / 1000 / 60)} min
+                </strong>{" "}
+                · {sliceCount} slices over{" "}
+                {WINDOW_PRESETS.find((p) => p.ms === windowMs)?.label ??
+                  `${Math.round(windowMs / 60000)}m`}
+              </div>
+            )}
+          </FormCard>
 
-          {/* Slippage */}
-          <div style={styles.section}>
-            <div style={styles.sectionLabel}>
-              SLIPPAGE THRESHOLD ({bpsToPercent(slippageBps)})
-            </div>
+          {/* ============================================================
+              CARD 3 — GUARDRAILS
+              Slippage threshold. Renamed from "SLIPPAGE THRESHOLD" to
+              the friendlier "Guardrails" because that's what it is in
+              user terms — the safety belt that aborts a slice when
+              market conditions go too far.
+              ============================================================ */}
+          <FormCard
+            step={3}
+            title="Guardrails"
+            subtitle={`Max ${bpsToPercent(slippageBps)} per slice`}
+          >
             <div
               style={{
                 ...styles.slippageRow,
@@ -939,7 +968,11 @@ export const ExecutionPanel: FC = () => {
                 <span style={styles.sliderLabel}>bps</span>
               </div>
             </div>
-          </div>
+            <div style={styles.formCardFootnote}>
+              Slices breaching this threshold will be deferred and
+              retried — never silently filled at a worse price.
+            </div>
+          </FormCard>
 
           {/* Quote comparison (state machine currentQuote'undan) */}
           {(state.currentQuote || state.status === ExecutionStatus.SLICE_WITHDRAWING ||
@@ -1095,6 +1128,36 @@ export const ExecutionPanel: FC = () => {
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// FormCard — grouped step card used by the new fluid form flow.
+//
+// Replaces the flat sequence of <div style={styles.section}> blocks with
+// three numbered cards (Trade · Schedule · Guardrails). Each card carries
+// its own header (step number, title, subtitle) so the user gets clear
+// "I'm on step 1 of 3" feedback without us having to add a dedicated
+// stepper bar.
+//
+// The numbered prefix is rendered as a small monospace pill so it reads
+// as a chapter mark, not a body number — it sits next to the title at
+// the same baseline.
+// ---------------------------------------------------------------------------
+
+const FormCard: FC<{
+  step: number;
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+}> = ({ step, title, subtitle, children }) => (
+  <section style={styles.formCard}>
+    <header style={styles.formCardHeader}>
+      <span style={styles.formCardStep}>{String(step).padStart(2, "0")}</span>
+      <span style={styles.formCardTitle}>{title}</span>
+      {subtitle && <span style={styles.formCardSubtitle}>{subtitle}</span>}
+    </header>
+    <div style={styles.formCardBody}>{children}</div>
+  </section>
+);
 
 // ---------------------------------------------------------------------------
 // TokenSelect — custom dropdown picker
@@ -1660,6 +1723,82 @@ const styles: Record<string, CSSProperties> = {
     fontWeight: 400,
     textTransform: "none",
     opacity: 0.75,
+  },
+  // ----- Grouped form cards (PR #5b form-flow refactor) -----------------
+  formCard: {
+    margin: "10px 16px",
+    padding: "16px 18px",
+    background: "var(--surface-card)",
+    border: `1px solid ${THEME.border}`,
+    borderRadius: 12,
+    boxShadow: "var(--shadow-component-soft, none)",
+    display: "flex",
+    flexDirection: "column",
+    gap: 12,
+  },
+  formCardHeader: {
+    display: "flex",
+    alignItems: "baseline",
+    gap: 10,
+    flexWrap: "wrap",
+    paddingBottom: 4,
+  },
+  formCardStep: {
+    fontFamily: MONO,
+    fontSize: 11,
+    fontWeight: 700,
+    color: "var(--color-5-strong, var(--color-5))",
+    letterSpacing: 0,
+    background: "var(--color-accent-bg-soft)",
+    border: "1px solid var(--color-accent-border)",
+    padding: "2px 7px",
+    borderRadius: 999,
+    fontVariantNumeric: "tabular-nums",
+    flexShrink: 0,
+  },
+  formCardTitle: {
+    fontFamily: SANS,
+    fontSize: 16,
+    fontWeight: 700,
+    color: THEME.text,
+    letterSpacing: 0,
+  },
+  formCardSubtitle: {
+    fontFamily: MONO,
+    fontSize: 12,
+    color: THEME.textMuted,
+    fontVariantNumeric: "tabular-nums",
+    marginLeft: "auto",
+  },
+  formCardBody: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 10,
+  },
+  formCardSubLabel: {
+    fontFamily: MONO,
+    fontSize: 12,
+    fontWeight: 600,
+    color: THEME.textMuted,
+    letterSpacing: 0,
+    marginTop: 2,
+  },
+  formCardFootnote: {
+    marginTop: 4,
+    fontFamily: MONO,
+    fontSize: 12,
+    color: THEME.textMuted,
+    lineHeight: 1.5,
+  },
+  // Info card — silent intelligence the user verifies but doesn't
+  // configure (auto-selected Kamino vault, route stats, etc.). Visually
+  // softer than a numbered FormCard so it reads as supporting info.
+  infoCard: {
+    margin: "0 16px",
+    padding: "12px 14px",
+    background: "var(--color-accent-bg-soft)",
+    border: "1px dashed var(--color-accent-border)",
+    borderRadius: 10,
   },
   multiTabBanner: {
     display: "flex",
