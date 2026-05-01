@@ -46,6 +46,7 @@ import CommandPalette, {
 } from "./components/CommandPalette";
 import ProfileSetup from "./components/ProfileSetup";
 import CompletionFlourish from "./components/CompletionFlourish";
+import UnicornBackground from "./components/UnicornBackground";
 import { ExecutionStatus } from "./state/executionMachine";
 import { ToastContainer } from "./components/ToastProvider";
 import DisclaimerModal, {
@@ -261,6 +262,20 @@ export const App: FC = () => {
   );
 
   // ---------------------------------------------------------------------
+  // Unicorn Studio animated background — fixed-position, full-viewport,
+  // sits behind every layout's content. Same instance shared across all
+  // three layouts so the runtime initialises once.
+  //
+  // Opacity dialled to 0.55: the upstream scene is more saturated than
+  // our pastel palette, so we soften it to a "sense of motion" layer
+  // rather than a competing visual element. The body's
+  // var(--color-1) stays the dominant base colour through the unicorn.
+  // ---------------------------------------------------------------------
+  const unicornBackground = (
+    <UnicornBackground projectId="1mCMfRJPPI9y8tbAhs5m" opacity={0.55} />
+  );
+
+  // ---------------------------------------------------------------------
   // ProfileSetup modal element — same JSX rendered in all three layouts.
   // Lifting the conditional construction up here keeps the layout
   // branches readable and makes sure the same `dismissable` flag is
@@ -391,6 +406,7 @@ export const App: FC = () => {
   if (device.isMobile) {
     return (
       <div className="liminal-root" style={styles.mobileRoot}>
+        {unicornBackground}
         <HeaderBar networkStatus={networkStatus} inFlight={headerInFlight} onEditProfile={() => setProfileSetupMode("edit")} />
         {device.isSolflareInAppBrowser && <SolflareBanner />}
         <NetworkBanner />
@@ -475,6 +491,7 @@ export const App: FC = () => {
   if (device.isTablet) {
     return (
       <div className="liminal-root" style={styles.appRoot}>
+        {unicornBackground}
         <HeaderBar networkStatus={networkStatus} inFlight={headerInFlight} onEditProfile={() => setProfileSetupMode("edit")} />
         {device.isSolflareInAppBrowser && <SolflareBanner />}
         <NetworkBanner />
@@ -505,6 +522,7 @@ export const App: FC = () => {
   // ------------------------------------------------------------------
   return (
     <div className="liminal-root" style={styles.appRoot}>
+        {unicornBackground}
       <HeaderBar networkStatus={networkStatus} inFlight={headerInFlight} onEditProfile={() => setProfileSetupMode("edit")} />
       {device.isSolflareInAppBrowser && <SolflareBanner />}
         <NetworkBanner />
@@ -640,11 +658,16 @@ const MobileTabButton: FC<{
 
 const styles: Record<string, CSSProperties> = {
   appRoot: {
-    background: THEME.bg,
+    // Transparent so the fixed-position UnicornBackground (z-index 0)
+    // shows through. Body still has var(--color-1) as a fallback while
+    // the Unicorn runtime loads + on prefers-reduced-motion users.
+    background: "transparent",
     color: THEME.text,
     fontFamily: SANS,
     display: "flex",
     flexDirection: "column",
+    position: "relative",
+    zIndex: 1,
   },
   solflareBanner: {
     display: "flex",
@@ -755,11 +778,14 @@ const styles: Record<string, CSSProperties> = {
 
   // Mobile
   mobileRoot: {
-    background: THEME.bg,
+    // Same transparency rationale as appRoot — see above.
+    background: "transparent",
     color: THEME.text,
     fontFamily: SANS,
     display: "flex",
     flexDirection: "column",
+    position: "relative",
+    zIndex: 1,
   },
   mobileBody: {
     flex: 1,
