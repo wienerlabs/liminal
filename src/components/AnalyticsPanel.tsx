@@ -63,6 +63,12 @@ import MorphicTabs from "./MorphicTabs";
 import ProgressRingsCard from "./ProgressRingsCard";
 import TwapLoadingState from "./TwapLoadingState";
 import ExecutionStack from "./ExecutionStack";
+import {
+  defaultFilename,
+  executionsToCsv,
+  slicesToCsv,
+  triggerDownload,
+} from "../services/historyExport";
 import { getMevStrategy, type MevLayer } from "../services/mevProtection";
 
 // ---------------------------------------------------------------------------
@@ -1010,6 +1016,13 @@ const HistoryTab: FC<{ isMobile: boolean }> = ({ isMobile }) => {
         gap: 10,
       }}
     >
+      {/* Export bar — sits above the stack on desktop, takes the full
+          column width. Two buttons: per-execution rollup (one row per
+          completed run) and per-slice (one row per fill, useful for
+          cost-basis FIFO). UTF-8 BOM is included so Excel detects
+          encoding correctly. */}
+      <HistoryExportBar history={history} isMobile={isMobile} />
+
       {/* Fan-out card stack — visual centrepiece showing the 6 most
           recent executions. Click the stack to fan them out, click a
           card to open the detail modal. The original detailed card
@@ -1043,6 +1056,56 @@ const HistoryTab: FC<{ isMobile: boolean }> = ({ isMobile }) => {
     </div>
   );
 };
+
+// ---------------------------------------------------------------------------
+// HistoryExportBar — two CSV download buttons + a one-line note.
+// Renders above the fan-out stack on desktop, stacks on mobile.
+// ---------------------------------------------------------------------------
+
+const HistoryExportBar: FC<{
+  history: HistoricalExecution[];
+  isMobile: boolean;
+}> = ({ history, isMobile }) => (
+  <div
+    style={{
+      ...styles.exportBar,
+      gridColumn: isMobile ? undefined : "1 / -1",
+      flexDirection: isMobile ? "column" : "row",
+    }}
+  >
+    <div style={styles.exportBarText}>
+      <strong>Export {history.length} execution{history.length === 1 ? "" : "s"}</strong>
+      {" "}
+      <span style={styles.exportBarHint}>
+        — tax-ready CSV with Jupiter-baseline comparator + Kamino yield
+      </span>
+    </div>
+    <div style={styles.exportBarButtons}>
+      <button
+        type="button"
+        style={styles.exportButton}
+        className="liminal-press"
+        onClick={() => {
+          const csv = executionsToCsv(history);
+          triggerDownload(defaultFilename("liminal-executions"), csv);
+        }}
+      >
+        Executions CSV
+      </button>
+      <button
+        type="button"
+        style={styles.exportButton}
+        className="liminal-press"
+        onClick={() => {
+          const csv = slicesToCsv(history);
+          triggerDownload(defaultFilename("liminal-slices"), csv);
+        }}
+      >
+        Slices CSV
+      </button>
+    </div>
+  </div>
+);
 
 const HistoryCard: FC<{
   execution: HistoricalExecution;
@@ -1930,6 +1993,47 @@ const styles: Record<string, CSSProperties> = {
     color: THEME.textMuted,
     lineHeight: 1.5,
     fontStyle: "italic",
+  },
+
+  // CSV export bar (HistoryTab)
+  exportBar: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    padding: "12px 14px",
+    background: "var(--surface-card)",
+    border: `1px solid ${THEME.border}`,
+    borderRadius: 10,
+    marginBottom: 4,
+  },
+  exportBarText: {
+    fontFamily: MONO,
+    fontSize: 13,
+    color: THEME.text,
+    flex: 1,
+    minWidth: 0,
+  },
+  exportBarHint: {
+    color: THEME.textMuted,
+    fontWeight: 400,
+  },
+  exportBarButtons: {
+    display: "inline-flex",
+    gap: 8,
+    flexShrink: 0,
+  },
+  exportButton: {
+    padding: "8px 14px",
+    fontFamily: MONO,
+    fontSize: 13,
+    fontWeight: 600,
+    color: THEME.text,
+    background: "var(--surface-raised)",
+    border: `1px solid ${THEME.border}`,
+    borderRadius: 8,
+    cursor: "pointer",
+    transition: "border-color var(--motion-base) var(--ease-out), background var(--motion-base) var(--ease-out)",
   },
 
   // Charts
