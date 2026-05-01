@@ -1957,14 +1957,15 @@ const styles: Record<string, CSSProperties> = {
   formCard: {
     margin: "10px 16px",
     padding: "16px 18px",
-    // Aggressive transparency so the Unicorn Studio scene + the
-    // ExecutionPanel glass behind it both bleed through. Light theme
-    // gets a 30% white wash; dark theme uses a tinted 22% black.
-    // Both pair with backdrop-filter so the visual underneath blurs
-    // softly rather than pixelating through the card.
-    background: "rgba(255, 255, 255, 0.30)",
-    backdropFilter: "blur(14px) saturate(140%)",
-    WebkitBackdropFilter: "blur(14px) saturate(140%)",
+    // Fully transparent surface — only the border + chapter pill +
+    // content sits between the user and the panel's frosted glass +
+    // the Unicorn Studio scene behind it. We keep a tiny backdrop
+    // blur so any text directly under the card body still stays
+    // legible, but no coloured wash. Border carries the visual
+    // structure of the card on its own.
+    background: "transparent",
+    backdropFilter: "blur(6px)",
+    WebkitBackdropFilter: "blur(6px)",
     border: `1px solid var(--color-stroke)`,
     borderRadius: 12,
     boxShadow: "var(--shadow-component-soft, none)",
