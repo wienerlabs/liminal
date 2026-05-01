@@ -48,7 +48,11 @@ const SANS = "var(--font-sans)";
 // ---------------------------------------------------------------------------
 
 export type HeaderBarProps = {
-  networkStatus?: { status: "connected" | "slow" | "offline"; slot: number | null };
+  networkStatus?: {
+    status: "connected" | "slow" | "offline";
+    slot: number | null;
+    latencyMs?: number | null;
+  };
   /**
    * In-flight execution snapshot — when present, the header renders a
    * compact slice-progress chip (e.g. "▶ 2/4 · +$3.21"). Undefined means
@@ -177,22 +181,14 @@ export const HeaderBar: FC<HeaderBarProps> = ({
         {networkStatus && (
           <div
             style={styles.networkPill}
-            aria-label={`Solana network: ${netLabel}`}
-            title={
-              device.isMobile && networkStatus.slot !== null
-                ? `${netLabel} · slot #${networkStatus.slot}`
-                : undefined
-            }
+            aria-label={`Solana network: ${netLabel}${networkStatus.latencyMs != null ? `, ${Math.round(networkStatus.latencyMs)}ms` : ""}`}
+            title={`${netLabel}${networkStatus.latencyMs != null ? ` · ${Math.round(networkStatus.latencyMs)}ms` : ""}${networkStatus.slot != null ? ` · slot #${networkStatus.slot}` : ""}`}
           >
-            <span
-              style={{
-                ...styles.netDot,
-                background: netDotColor,
-                boxShadow: `0 0 6px ${netDotColor}`,
-              }}
-              aria-hidden="true"
+            <NetworkMeter
+              latencyMs={networkStatus.latencyMs ?? null}
+              status={networkStatus.status}
             />
-            {/* Mobile: just the dot. Tablet/desktop: full label + slot. */}
+            {/* Mobile: just the meter. Tablet/desktop: full label + slot. */}
             {!device.isMobile && (
               <>
                 <span style={styles.netLabel}>{netLabel}</span>
@@ -386,6 +382,62 @@ const BalanceChip: FC<{ summary: ReturnType<typeof useWalletSummary> }> = ({
           />
         </>
       )}
+    </span>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// NetworkMeter — 3-bar wifi-style gauge driven by RPC latency.
+//   - 3 bars lit if latency < 250ms (green, "fresh")
+//   - 2 bars lit if 250-700ms (warm green, "good")
+//   - 1 bar  lit if 700-2000ms (amber, "slow")
+//   - 0 bars + red dot if status === "offline"
+//
+// Tooltip on the parent pill shows the actual latency + slot.
+// ---------------------------------------------------------------------------
+
+const NetworkMeter: FC<{
+  latencyMs: number | null;
+  status: "connected" | "slow" | "offline";
+}> = ({ latencyMs, status }) => {
+  const lit =
+    status === "offline"
+      ? 0
+      : latencyMs == null
+        ? 2
+        : latencyMs < 250
+          ? 3
+          : latencyMs < 700
+            ? 2
+            : 1;
+  const colour =
+    lit === 0
+      ? "var(--color-danger)"
+      : lit === 1
+        ? "var(--color-warn)"
+        : "var(--color-success)";
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "flex-end",
+        gap: 2,
+        height: 12,
+      }}
+      aria-hidden="true"
+    >
+      {[0, 1, 2].map((i) => (
+        <span
+          key={i}
+          style={{
+            width: 3,
+            height: 4 + i * 3,
+            background: i < lit ? colour : "var(--color-stroke)",
+            borderRadius: 1,
+            transition: "background var(--motion-base) var(--ease-out)",
+          }}
+        />
+      ))}
     </span>
   );
 };
