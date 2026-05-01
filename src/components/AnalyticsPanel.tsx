@@ -439,18 +439,18 @@ const LiveHeroCard: FC = () => (
     <div style={styles.heroFeatures}>
       <HeroFeature
         icon={<HeroIconBps />}
-        title="DFlow price improvement"
-        desc="Basis-point gain vs. the market baseline, per slice."
+        title="vs. Jupiter direct"
+        desc="Each slice is benchmarked against the Jupiter aggregator quote at the same instant — DFlow's RFQ pool fills against committed market-maker inventory, so you systematically capture the spread Jupiter direct can't."
       />
       <HeroFeature
         icon={<HeroIconYield />}
-        title="Live Kamino yield"
-        desc="Idle capital accrues interest every 15 seconds."
+        title="+ Live Kamino yield"
+        desc="The portion not yet swapped sits in a Kamino lending vault accruing interest every 15s. A single-shot Jupiter swap leaves this on the table."
       />
       <HeroFeature
         icon={<HeroIconCapture />}
-        title="Total value capture"
-        desc="DFlow savings + Kamino yield rolled up in USD."
+        title="= Composite alpha"
+        desc="Spread + yield, rolled up in USD. Every completed execution shows both deltas vs. the Jupiter-direct baseline."
       />
     </div>
   </div>
@@ -561,7 +561,7 @@ const ValueCaptureBanner: FC<{
       </div>
       <div style={styles.valueCaptureBreakdown}>
         <div style={styles.breakdownRow}>
-          <span style={styles.breakdownKey}>DFlow:</span>
+          <span style={styles.breakdownKey}>vs. Jupiter direct:</span>
           <span
             style={{
               ...styles.breakdownValue,
@@ -576,10 +576,15 @@ const ValueCaptureBanner: FC<{
           </span>
         </div>
         <div style={styles.breakdownRow}>
-          <span style={styles.breakdownKey}>Kamino:</span>
+          <span style={styles.breakdownKey}>+ Kamino yield:</span>
           <span style={{ ...styles.breakdownValue, color: THEME.success }}>
             {formatUSDCompact(liveYieldUsd)}
           </span>
+        </div>
+        <div style={styles.breakdownNote}>
+          Same swap on Jupiter would have stopped at the first row — yield
+          stays on the table when capital sits in the wallet during the
+          TWAP window.
         </div>
       </div>
     </div>
@@ -1915,6 +1920,16 @@ const styles: Record<string, CSSProperties> = {
   },
   breakdownValue: {
     fontWeight: 600,
+  },
+  breakdownNote: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTop: `1px dashed ${THEME.border}`,
+    fontFamily: SANS,
+    fontSize: 13,
+    color: THEME.textMuted,
+    lineHeight: 1.5,
+    fontStyle: "italic",
   },
 
   // Charts

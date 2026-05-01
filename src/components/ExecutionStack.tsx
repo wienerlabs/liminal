@@ -204,7 +204,7 @@ export const ExecutionStack: FC<ExecutionStackProps> = ({
                 }`}
               />
               <Spec
-                label="Gain"
+                label="vs Jupiter"
                 value={formatUsd(gain)}
                 color={gainColor}
               />
