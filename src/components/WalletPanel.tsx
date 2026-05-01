@@ -667,7 +667,7 @@ const TokenAvatar: FC<{
         justifyContent: "center",
         background: `linear-gradient(135deg, hsl(${hue}, 70%, 82%), hsl(${(hue + 40) % 360}, 70%, 75%))`,
         color: "var(--color-text)",
-        fontSize: 11,
+        fontSize: 13,
         fontWeight: 700,
         letterSpacing: 0,
       }}
@@ -705,7 +705,7 @@ const styles: Record<string, CSSProperties> = {
   },
   header: {
     fontFamily: MONO,
-    fontSize: 13,
+    fontSize: 15,
     letterSpacing: 0,
     fontWeight: 600,
     color: THEME.textMuted,
@@ -724,7 +724,7 @@ const styles: Record<string, CSSProperties> = {
   },
   emptyHint: {
     fontFamily: MONO,
-    fontSize: 15,
+    fontSize: 17,
     color: THEME.textMuted,
     textAlign: "center",
     maxWidth: 240,
@@ -738,7 +738,7 @@ const styles: Record<string, CSSProperties> = {
   },
   bulletItem: {
     fontFamily: MONO,
-    fontSize: 14,
+    fontSize: 16,
     color: THEME.textMuted,
     display: "flex",
     alignItems: "center",
@@ -754,7 +754,7 @@ const styles: Record<string, CSSProperties> = {
   },
   primaryButton: {
     fontFamily: MONO,
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 600,
     color: "var(--color-text-inverse)",
     background: THEME.accent,
@@ -766,7 +766,7 @@ const styles: Record<string, CSSProperties> = {
   },
   secondaryButton: {
     fontFamily: MONO,
-    fontSize: 14,
+    fontSize: 16,
     color: THEME.textMuted,
     background: "transparent",
     border: `1px solid ${THEME.border}`,
@@ -782,7 +782,7 @@ const styles: Record<string, CSSProperties> = {
   },
   sectionLabel: {
     fontFamily: MONO,
-    fontSize: 13,
+    fontSize: 15,
     color: THEME.textMuted,
     letterSpacing: 0,
     fontWeight: 600,
@@ -801,14 +801,14 @@ const styles: Record<string, CSSProperties> = {
   },
   addressValue: {
     fontFamily: MONO,
-    fontSize: 17,
+    fontSize: 19,
     color: THEME.text,
     letterSpacing: 0,
     fontVariantNumeric: "tabular-nums",
   },
   copiedText: {
     fontFamily: MONO,
-    fontSize: 13,
+    fontSize: 15,
     color: THEME.accent,
     fontWeight: 600,
     minWidth: 44,
@@ -838,7 +838,7 @@ const styles: Record<string, CSSProperties> = {
   },
   balanceSymbol: {
     fontFamily: MONO,
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 600,
     color: THEME.text,
     letterSpacing: 0,
@@ -851,13 +851,13 @@ const styles: Record<string, CSSProperties> = {
   },
   balanceAmount: {
     fontFamily: MONO,
-    fontSize: 16,
+    fontSize: 18,
     color: THEME.text,
     fontVariantNumeric: "tabular-nums",
   },
   balanceUsd: {
     fontFamily: MONO,
-    fontSize: 13,
+    fontSize: 15,
     color: THEME.textMuted,
     fontVariantNumeric: "tabular-nums",
   },
@@ -879,13 +879,13 @@ const styles: Record<string, CSSProperties> = {
   },
   errorText: {
     fontFamily: MONO,
-    fontSize: 15,
+    fontSize: 17,
     color: THEME.danger,
     lineHeight: 1.5,
   },
   errorDetail: {
     fontFamily: MONO,
-    fontSize: 13,
+    fontSize: 15,
     color: THEME.textMuted,
     lineHeight: 1.5,
   },
@@ -904,7 +904,7 @@ const styles: Record<string, CSSProperties> = {
   },
   historyAllLink: {
     fontFamily: MONO,
-    fontSize: 12,
+    fontSize: 14,
     color: THEME.accent,
     background: "transparent",
     border: "none",
@@ -915,7 +915,7 @@ const styles: Record<string, CSSProperties> = {
   },
   historyEmpty: {
     fontFamily: MONO,
-    fontSize: 13,
+    fontSize: 15,
     color: THEME.textMuted,
     textAlign: "center",
     padding: "8px 0",
@@ -945,16 +945,16 @@ const styles: Record<string, CSSProperties> = {
     gap: 6,
   },
   historyRowPair: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: 600,
     color: THEME.text,
   },
   historyRowDate: {
-    fontSize: 12,
+    fontSize: 14,
     color: THEME.textMuted,
   },
   historyRowValue: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: 700,
     fontVariantNumeric: "tabular-nums",
   },
@@ -989,13 +989,13 @@ const styles: Record<string, CSSProperties> = {
     alignItems: "baseline",
   },
   kaminoPositionSymbol: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 600,
     color: THEME.text,
     letterSpacing: 0,
   },
   kaminoPositionApy: {
-    fontSize: 15,
+    fontSize: 17,
     color: "var(--color-success)",
     fontVariantNumeric: "tabular-nums",
     fontWeight: 600,
@@ -1006,24 +1006,24 @@ const styles: Record<string, CSSProperties> = {
     alignItems: "baseline",
   },
   kaminoPositionAmount: {
-    fontSize: 15,
+    fontSize: 17,
     color: THEME.textMuted,
     fontVariantNumeric: "tabular-nums",
   },
   kaminoPositionOpenIcon: {
-    fontSize: 14,
+    fontSize: 16,
     color: "var(--color-5-strong)",
     fontWeight: 700,
   },
   kaminoFootnote: {
     marginTop: 8,
-    fontSize: 13,
+    fontSize: 15,
     color: THEME.textMuted,
     lineHeight: 1.5,
   },
   disconnectConfirmYes: {
     fontFamily: MONO,
-    fontSize: 14,
+    fontSize: 16,
     color: "#fff",
     background: "var(--color-danger)",
     border: "1px solid var(--color-danger)",

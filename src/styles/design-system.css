@@ -157,20 +157,20 @@
   --font-code: 'ABC Favorit Mono', ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
   --font-hero: 'ABC Favorit', 'ABC Favorit Mono', system-ui, -apple-system, sans-serif;
 
-  /* ----- Type scale (1.25 ratio — major third) ---------------------
-     Smooth modular scale. Each step is 1.25× the previous, producing
-     a coherent vertical rhythm without the jarring 16→27 jump the
-     old scale had. Mono fonts read slightly smaller than equivalent
-     sans, so the base bumps up to 16 (was effectively 13-14 mixed).
-     14 / 16 / 20 / 25 / 31 / 39 / 49 px */
-  --text-xs: 13px;
-  --text-sm: 14px;
-  --text-base: 16px;
-  --text-lg: 20px;
-  --text-xl: 25px;
-  --text-2xl: 31px;
-  --text-3xl: 39px;
-  --text-hero: 49px;
+  /* ----- Type scale (1.25 ratio — major third, base 18) -------------
+     Bumped one step in PR #5m per user feedback ("yazı fontları daha
+     büyük olsun her yerde"). Same 1.25× modular ratio, base shifted
+     14 → 18, top of scale 49 → 56. Inline fontSize literals were
+     also bumped by +2 px in components that don't go through tokens.
+     16 / 18 / 22 / 28 / 35 / 44 / 56 px */
+  --text-xs: 15px;
+  --text-sm: 16px;
+  --text-base: 18px;
+  --text-lg: 22px;
+  --text-xl: 28px;
+  --text-2xl: 35px;
+  --text-3xl: 44px;
+  --text-hero: 56px;
 
   /* ----- Spacing scale (8pt grid) ----------------------------------- */
   --space-1: 4px;

@@ -177,13 +177,13 @@ const styles: Record<string, CSSProperties> = {
   },
   circleNumber: {
     fontFamily: "var(--font-sans)",
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: 700,
     lineHeight: 1,
   },
   label: {
     fontFamily: "var(--font-mono)",
-    fontSize: 12,
+    fontSize: 14,
     letterSpacing: 0,
     textTransform: "none" as const,
     textAlign: "center" as const,

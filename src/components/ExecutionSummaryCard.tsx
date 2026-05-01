@@ -272,7 +272,7 @@ const styles: Record<string, CSSProperties> = {
     justifyContent: "center",
   },
   title: {
-    fontSize: 17,
+    fontSize: 19,
     fontWeight: 700,
     color: THEME.success,
     letterSpacing: 0,
@@ -282,17 +282,17 @@ const styles: Record<string, CSSProperties> = {
     marginTop: 6,
   },
   pairText: {
-    fontSize: 19,
+    fontSize: 21,
     fontWeight: 600,
     color: THEME.text,
   },
   amountRow: {
-    fontSize: 16,
+    fontSize: 18,
     color: THEME.textMuted,
     fontVariantNumeric: "tabular-nums",
   },
   durationRow: {
-    fontSize: 14,
+    fontSize: 16,
     color: THEME.textMuted,
     fontVariantNumeric: "tabular-nums",
   },
@@ -316,23 +316,23 @@ const styles: Record<string, CSSProperties> = {
     textAlign: "center",
   },
   metricLabel: {
-    fontSize: 12,
+    fontSize: 14,
     color: THEME.textMuted,
     letterSpacing: 0,
     textTransform: "none",
   },
   metricValue: {
-    fontSize: 17,
+    fontSize: 19,
     fontWeight: 700,
     fontVariantNumeric: "tabular-nums",
   },
   metricSub: {
-    fontSize: 12,
+    fontSize: 14,
     color: THEME.textMuted,
     fontVariantNumeric: "tabular-nums",
   },
   valueCaptureLabel: {
-    fontSize: 13,
+    fontSize: 15,
     color: THEME.textMuted,
     letterSpacing: 0,
     textTransform: "none",
@@ -347,7 +347,7 @@ const styles: Record<string, CSSProperties> = {
     animation: "liminal-scale-in 600ms ease-out",
   },
   valueCaptureHint: {
-    fontSize: 12,
+    fontSize: 14,
     color: THEME.textMuted,
     textAlign: "center",
     maxWidth: 280,
@@ -363,7 +363,7 @@ const styles: Record<string, CSSProperties> = {
   },
   primaryButton: {
     fontFamily: MONO,
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: 700,
     color: "var(--color-text-inverse)",
     background: THEME.accent,
@@ -377,7 +377,7 @@ const styles: Record<string, CSSProperties> = {
   },
   secondaryButton: {
     fontFamily: MONO,
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: 600,
     color: THEME.text,
     background: "transparent",

@@ -611,7 +611,7 @@ export const ExecutionPanel: FC = () => {
                   background: "var(--color-warn-bg, rgba(255, 100, 80, 0.12))",
                   color: THEME.text,
                   fontFamily: MONO,
-                  fontSize: 12,
+                  fontSize: 14,
                   lineHeight: 1.5,
                   textAlign: "left",
                 }}
@@ -1716,7 +1716,7 @@ const PriceDisplay: FC<{
                 <span
                   style={{
                     color: THEME.textMuted,
-                    fontSize: 12,
+                    fontSize: 14,
                     fontWeight: 500,
                   }}
                   title="No Pyth price feed available for this token"
@@ -1909,7 +1909,7 @@ const styles: Record<string, CSSProperties> = {
   },
   header: {
     fontFamily: MONO,
-    fontSize: 13,
+    fontSize: 15,
     letterSpacing: 0,
     fontWeight: 600,
     color: THEME.textMuted,
@@ -1926,7 +1926,7 @@ const styles: Record<string, CSSProperties> = {
   },
   emptyHint: {
     fontFamily: MONO,
-    fontSize: 15,
+    fontSize: 17,
     color: THEME.textMuted,
     textAlign: "center",
     maxWidth: 280,
@@ -1937,7 +1937,7 @@ const styles: Record<string, CSSProperties> = {
   },
   sectionLabel: {
     fontFamily: MONO,
-    fontSize: 13,
+    fontSize: 15,
     color: THEME.textMuted,
     letterSpacing: 0,
     fontWeight: 600,
@@ -1946,7 +1946,7 @@ const styles: Record<string, CSSProperties> = {
   },
   sectionHint: {
     fontFamily: MONO,
-    fontSize: 11,
+    fontSize: 13,
     color: THEME.textMuted,
     letterSpacing: 0,
     fontWeight: 400,
@@ -1982,7 +1982,7 @@ const styles: Record<string, CSSProperties> = {
   },
   formCardStep: {
     fontFamily: MONO,
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: 700,
     color: "var(--color-5-strong, var(--color-5))",
     letterSpacing: 0,
@@ -1995,14 +1995,14 @@ const styles: Record<string, CSSProperties> = {
   },
   formCardTitle: {
     fontFamily: SANS,
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 700,
     color: THEME.text,
     letterSpacing: 0,
   },
   formCardSubtitle: {
     fontFamily: MONO,
-    fontSize: 12,
+    fontSize: 14,
     color: THEME.textMuted,
     fontVariantNumeric: "tabular-nums",
     marginLeft: "auto",
@@ -2014,7 +2014,7 @@ const styles: Record<string, CSSProperties> = {
   },
   formCardSubLabel: {
     fontFamily: MONO,
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: 600,
     color: THEME.textMuted,
     letterSpacing: 0,
@@ -2023,7 +2023,7 @@ const styles: Record<string, CSSProperties> = {
   formCardFootnote: {
     marginTop: 4,
     fontFamily: MONO,
-    fontSize: 12,
+    fontSize: 14,
     color: THEME.textMuted,
     lineHeight: 1.5,
   },
@@ -2040,7 +2040,7 @@ const styles: Record<string, CSSProperties> = {
     border: "1px solid var(--color-accent-border)",
     borderRadius: 999,
     fontFamily: MONO,
-    fontSize: 13,
+    fontSize: 15,
   },
   yieldTickerDot: {
     width: 8,
@@ -2063,7 +2063,7 @@ const styles: Record<string, CSSProperties> = {
   },
   yieldTickerHint: {
     color: THEME.textMuted,
-    fontSize: 11,
+    fontSize: 13,
     marginLeft: "auto",
   },
   // Smart-pick chip row — appears under the token pair when From is
@@ -2078,7 +2078,7 @@ const styles: Record<string, CSSProperties> = {
   },
   smartChipsLabel: {
     fontFamily: MONO,
-    fontSize: 11,
+    fontSize: 13,
     color: THEME.textMuted,
     letterSpacing: 0,
   },
@@ -2092,7 +2092,7 @@ const styles: Record<string, CSSProperties> = {
     background: "var(--color-accent-bg-soft)",
     color: THEME.text,
     fontFamily: MONO,
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: 600,
     cursor: "pointer",
     transition:
@@ -2118,12 +2118,12 @@ const styles: Record<string, CSSProperties> = {
     background: "var(--color-warn-bg, rgba(255, 200, 80, 0.18))",
     border: `1px solid ${THEME.amber}`,
     fontFamily: MONO,
-    fontSize: 12,
+    fontSize: 14,
     color: THEME.text,
     lineHeight: 1.5,
   },
   multiTabIcon: {
-    fontSize: 18,
+    fontSize: 20,
     flexShrink: 0,
     lineHeight: 1,
   },
@@ -2146,14 +2146,14 @@ const styles: Record<string, CSSProperties> = {
   },
   selectLabel: {
     fontFamily: MONO,
-    fontSize: 12,
+    fontSize: 14,
     color: THEME.textMuted,
     letterSpacing: 0,
     textTransform: "none",
   },
   select: {
     fontFamily: MONO,
-    fontSize: 16,
+    fontSize: 18,
     color: THEME.text,
     background: "var(--surface-input)",
     boxShadow: "inset 0 1px 2px rgba(26, 26, 26, 0.06)",
@@ -2182,7 +2182,7 @@ const styles: Record<string, CSSProperties> = {
     borderRadius: "var(--radius-sm)",
     boxShadow: "inset 0 1px 2px rgba(26, 26, 26, 0.06)",
     fontFamily: MONO,
-    fontSize: 16,
+    fontSize: 18,
     color: THEME.text,
     textAlign: "left",
     transition: "border-color var(--motion-base) var(--ease-out)",
@@ -2193,7 +2193,7 @@ const styles: Record<string, CSSProperties> = {
   },
   tokenTriggerPrice: {
     color: THEME.textMuted,
-    fontSize: 13,
+    fontSize: 15,
     fontVariantNumeric: "tabular-nums",
   },
   tokenTriggerPlaceholder: {
@@ -2235,13 +2235,13 @@ const styles: Record<string, CSSProperties> = {
   tokenMenuSymbol: {
     fontFamily: MONO,
     fontWeight: 700,
-    fontSize: 14,
+    fontSize: 16,
     color: THEME.text,
     letterSpacing: 0,
   },
   tokenMenuName: {
     fontFamily: SANS,
-    fontSize: 12,
+    fontSize: 14,
     color: THEME.textMuted,
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -2256,13 +2256,13 @@ const styles: Record<string, CSSProperties> = {
   },
   tokenMenuPrice: {
     fontFamily: MONO,
-    fontSize: 13,
+    fontSize: 15,
     color: THEME.text,
     fontVariantNumeric: "tabular-nums",
   },
   tokenMenuBalance: {
     fontFamily: MONO,
-    fontSize: 11,
+    fontSize: 13,
     color: THEME.textMuted,
     fontVariantNumeric: "tabular-nums",
   },
@@ -2273,7 +2273,7 @@ const styles: Record<string, CSSProperties> = {
     padding: "12px",
     color: THEME.textMuted,
     fontFamily: SANS,
-    fontSize: 13,
+    fontSize: 15,
     textAlign: "center",
   },
   swapButton: {
@@ -2291,7 +2291,7 @@ const styles: Record<string, CSSProperties> = {
   },
   numericInput: {
     fontFamily: MONO,
-    fontSize: 17,
+    fontSize: 19,
     color: THEME.text,
     background: "var(--surface-input)",
     boxShadow: "inset 0 1px 2px rgba(26, 26, 26, 0.06)",
@@ -2313,7 +2313,7 @@ const styles: Record<string, CSSProperties> = {
     top: "50%",
     transform: "translateY(-50%)",
     fontFamily: MONO,
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: 700,
     letterSpacing: 0,
     textTransform: "none",
@@ -2328,14 +2328,14 @@ const styles: Record<string, CSSProperties> = {
   },
   amountHint: {
     fontFamily: MONO,
-    fontSize: 13,
+    fontSize: 15,
     color: THEME.textMuted,
     marginTop: 6,
     fontVariantNumeric: "tabular-nums",
   },
   amountError: {
     fontFamily: MONO,
-    fontSize: 13,
+    fontSize: 15,
     color: THEME.danger,
     marginTop: 6,
   },
@@ -2353,7 +2353,7 @@ const styles: Record<string, CSSProperties> = {
   },
   priceText: {
     fontFamily: MONO,
-    fontSize: 17,
+    fontSize: 19,
     color: THEME.text,
     fontVariantNumeric: "tabular-nums",
   },
@@ -2363,14 +2363,14 @@ const styles: Record<string, CSSProperties> = {
   },
   timestamp: {
     fontFamily: MONO,
-    fontSize: 13,
+    fontSize: 15,
     color: THEME.textMuted,
     fontVariantNumeric: "tabular-nums",
     marginTop: 4,
   },
   hintText: {
     fontFamily: MONO,
-    fontSize: 14,
+    fontSize: 16,
     color: THEME.textMuted,
     lineHeight: 1.6,
   },
@@ -2382,7 +2382,7 @@ const styles: Record<string, CSSProperties> = {
   },
   warningText: {
     fontFamily: MONO,
-    fontSize: 15,
+    fontSize: 17,
     color: THEME.amber,
     lineHeight: 1.5,
   },
@@ -2397,13 +2397,13 @@ const styles: Record<string, CSSProperties> = {
   },
   errorText: {
     fontFamily: MONO,
-    fontSize: 15,
+    fontSize: 17,
     color: THEME.danger,
     lineHeight: 1.5,
   },
   errorDetail: {
     fontFamily: MONO,
-    fontSize: 13,
+    fontSize: 15,
     color: THEME.textMuted,
     lineHeight: 1.5,
   },
@@ -2413,7 +2413,7 @@ const styles: Record<string, CSSProperties> = {
   },
   chip: {
     fontFamily: MONO,
-    fontSize: 14,
+    fontSize: 16,
     border: `1px solid ${THEME.border}`,
     borderRadius: "var(--radius-md)",
     padding: "8px 16px",
@@ -2430,7 +2430,7 @@ const styles: Record<string, CSSProperties> = {
   },
   sliderLabel: {
     fontFamily: MONO,
-    fontSize: 13,
+    fontSize: 15,
     color: THEME.textMuted,
     letterSpacing: 0,
   },
@@ -2439,7 +2439,7 @@ const styles: Record<string, CSSProperties> = {
   },
   txPreview: {
     fontFamily: MONO,
-    fontSize: 13,
+    fontSize: 15,
     color: THEME.textMuted,
     textAlign: "center",
     padding: "10px 16px 0",
@@ -2472,14 +2472,14 @@ const styles: Record<string, CSSProperties> = {
   },
   autopilotTitle: {
     fontFamily: MONO,
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: 700,
     color: THEME.text,
     letterSpacing: 0,
   },
   autopilotSub: {
     fontFamily: MONO,
-    fontSize: 12,
+    fontSize: 14,
     color: THEME.textMuted,
     lineHeight: 1.5,
   },
@@ -2489,7 +2489,7 @@ const styles: Record<string, CSSProperties> = {
   },
   shortcutHint: {
     fontFamily: MONO,
-    fontSize: 12,
+    fontSize: 14,
     color: "var(--color-text-muted)",
     textAlign: "center",
     marginTop: 6,
@@ -2502,7 +2502,7 @@ const styles: Record<string, CSSProperties> = {
     background: "var(--color-warn-bg)",
     border: "1px solid var(--color-warn-border)",
     color: "var(--color-warn)",
-    fontSize: 12,
+    fontSize: 14,
     lineHeight: 1.45,
     display: "flex",
     alignItems: "flex-start",
@@ -2515,7 +2515,7 @@ const styles: Record<string, CSSProperties> = {
     background: "var(--color-warn)",
     color: "#ffffff",
     fontWeight: 700,
-    fontSize: 12,
+    fontSize: 14,
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
@@ -2524,7 +2524,7 @@ const styles: Record<string, CSSProperties> = {
   },
   primaryButton: {
     fontFamily: MONO,
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 600,
     color: "var(--color-text-inverse)",
     background: THEME.accent,
@@ -2546,7 +2546,7 @@ const styles: Record<string, CSSProperties> = {
   },
   recoveryTitle: {
     fontFamily: MONO,
-    fontSize: 13,
+    fontSize: 15,
     color: THEME.accent,
     letterSpacing: 0,
     textTransform: "none",
@@ -2554,13 +2554,13 @@ const styles: Record<string, CSSProperties> = {
   },
   recoveryText: {
     fontFamily: MONO,
-    fontSize: 15,
+    fontSize: 17,
     color: THEME.text,
     lineHeight: 1.5,
   },
   recoveryWarning: {
     fontFamily: MONO,
-    fontSize: 13,
+    fontSize: 15,
     color: THEME.amber,
     lineHeight: 1.5,
   },
@@ -2571,7 +2571,7 @@ const styles: Record<string, CSSProperties> = {
   },
   recoveryPrimary: {
     fontFamily: MONO,
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: 600,
     color: "var(--color-text-inverse)",
     background: THEME.accent,
@@ -2582,7 +2582,7 @@ const styles: Record<string, CSSProperties> = {
   },
   recoverySecondary: {
     fontFamily: MONO,
-    fontSize: 14,
+    fontSize: 16,
     color: THEME.textMuted,
     background: "transparent",
     border: `1px solid ${THEME.border}`,
@@ -2603,7 +2603,7 @@ const styles: Record<string, CSSProperties> = {
   },
   welcomeTagline: {
     fontFamily: SANS,
-    fontSize: 21,
+    fontSize: 23,
     fontWeight: 700,
     color: "var(--color-text)",
     textAlign: "center",
@@ -2654,7 +2654,7 @@ const styles: Record<string, CSSProperties> = {
   },
   heroStatLabel: {
     fontFamily: MONO,
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: 600,
     color: THEME.textMuted,
     letterSpacing: "0.05em",
@@ -2663,7 +2663,7 @@ const styles: Record<string, CSSProperties> = {
   },
   heroStatHint: {
     fontFamily: SANS,
-    fontSize: 10,
+    fontSize: 12,
     color: "var(--color-text-subtle)",
     lineHeight: 1.4,
     marginTop: 2,
@@ -2693,14 +2693,14 @@ const styles: Record<string, CSSProperties> = {
   },
   welcomeFeatureTitle: {
     fontFamily: MONO,
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: 700,
     color: "var(--color-text)",
     letterSpacing: 0,
   },
   welcomeFeatureDesc: {
     fontFamily: MONO,
-    fontSize: 13,
+    fontSize: 15,
     color: "var(--color-text-muted)",
     lineHeight: 1.4,
   },

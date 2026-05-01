@@ -108,14 +108,14 @@ export class AppErrorBoundary extends Component<Props, State> {
         >
           <h1
             style={{
-              fontSize: 22,
+              fontSize: 24,
               fontWeight: 700,
               margin: "0 0 12px",
             }}
           >
             LIMINAL hit an unexpected error.
           </h1>
-          <p style={{ fontSize: 13, lineHeight: 1.6, color: "var(--color-text-muted, #666)" }}>
+          <p style={{ fontSize: 15, lineHeight: 1.6, color: "var(--color-text-muted, #666)" }}>
             The app caught a render-time exception below. Your funds are not at
             risk — on-chain state is independent of this UI. Try reloading
             first; if that doesn&apos;t recover, use Reset State to clear local
@@ -127,7 +127,7 @@ export class AppErrorBoundary extends Component<Props, State> {
               padding: "12px 14px",
               borderRadius: 8,
               background: "var(--color-2, #f5f5f5)",
-              fontSize: 11,
+              fontSize: 13,
               lineHeight: 1.4,
               maxHeight: 160,
               overflow: "auto",
@@ -155,7 +155,7 @@ export class AppErrorBoundary extends Component<Props, State> {
                 background: "var(--color-5, #f9b2d7)",
                 color: "var(--color-text-on-accent, #1a1a1a)",
                 fontFamily: "inherit",
-                fontSize: 13,
+                fontSize: 15,
                 fontWeight: 700,
                 cursor: "pointer",
               }}
@@ -172,7 +172,7 @@ export class AppErrorBoundary extends Component<Props, State> {
                 background: "transparent",
                 color: "var(--color-text, #1a1a1a)",
                 fontFamily: "inherit",
-                fontSize: 13,
+                fontSize: 15,
                 fontWeight: 700,
                 cursor: "pointer",
               }}

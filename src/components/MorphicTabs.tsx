@@ -152,14 +152,14 @@ const styles: Record<string, CSSProperties> = {
     border: "none",
     cursor: "pointer",
     fontFamily: MONO,
-    fontSize: 13,
+    fontSize: 15,
     letterSpacing: 0,
     transition:
       "background var(--motion-base) var(--ease-out), color var(--motion-base) var(--ease-out), border-radius 380ms cubic-bezier(0.4, 0, 0.2, 1), margin 380ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow var(--motion-base) var(--ease-out)",
   },
   badge: {
     fontFamily: MONO,
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: 700,
     padding: "1px 6px",
     borderRadius: 999,

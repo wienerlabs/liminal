@@ -194,7 +194,7 @@ const styles: Record<string, CSSProperties> = {
   },
   title: {
     margin: 0,
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: 700,
     letterSpacing: "-0.01em",
     color: "var(--color-text)",
@@ -202,7 +202,7 @@ const styles: Record<string, CSSProperties> = {
   lead: {
     marginTop: 12,
     marginBottom: 20,
-    fontSize: 14,
+    fontSize: 16,
     lineHeight: 1.55,
     color: "var(--color-text-muted)",
   },
@@ -218,7 +218,7 @@ const styles: Record<string, CSSProperties> = {
     background: "var(--surface-card)",
   },
   checkText: {
-    fontSize: 13,
+    fontSize: 15,
     lineHeight: 1.5,
     color: "var(--color-text)",
   },
@@ -228,7 +228,7 @@ const styles: Record<string, CSSProperties> = {
   finePrint: {
     marginTop: 10,
     marginBottom: 0,
-    fontSize: 11,
+    fontSize: 13,
     lineHeight: 1.5,
     color: "var(--color-text-subtle)",
     textAlign: "center",

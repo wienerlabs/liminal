@@ -336,7 +336,7 @@ const styles: Record<string, CSSProperties> = {
   },
   titleText: {
     fontFamily: MONO,
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: 700,
     color: "var(--color-text-muted)",
     textTransform: "uppercase",
@@ -345,13 +345,13 @@ const styles: Record<string, CSSProperties> = {
   titleHint: {
     marginLeft: "auto",
     fontFamily: MONO,
-    fontSize: 10,
+    fontSize: 12,
     color: "var(--color-text-subtle)",
     letterSpacing: 0,
   },
   demoPill: {
     fontFamily: MONO,
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: 700,
     letterSpacing: "0.1em",
     textTransform: "uppercase",
@@ -402,13 +402,13 @@ const styles: Record<string, CSSProperties> = {
   pair: {
     fontFamily: SANS,
     fontWeight: 700,
-    fontSize: 18,
+    fontSize: 20,
     color: "var(--color-text)",
     letterSpacing: 0,
   },
   relDate: {
     fontFamily: MONO,
-    fontSize: 11,
+    fontSize: 13,
     color: "var(--color-text-muted)",
     fontVariantNumeric: "tabular-nums",
   },
@@ -429,7 +429,7 @@ const styles: Record<string, CSSProperties> = {
   specValue: {
     fontFamily: MONO,
     fontWeight: 700,
-    fontSize: 14,
+    fontSize: 16,
     fontVariantNumeric: "tabular-nums",
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -437,7 +437,7 @@ const styles: Record<string, CSSProperties> = {
   },
   specLabel: {
     fontFamily: MONO,
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: 600,
     color: "var(--color-text-muted)",
     textTransform: "uppercase",
@@ -450,7 +450,7 @@ const styles: Record<string, CSSProperties> = {
   },
   tallyLabel: {
     fontFamily: MONO,
-    fontSize: 11,
+    fontSize: 13,
     color: "var(--color-text-muted)",
     textTransform: "uppercase",
     letterSpacing: "0.05em",
@@ -458,7 +458,7 @@ const styles: Record<string, CSSProperties> = {
   tallyValue: {
     fontFamily: MONO,
     fontWeight: 700,
-    fontSize: 18,
+    fontSize: 20,
     fontVariantNumeric: "tabular-nums",
   },
 };

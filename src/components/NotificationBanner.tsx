@@ -82,10 +82,10 @@ export const NotificationBanner: FC<NotificationBannerProps> = ({ visible }) => 
         background: "var(--color-accent-bg-soft)",
         border: "1px solid var(--color-accent-border)",
         fontFamily: MONO,
-        fontSize: 12,
+        fontSize: 14,
       }}
     >
-      <span role="img" aria-label="bell" style={{ fontSize: 18 }}>
+      <span role="img" aria-label="bell" style={{ fontSize: 20 }}>
         🔔
       </span>
       <span style={{ flex: 1, lineHeight: 1.5, color: "var(--color-text)" }}>
@@ -106,7 +106,7 @@ export const NotificationBanner: FC<NotificationBannerProps> = ({ visible }) => 
           background: "var(--color-5)",
           color: "var(--color-text-on-accent)",
           fontFamily: MONO,
-          fontSize: 12,
+          fontSize: 14,
           fontWeight: 700,
           cursor: busy ? "not-allowed" : "pointer",
           opacity: busy ? 0.6 : 1,
@@ -126,7 +126,7 @@ export const NotificationBanner: FC<NotificationBannerProps> = ({ visible }) => 
           background: "transparent",
           color: "var(--color-text-muted)",
           fontFamily: MONO,
-          fontSize: 14,
+          fontSize: 16,
           cursor: "pointer",
         }}
       >

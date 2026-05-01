@@ -231,7 +231,7 @@ const styles: Record<string, CSSProperties> = {
     color: "var(--color-text)",
   },
   statusText: {
-    fontSize: 14,
+    fontSize: 16,
     letterSpacing: 0,
   },
   codePane: {
@@ -253,7 +253,7 @@ const styles: Record<string, CSSProperties> = {
     height: LINE_HEIGHT,
     padding: "0 10px",
     fontFamily: MONO,
-    fontSize: 12,
+    fontSize: 14,
   },
   codeLineNo: {
     width: 24,

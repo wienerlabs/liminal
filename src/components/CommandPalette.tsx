@@ -448,7 +448,7 @@ const styles: Record<string, CSSProperties> = {
   },
   searchIcon: {
     fontFamily: MONO,
-    fontSize: 14,
+    fontSize: 16,
     color: "var(--color-text-muted)",
     fontWeight: 700,
   },
@@ -458,12 +458,12 @@ const styles: Record<string, CSSProperties> = {
     outline: "none",
     background: "transparent",
     fontFamily: SANS,
-    fontSize: 16,
+    fontSize: 18,
     color: "var(--color-text)",
   },
   escHint: {
     fontFamily: MONO,
-    fontSize: 11,
+    fontSize: 13,
     color: "var(--color-text-muted)",
     border: "1px solid var(--color-stroke)",
     borderRadius: 4,
@@ -479,7 +479,7 @@ const styles: Record<string, CSSProperties> = {
   sectionHeader: {
     padding: "8px 16px 4px",
     fontFamily: MONO,
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: 700,
     letterSpacing: "0.08em",
     color: "var(--color-text-muted)",
@@ -505,12 +505,12 @@ const styles: Record<string, CSSProperties> = {
   rowLabel: {
     flex: 1,
     fontFamily: SANS,
-    fontSize: 14,
+    fontSize: 16,
     color: "var(--color-text)",
   },
   rowHint: {
     fontFamily: MONO,
-    fontSize: 11,
+    fontSize: 13,
     color: "var(--color-text-muted)",
     fontVariantNumeric: "tabular-nums",
   },
@@ -518,7 +518,7 @@ const styles: Record<string, CSSProperties> = {
     padding: "24px 16px",
     textAlign: "center",
     fontFamily: SANS,
-    fontSize: 13,
+    fontSize: 15,
     color: "var(--color-text-muted)",
   },
   footer: {
@@ -530,7 +530,7 @@ const styles: Record<string, CSSProperties> = {
   },
   footerKbd: {
     fontFamily: MONO,
-    fontSize: 11,
+    fontSize: 13,
     color: "var(--color-text-muted)",
   },
 };
@@ -564,7 +564,7 @@ export function makeTokenLogoIcon(
         background: "var(--color-5)",
         color: "#fff",
         fontFamily: MONO,
-        fontSize: 10,
+        fontSize: 12,
         fontWeight: 700,
         display: "inline-flex",
         alignItems: "center",

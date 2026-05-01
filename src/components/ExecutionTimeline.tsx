@@ -424,7 +424,7 @@ const SliceRow: FC<{
         ) : status === "executing" ? (
           <span style={styles.executingDot} aria-hidden="true" />
         ) : status === "skipped" ? (
-          <span style={{ fontSize: 18 }}>⚠</span>
+          <span style={{ fontSize: 20 }}>⚠</span>
         ) : (
           <span style={styles.pendingRing} aria-hidden="true" />
         )}
@@ -649,14 +649,14 @@ const styles: Record<string, CSSProperties> = {
     textAlign: "right",
   },
   summaryLabel: {
-    fontSize: 13,
+    fontSize: 15,
     color: THEME.textMuted,
     letterSpacing: 0,
     fontWeight: 600,
     textTransform: "none",
   },
   summaryValue: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 600,
     color: THEME.text,
     fontVariantNumeric: "tabular-nums",
@@ -669,11 +669,11 @@ const styles: Record<string, CSSProperties> = {
     background: "var(--color-warn-bg)",
     border: `1px solid var(--color-warn-border)`,
     borderRadius: 6,
-    fontSize: 15,
+    fontSize: 17,
     color: THEME.amber,
   },
   slippageIcon: {
-    fontSize: 17,
+    fontSize: 19,
   },
   slicesList: {
     display: "flex",
@@ -693,7 +693,7 @@ const styles: Record<string, CSSProperties> = {
       "box-shadow var(--motion-base) var(--ease-out), transform var(--motion-base) var(--ease-out)",
   },
   sliceIcon: {
-    fontSize: 21,
+    fontSize: 23,
     width: 22,
     height: 22,
     textAlign: "center",
@@ -724,7 +724,7 @@ const styles: Record<string, CSSProperties> = {
   },
   elapsedBadge: {
     fontFamily: MONO,
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: 600,
     color: "var(--color-5-strong)",
     background: "var(--color-accent-bg-soft)",
@@ -758,7 +758,7 @@ const styles: Record<string, CSSProperties> = {
     background: "var(--color-accent-bg-soft)",
     border: "1px solid var(--color-accent-border)",
     fontFamily: MONO,
-    fontSize: 11,
+    fontSize: 13,
   },
   expandedRow: {
     display: "flex",
@@ -771,11 +771,11 @@ const styles: Record<string, CSSProperties> = {
     flexShrink: 0,
     textTransform: "uppercase",
     letterSpacing: "0.04em",
-    fontSize: 10,
+    fontSize: 12,
   },
   expandedSig: {
     fontFamily: MONO,
-    fontSize: 11,
+    fontSize: 13,
     color: "var(--color-text)",
     background: "transparent",
     border: "none",
@@ -791,7 +791,7 @@ const styles: Record<string, CSSProperties> = {
     marginLeft: "auto",
     color: "var(--color-5-strong)",
     fontFamily: MONO,
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: 600,
     textDecoration: "none",
   },
@@ -808,17 +808,17 @@ const styles: Record<string, CSSProperties> = {
     alignItems: "baseline",
   },
   sliceNumber: {
-    fontSize: 15,
+    fontSize: 17,
     color: THEME.text,
     fontWeight: 600,
   },
   sliceAmount: {
-    fontSize: 15,
+    fontSize: 17,
     color: THEME.text,
     fontVariantNumeric: "tabular-nums",
   },
   sliceSubtle: {
-    fontSize: 13,
+    fontSize: 15,
     color: THEME.textMuted,
     fontVariantNumeric: "tabular-nums",
   },
@@ -833,7 +833,7 @@ const styles: Record<string, CSSProperties> = {
     borderRadius: 8,
   },
   doneTitle: {
-    fontSize: 13,
+    fontSize: 15,
     color: THEME.success,
     letterSpacing: 0,
     textTransform: "none",
@@ -850,19 +850,19 @@ const styles: Record<string, CSSProperties> = {
     gap: 3,
   },
   doneMetricLabel: {
-    fontSize: 12,
+    fontSize: 14,
     color: THEME.textMuted,
     letterSpacing: 0,
     textTransform: "none",
   },
   doneMetricValue: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 700,
     fontVariantNumeric: "tabular-nums",
   },
   doneResetButton: {
     fontFamily: MONO,
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: 600,
     color: "var(--color-text-inverse)",
     background: THEME.accent,

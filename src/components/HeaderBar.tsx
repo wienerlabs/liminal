@@ -480,7 +480,7 @@ const MevPopover: FC<{ strategy: ReturnType<typeof getMevStrategy> }> = ({
                     ? "var(--color-success)"
                     : "var(--color-text-subtle)",
                   fontWeight: 600,
-                  fontSize: 10,
+                  fontSize: 12,
                 }}
               >
                 · {layer.active ? "ACTIVE" : "READY"}
@@ -566,7 +566,7 @@ const styles: Record<string, CSSProperties> = {
     background: "var(--color-accent-bg-soft)",
     color: "var(--color-text)",
     fontFamily: MONO,
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: 600,
     height: 28,
     whiteSpace: "nowrap",
@@ -615,7 +615,7 @@ const styles: Record<string, CSSProperties> = {
     background: "transparent",
     color: "var(--color-text)",
     fontFamily: MONO,
-    fontSize: 12,
+    fontSize: 14,
     fontVariantNumeric: "tabular-nums",
     height: 28,
     whiteSpace: "nowrap",
@@ -634,7 +634,7 @@ const styles: Record<string, CSSProperties> = {
     background: "transparent",
     color: "var(--color-text-muted)",
     fontFamily: MONO,
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: 600,
     cursor: "pointer",
     transition:
@@ -689,7 +689,7 @@ const styles: Record<string, CSSProperties> = {
     borderRadius: 999,
     border: "1px solid var(--color-accent-border)",
     fontFamily: MONO,
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: 600,
     letterSpacing: 0,
     color: "var(--color-5-strong)",
@@ -728,12 +728,12 @@ const styles: Record<string, CSSProperties> = {
   mevPopoverTitle: {
     fontFamily: SANS,
     fontWeight: 700,
-    fontSize: 13,
+    fontSize: 15,
     color: "var(--color-text)",
   },
   mevPopoverPill: {
     fontFamily: MONO,
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: 700,
     letterSpacing: 0,
     color: "var(--color-5-strong)",
@@ -765,14 +765,14 @@ const styles: Record<string, CSSProperties> = {
   },
   mevPopoverLayerName: {
     fontFamily: SANS,
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: 600,
     color: "var(--color-text)",
     lineHeight: 1.3,
   },
   mevPopoverLayerDesc: {
     fontFamily: SANS,
-    fontSize: 11,
+    fontSize: 13,
     color: "var(--color-text-muted)",
     lineHeight: 1.5,
     marginTop: 4,
@@ -793,7 +793,7 @@ const styles: Record<string, CSSProperties> = {
     padding: "5px 10px",
     borderRadius: "var(--radius-sm)",
     border: "1px solid var(--color-stroke)",
-    fontSize: 13,
+    fontSize: 15,
     color: "var(--color-text-muted)",
     whiteSpace: "nowrap",
     height: 28,
@@ -805,10 +805,10 @@ const styles: Record<string, CSSProperties> = {
     flexShrink: 0,
   },
   netLabel: {
-    fontSize: 13,
+    fontSize: 15,
   },
   netSlot: {
-    fontSize: 12,
+    fontSize: 14,
     color: "var(--color-text-subtle)",
     fontFamily: MONO,
     fontVariantNumeric: "tabular-nums",

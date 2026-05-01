@@ -42,7 +42,7 @@ export const CountdownTimer: FC<CountdownTimerProps> = ({ remainingMs }) => {
 const styles: Record<string, CSSProperties> = {
   timer: {
     fontFamily: "var(--font-mono)",
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 600,
     fontVariantNumeric: "tabular-nums",
     transition: "color 300ms ease",

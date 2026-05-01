@@ -203,7 +203,7 @@ const styles: Record<string, CSSProperties> = {
   },
   header: {
     fontFamily: MONO,
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: 700,
     color: "var(--color-text-muted)",
     textTransform: "uppercase",
@@ -232,7 +232,7 @@ const styles: Record<string, CSSProperties> = {
   },
   legendLabel: {
     fontFamily: MONO,
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: 600,
     color: "var(--color-text-muted)",
     letterSpacing: "0.04em",
@@ -241,20 +241,20 @@ const styles: Record<string, CSSProperties> = {
   legendValue: {
     fontFamily: SANS,
     fontWeight: 700,
-    fontSize: 22,
+    fontSize: 24,
     lineHeight: 1.1,
     fontVariantNumeric: "tabular-nums",
   },
   legendDen: {
     color: "var(--color-text-muted)",
     fontWeight: 500,
-    fontSize: 14,
+    fontSize: 16,
     marginLeft: 2,
   },
   legendUnit: {
     color: "var(--color-text-muted)",
     fontWeight: 500,
-    fontSize: 13,
+    fontSize: 15,
     marginLeft: 6,
   },
 };
