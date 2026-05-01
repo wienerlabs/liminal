@@ -13,6 +13,7 @@ import AppErrorBoundary from "./components/AppErrorBoundary";
 import "./styles/design-system.css";
 import { initTelemetry } from "./services/telemetry";
 import { bootstrapTheme } from "./hooks/useTheme";
+import { registerServiceWorker } from "./services/serviceWorker";
 
 // Apply persisted theme synchronously before React mounts. Without
 // this the user briefly sees light theme even when their stored
@@ -23,6 +24,11 @@ bootstrapTheme();
 // unset, so this is zero cost for developers running locally without a
 // DSN and completely opt-in in production.
 void initTelemetry();
+
+// Service worker — installs an offline shell + stale-while-revalidate
+// for static assets. No-op in dev (Vite serves /sw.js but we skip
+// registration when import.meta.env.DEV) so HMR isn't intercepted.
+void registerServiceWorker();
 
 const rootEl = document.getElementById("root");
 if (!rootEl) {
