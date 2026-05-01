@@ -55,6 +55,7 @@ import ExecutionStack from "./ExecutionStack";
 import RiskAdvisor from "./RiskAdvisor";
 import SizeImpactPill from "./SizeImpactPill";
 import DcaSchedulesPanel from "./DcaSchedulesPanel";
+import PairQueuePanel, { PairQueueComposer } from "./PairQueuePanel";
 import {
   CADENCE_PRESETS,
   createSchedule,
@@ -675,6 +676,11 @@ export const ExecutionPanel: FC = () => {
         <ExecutionSummaryCard state={state} onReset={reset} />
       ) : (
         <>
+          {/* Active pair queue — sequential multi-pair runs.
+              Hidden when no queue exists; visible during a run so the
+              user can see step status + cancel. */}
+          <PairQueuePanel />
+
           {/* Active DCA schedules — visible whenever the user has any
               recurring plan running so they can pause / cancel even
               from inside an in-flight execution. */}
@@ -1211,20 +1217,38 @@ export const ExecutionPanel: FC = () => {
                 daily DCA, or whatever the cadence implies). The
                 runner in App.tsx handles auto-firing. */}
             {canConfigure && fromToken && (
-              <DcaQuickAdd
-                inputMint={fromMint}
-                outputMint={toMint}
-                inputSymbol={fromToken.symbol}
-                outputSymbol={(() => {
-                  const tt = tokens.find((t) => t.mint === toMint);
-                  return tt?.symbol ?? "—";
-                })()}
-                amountPerCycle={amountNum}
-                windowDurationMs={windowMs}
-                sliceCount={sliceCount}
-                slippageBps={slippageBps}
-                preSignEnabled={preSignEnabled}
-              />
+              <>
+                <DcaQuickAdd
+                  inputMint={fromMint}
+                  outputMint={toMint}
+                  inputSymbol={fromToken.symbol}
+                  outputSymbol={(() => {
+                    const tt = tokens.find((t) => t.mint === toMint);
+                    return tt?.symbol ?? "—";
+                  })()}
+                  amountPerCycle={amountNum}
+                  windowDurationMs={windowMs}
+                  sliceCount={sliceCount}
+                  slippageBps={slippageBps}
+                  preSignEnabled={preSignEnabled}
+                />
+                <PairQueueComposer
+                  seed={{
+                    inputMint: fromMint,
+                    outputMint: toMint,
+                    inputSymbol: fromToken.symbol,
+                    outputSymbol: (() => {
+                      const tt = tokens.find((t) => t.mint === toMint);
+                      return tt?.symbol ?? "—";
+                    })(),
+                    amount: amountNum,
+                    windowDurationMs: windowMs,
+                    sliceCount: sliceCount,
+                    slippageBps: slippageBps,
+                    preSignEnabled: preSignEnabled,
+                  }}
+                />
+              </>
             )}
             {(() => {
               const reason = disabledReason({
