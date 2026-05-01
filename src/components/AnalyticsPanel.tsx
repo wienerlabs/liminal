@@ -61,6 +61,7 @@ import {
 import AnimatedNumber from "./AnimatedNumber";
 import MorphicTabs from "./MorphicTabs";
 import LeaderboardTab from "./LeaderboardTab";
+import ExecutionReplay from "./ExecutionReplay";
 import { getWalletState } from "../services/solflare";
 import ProgressRingsCard from "./ProgressRingsCard";
 import TwapLoadingState from "./TwapLoadingState";
@@ -1220,6 +1221,7 @@ const HistoryDetailModal: FC<{
   const { summary, slices, inputSymbol, outputSymbol } = execution;
   const modalRef = useRef<HTMLDivElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
+  const [replayOpen, setReplayOpen] = useState<boolean>(false);
 
   // Escape key closes modal + focus trap + restore focus on unmount
   useEffect(() => {
@@ -1285,16 +1287,27 @@ const HistoryDetailModal: FC<{
               {formatDate(execution.createdAt)}
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            style={styles.modalClose}
-            aria-label="Close dialog"
-          >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-              <path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
-          </button>
+          <div style={{ display: "inline-flex", gap: 8, alignItems: "center" }}>
+            <button
+              type="button"
+              onClick={() => setReplayOpen(true)}
+              style={styles.replayButton}
+              className="liminal-press"
+              aria-label="Open animated replay of this execution"
+            >
+              ▶ Replay
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              style={styles.modalClose}
+              aria-label="Close dialog"
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                <path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         <div style={styles.modalSummaryGrid}>
@@ -1394,6 +1407,12 @@ const HistoryDetailModal: FC<{
           ))}
         </div>
       </div>
+      {replayOpen && (
+        <ExecutionReplay
+          execution={execution}
+          onClose={() => setReplayOpen(false)}
+        />
+      )}
     </div>
   );
 };
@@ -2279,6 +2298,20 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 15,
     color: THEME.textMuted,
     marginTop: 2,
+  },
+  replayButton: {
+    height: 36,
+    padding: "0 14px",
+    fontFamily: MONO,
+    fontSize: 12,
+    fontWeight: 700,
+    color: THEME.text,
+    background: "var(--color-accent-bg-soft)",
+    border: "1px solid var(--color-accent-border)",
+    borderRadius: "var(--radius-sm)",
+    cursor: "pointer",
+    transition:
+      "background var(--motion-base) var(--ease-out), border-color var(--motion-base) var(--ease-out)",
   },
   modalClose: {
     background: "transparent",
