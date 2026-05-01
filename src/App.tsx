@@ -10,16 +10,18 @@
  * Safe-area inset hem tab bar hem body padding'inde uygulanır.
  */
 
-import { useEffect, useState, type CSSProperties, type FC } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type FC } from "react";
 import "./styles/design-system.css";
 import { useDeviceDetection } from "./hooks/useDeviceDetection";
 import { useExecutionMachine } from "./hooks/useExecutionMachine";
 import { useNetworkStatus } from "./hooks/useNetworkStatus";
+import { useTheme } from "./hooks/useTheme";
 import {
   IN_FLIGHT_STATUSES,
 } from "./state/executionMachine";
 import {
   connectWallet,
+  disconnectWallet,
   initSolflare,
   getWalletState,
   subscribeWallet,
@@ -30,6 +32,11 @@ import ExecutionPanel from "./components/ExecutionPanel";
 import AnalyticsPanel from "./components/AnalyticsPanel";
 import HeaderBar from "./components/HeaderBar";
 import Footer from "./components/Footer";
+import CommandPalette, {
+  openPalette,
+  useCommandPaletteHotkey,
+  type CommandAction,
+} from "./components/CommandPalette";
 import { ToastContainer } from "./components/ToastProvider";
 import DisclaimerModal, {
   hasAcceptedDisclaimer,
@@ -112,6 +119,81 @@ export const App: FC = () => {
         }
       : undefined;
 
+  // ---------------------------------------------------------------------
+  // Command palette (⌘K) — global launcher with action commands.
+  // Token-targeted shortcuts are added by ExecutionPanel via its own
+  // wiring; the App-level palette covers global navigation + theme +
+  // wallet actions.
+  // ---------------------------------------------------------------------
+  useCommandPaletteHotkey();
+  const { theme, toggle: toggleTheme } = useTheme();
+  const paletteActions = useMemo<CommandAction[]>(() => {
+    const list: CommandAction[] = [];
+    list.push({
+      id: "theme.toggle",
+      label: theme === "dark" ? "Switch to light theme" : "Switch to dark theme",
+      hint: theme === "dark" ? "☀" : "☾",
+      category: "Appearance",
+      run: toggleTheme,
+    });
+    if (device.isMobile) {
+      list.push(
+        {
+          id: "tab.wallet",
+          label: "Go to Wallet",
+          category: "Navigation",
+          hint: "Mobile",
+          run: () => setMobileTab("wallet"),
+        },
+        {
+          id: "tab.execute",
+          label: "Go to Execute",
+          category: "Navigation",
+          hint: "Mobile",
+          run: () => setMobileTab("execute"),
+        },
+        {
+          id: "tab.analytics",
+          label: "Go to Analytics",
+          category: "Navigation",
+          hint: "Mobile",
+          run: () => setMobileTab("analytics"),
+        },
+      );
+    }
+    if (wallet.connected && wallet.address) {
+      list.push({
+        id: "wallet.copy",
+        label: "Copy wallet address",
+        hint: `${wallet.address.slice(0, 4)}…${wallet.address.slice(-4)}`,
+        category: "Wallet",
+        run: () => {
+          if (wallet.address) {
+            void navigator.clipboard.writeText(wallet.address);
+          }
+        },
+      });
+      list.push({
+        id: "wallet.disconnect",
+        label: "Disconnect Solflare",
+        category: "Wallet",
+        run: () => {
+          void disconnectWallet();
+        },
+      });
+    } else {
+      list.push({
+        id: "wallet.connect",
+        label: "Connect Solflare",
+        category: "Wallet",
+        run: () => {
+          void connectWallet();
+        },
+      });
+    }
+    return list;
+  }, [theme, toggleTheme, device.isMobile, wallet.connected, wallet.address]);
+
   // ------------------------------------------------------------------
   // Mobile layout
   // ------------------------------------------------------------------
@@ -122,6 +204,7 @@ export const App: FC = () => {
         {device.isSolflareInAppBrowser && <SolflareBanner />}
         <NetworkBanner />
         <ToastContainer />
+        <CommandPalette actions={paletteActions} />
         {disclaimerOpen && (
           <DisclaimerModal onAccept={() => setDisclaimerOpen(false)} />
         )}
@@ -203,6 +286,7 @@ export const App: FC = () => {
         {device.isSolflareInAppBrowser && <SolflareBanner />}
         <NetworkBanner />
         <ToastContainer />
+        <CommandPalette actions={paletteActions} />
         {disclaimerOpen && (
           <DisclaimerModal onAccept={() => setDisclaimerOpen(false)} />
         )}
@@ -230,6 +314,7 @@ export const App: FC = () => {
       {device.isSolflareInAppBrowser && <SolflareBanner />}
         <NetworkBanner />
       <ToastContainer />
+        <CommandPalette actions={paletteActions} />
         {disclaimerOpen && (
           <DisclaimerModal onAccept={() => setDisclaimerOpen(false)} />
         )}
