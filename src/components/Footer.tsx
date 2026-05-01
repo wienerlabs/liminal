@@ -1,7 +1,7 @@
 /**
  * LIMINAL — Global Footer
  *
- * Subtle "Built with" partner row that lives at the very bottom of every
+ * "Built with" partner row that lives at the very bottom of every
  * layout (mobile, tablet, desktop). Pulled out of ExecutionPanel's welcome
  * state so the partner attribution shows up regardless of execution state
  * — first-time visitors, mid-execution users and post-completion screens
@@ -10,7 +10,10 @@
  *
  * Visual rules:
  *   - Border-top single hairline, no gradient
- *   - Muted color, ~55% opacity so it never competes with active content
+ *   - Logos render in full --color-text strength (post-PR #5n; was 60%
+ *     opacity which felt washed out against the busy unicorn backdrop).
+ *     The "Built with" label stays muted so the four partners are the
+ *     ones that pop.
  *   - Center-aligned on tablet/desktop; tighter wrap on mobile
  *   - Hidden under the mobile tab bar via parent padding (App.tsx already
  *     offsets mobileBody for that). Mobile renders the footer above the
@@ -50,7 +53,18 @@ export const Footer: FC<FooterProps> = ({ compact = false }) => (
             aria-label={`${name} logo`}
             role="img"
             className="liminal-halo"
-            style={{ ...styles.logoInner, borderRadius: 6, padding: "2px 4px" }}
+            // Full-strength text color overrides the parent footer's
+            // muted color → SVGs (which use fill="currentColor") read
+            // dark/dense in light theme, near-white-and-bold in dark
+            // theme. PR #5n bumped this per user feedback that the
+            // sponsor strip looked too washed out against the
+            // animated unicorn backdrop.
+            style={{
+              ...styles.logoInner,
+              borderRadius: 6,
+              padding: "2px 4px",
+              color: "var(--color-text)",
+            }}
           >
             <Logo height={LOGO_CAP} size={LOGO_CAP} />
           </span>
@@ -68,13 +82,20 @@ const styles: Record<string, CSSProperties> = {
     flexWrap: "wrap",
     borderTop: "1px solid var(--color-stroke)",
     background: "transparent",
+    // Default colour for the "Built with" label only — the logos
+    // override to full --color-text below for higher contrast.
     color: "var(--color-text-muted)",
     fontFamily: MONO,
     fontSize: 14,
-    opacity: 0.6,
+    // No global opacity any more — the original 0.6 wash made the
+    // sponsor logos disappear into the unicorn backdrop.
   },
   label: {
     letterSpacing: 0,
+    // Slightly stronger than fully-muted so the label doesn't look
+    // grey-on-grey next to the now-bold logos.
+    color: "var(--color-text-muted)",
+    opacity: 0.85,
   },
   logos: {
     display: "inline-flex",
