@@ -11,6 +11,8 @@
  */
 
 import {
+  lazy,
+  Suspense,
   useEffect,
   useMemo,
   useRef,
@@ -45,7 +47,11 @@ import CommandPalette, {
   type CommandAction,
 } from "./components/CommandPalette";
 import ProfileSetup from "./components/ProfileSetup";
-import CompletionFlourish from "./components/CompletionFlourish";
+// CompletionFlourish pulls in three.js (~145kb gzip). Lazy-load it
+// since it only renders for ~3s after a DONE state — most page loads
+// never need it. Suspense fallback is null because the parent already
+// gates the mount on flourishVisible.
+const CompletionFlourish = lazy(() => import("./components/CompletionFlourish"));
 import UnicornBackground from "./components/UnicornBackground";
 import { ExecutionStatus } from "./state/executionMachine";
 import { ToastContainer } from "./components/ToastProvider";
@@ -279,10 +285,12 @@ export const App: FC = () => {
   // layouts. Visible only during the 3-second post-DONE celebration.
   // ---------------------------------------------------------------------
   const completionFlourish = (
-    <CompletionFlourish
-      visible={flourishVisible}
-      onDismiss={() => setFlourishVisible(false)}
-    />
+    <Suspense fallback={null}>
+      <CompletionFlourish
+        visible={flourishVisible}
+        onDismiss={() => setFlourishVisible(false)}
+      />
+    </Suspense>
   );
 
   // Tutorial — first-time tour. forceOpen flips when the user runs
