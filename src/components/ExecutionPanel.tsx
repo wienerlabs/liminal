@@ -52,6 +52,7 @@ import StepIndicator from "./StepIndicator";
 import AnimatedNumber from "./AnimatedNumber";
 import Sparkline from "./Sparkline";
 import ExecutionStack from "./ExecutionStack";
+import RiskAdvisor from "./RiskAdvisor";
 import Button from "./Button";
 import Tooltip from "./Tooltip";
 
@@ -667,6 +668,24 @@ export const ExecutionPanel: FC = () => {
         <ExecutionSummaryCard state={state} onReset={reset} />
       ) : (
         <>
+          {/* Risk Advisor — proactive tips derived from the user's
+              local execution history. Sits above the FormCards so the
+              user sees relevant nudges before they configure their
+              next run, not after. Hidden when no actionable tips
+              apply (component returns null on empty input). */}
+          {(state.status === ExecutionStatus.IDLE ||
+            state.status === ExecutionStatus.CONFIGURED) && (
+            <RiskAdvisor
+              currentSlippageBps={slippageBps}
+              onApply={(key) => {
+                if (key.startsWith("slippage:")) {
+                  const next = parseInt(key.slice("slippage:".length), 10);
+                  if (Number.isFinite(next)) setSlippageBps(next);
+                }
+              }}
+            />
+          )}
+
           {/* ============================================================
               CARD 1 — TRADE
               Token pair + amount + inline live price + vault note. PR #5b
