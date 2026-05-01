@@ -34,9 +34,11 @@ import { LiminalMark } from "./BrandLogos";
 import { getMevStrategy } from "../services/mevProtection";
 import { useDeviceDetection } from "../hooks/useDeviceDetection";
 import { useWalletSummary } from "../hooks/useWalletSummary";
+import { useProfile } from "../hooks/useProfile";
 import { openPalette } from "./CommandPalette";
 import ThemeSwitcher from "./ThemeSwitcher";
 import AnimatedNumber from "./AnimatedNumber";
+import ProfileAvatar from "./ProfileAvatar";
 
 const MONO = "var(--font-mono)";
 const SANS = "var(--font-sans)";
@@ -57,6 +59,9 @@ export type HeaderBarProps = {
     sliceM: number;
     gainUsd: number;
   };
+  /** Called when the user clicks their profile chip — App.tsx opens the
+   * profile editor in dismissable mode. */
+  onEditProfile?: () => void;
 };
 
 // ---------------------------------------------------------------------------
@@ -81,11 +86,16 @@ function formatGainShort(n: number): string {
 // Component
 // ---------------------------------------------------------------------------
 
-export const HeaderBar: FC<HeaderBarProps> = ({ networkStatus, inFlight }) => {
+export const HeaderBar: FC<HeaderBarProps> = ({
+  networkStatus,
+  inFlight,
+  onEditProfile,
+}) => {
   const [wallet, setWallet] = useState<WalletState>(() => getWalletState());
   useEffect(() => subscribeWallet(setWallet), []);
   const device = useDeviceDetection();
   const summary = useWalletSummary();
+  const { profile } = useProfile(wallet.address);
 
   const shortAddr = wallet.address
     ? `${wallet.address.slice(0, 4)}…${wallet.address.slice(-4)}`
@@ -194,38 +204,58 @@ export const HeaderBar: FC<HeaderBarProps> = ({ networkStatus, inFlight }) => {
           </div>
         )}
 
-        <button
-          type="button"
-          onClick={wallet.connected ? handleCopyAddr : undefined}
-          style={{
-            ...styles.walletBadge,
-            cursor: wallet.connected ? "pointer" : "default",
-            color: wallet.connected ? "var(--color-text)" : "var(--color-text-muted)",
-            borderColor: wallet.connected ? "var(--color-accent-border)" : "var(--color-stroke)",
-            // Mobile compact: just dot (when connected) or "—" placeholder.
-            paddingLeft: device.isMobile ? 8 : undefined,
-            paddingRight: device.isMobile ? 8 : undefined,
-          }}
-          title={wallet.connected ? "Click to copy address" : "Wallet not connected"}
-          aria-label={
-            wallet.connected
-              ? `Wallet connected: ${shortAddr}. Click to copy.`
-              : "Wallet not connected"
-          }
-        >
-          {wallet.connected && (
-            <span style={{ ...styles.netDot, background: "var(--color-5)" }} aria-hidden="true" />
-          )}
-          <span>
-            {copiedAddr
-              ? "Copied"
-              : wallet.connected && shortAddr
-                ? shortAddr
-                : device.isMobile
-                  ? "—"
-                  : "Not connected"}
-          </span>
-        </button>
+        {/* Connected + profile saved → render the rich ProfileChip
+            (avatar + username) which opens the editor on click. The
+            classic wallet badge stays as a fallback for the "wallet
+            connected but no profile yet" interstitial and the
+            disconnected state. */}
+        {wallet.connected && profile && onEditProfile ? (
+          <button
+            type="button"
+            onClick={onEditProfile}
+            style={styles.profileChip}
+            className="liminal-press"
+            title="Edit profile"
+            aria-label={`Profile: ${profile.username}. Click to edit.`}
+          >
+            <ProfileAvatar avatarId={profile.avatarId} size={20} ring />
+            {!device.isMobile && (
+              <span style={styles.profileChipName}>{profile.username}</span>
+            )}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={wallet.connected ? handleCopyAddr : undefined}
+            style={{
+              ...styles.walletBadge,
+              cursor: wallet.connected ? "pointer" : "default",
+              color: wallet.connected ? "var(--color-text)" : "var(--color-text-muted)",
+              borderColor: wallet.connected ? "var(--color-accent-border)" : "var(--color-stroke)",
+              paddingLeft: device.isMobile ? 8 : undefined,
+              paddingRight: device.isMobile ? 8 : undefined,
+            }}
+            title={wallet.connected ? "Click to copy address" : "Wallet not connected"}
+            aria-label={
+              wallet.connected
+                ? `Wallet connected: ${shortAddr}. Click to copy.`
+                : "Wallet not connected"
+            }
+          >
+            {wallet.connected && (
+              <span style={{ ...styles.netDot, background: "var(--color-5)" }} aria-hidden="true" />
+            )}
+            <span>
+              {copiedAddr
+                ? "Copied"
+                : wallet.connected && shortAddr
+                  ? shortAddr
+                  : device.isMobile
+                    ? "—"
+                    : "Not connected"}
+            </span>
+          </button>
+        )}
       </div>
     </header>
   );
@@ -625,6 +655,31 @@ const styles: Record<string, CSSProperties> = {
     whiteSpace: "nowrap",
     transition:
       "border-color var(--motion-base) var(--ease-out), color var(--motion-base) var(--ease-out)",
+  },
+  // ProfileChip — replaces the wallet badge when a profile exists.
+  // Avatar + username + soft accent border. Clicking it opens the
+  // profile editor in dismissable mode.
+  profileChip: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 8,
+    padding: "3px 10px 3px 4px",
+    borderRadius: 999,
+    border: "1px solid var(--color-accent-border)",
+    background: "var(--color-accent-bg-soft)",
+    color: "var(--color-text)",
+    fontFamily: MONO,
+    fontSize: "var(--text-xs)",
+    fontWeight: 600,
+    height: 28,
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+    transition:
+      "border-color var(--motion-base) var(--ease-out), background var(--motion-base) var(--ease-out)",
+  },
+  profileChipName: {
+    fontFamily: MONO,
+    letterSpacing: 0,
   },
   mevBadge: {
     display: "inline-flex",

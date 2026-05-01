@@ -37,10 +37,12 @@ import CommandPalette, {
   useCommandPaletteHotkey,
   type CommandAction,
 } from "./components/CommandPalette";
+import ProfileSetup from "./components/ProfileSetup";
 import { ToastContainer } from "./components/ToastProvider";
 import DisclaimerModal, {
   hasAcceptedDisclaimer,
 } from "./components/DisclaimerModal";
+import { useProfile } from "./hooks/useProfile";
 import { getActiveNetworkConfig } from "./services/network";
 
 // ---------------------------------------------------------------------------
@@ -81,6 +83,27 @@ export const App: FC = () => {
       setDisclaimerOpen(true);
     }
   }, [wallet.connected]);
+
+  // Profile gate — once the user has accepted the disclaimer, check
+  // whether they've set up a profile (username + avatar) for this
+  // wallet address. First-connect = mandatory setup. Subsequent
+  // edits via "Edit profile" / palette = dismissable.
+  const { profile, save: saveProfile } = useProfile(wallet.address);
+  const [profileSetupMode, setProfileSetupMode] = useState<
+    "closed" | "first-time" | "edit"
+  >("closed");
+  useEffect(() => {
+    if (
+      wallet.connected &&
+      !disclaimerOpen &&
+      hasAcceptedDisclaimer() &&
+      !profile
+    ) {
+      setProfileSetupMode("first-time");
+    } else if (!wallet.connected) {
+      setProfileSetupMode("closed");
+    }
+  }, [wallet.connected, disclaimerOpen, profile]);
 
   const [mobileTab, setMobileTab] = useState<MobileTab>("execute");
 
@@ -174,6 +197,13 @@ export const App: FC = () => {
         },
       });
       list.push({
+        id: "profile.edit",
+        label: profile ? "Edit profile" : "Set up profile",
+        hint: profile?.username,
+        category: "Profile",
+        run: () => setProfileSetupMode("edit"),
+      });
+      list.push({
         id: "wallet.disconnect",
         label: "Disconnect Solflare",
         category: "Wallet",
@@ -192,7 +222,27 @@ export const App: FC = () => {
       });
     }
     return list;
-  }, [theme, toggleTheme, device.isMobile, wallet.connected, wallet.address]);
+  }, [theme, toggleTheme, device.isMobile, wallet.connected, wallet.address, profile]);
+
+  // ---------------------------------------------------------------------
+  // ProfileSetup modal element — same JSX rendered in all three layouts.
+  // Lifting the conditional construction up here keeps the layout
+  // branches readable and makes sure the same `dismissable` flag is
+  // applied no matter which breakpoint we're in.
+  // ---------------------------------------------------------------------
+  const profileSetupModal =
+    wallet.connected && wallet.address && profileSetupMode !== "closed" ? (
+      <ProfileSetup
+        address={wallet.address}
+        existing={profile}
+        dismissable={profileSetupMode === "edit"}
+        onDismiss={() => setProfileSetupMode("closed")}
+        onComplete={({ username, avatarId }) => {
+          saveProfile({ username, avatarId });
+          setProfileSetupMode("closed");
+        }}
+      />
+    ) : null;
 
   // Slash commands — terse keyboard-first verbs the power user types
   // instead of arrow-keying through the action list. Routed through the
@@ -305,7 +355,7 @@ export const App: FC = () => {
   if (device.isMobile) {
     return (
       <div className="liminal-root" style={styles.mobileRoot}>
-        <HeaderBar networkStatus={networkStatus} inFlight={headerInFlight} />
+        <HeaderBar networkStatus={networkStatus} inFlight={headerInFlight} onEditProfile={() => setProfileSetupMode("edit")} />
         {device.isSolflareInAppBrowser && <SolflareBanner />}
         <NetworkBanner />
         <ToastContainer />
@@ -313,6 +363,7 @@ export const App: FC = () => {
         {disclaimerOpen && (
           <DisclaimerModal onAccept={() => setDisclaimerOpen(false)} />
         )}
+        {profileSetupModal}
 
         {inFlight && (
           <div style={{ position: "sticky", top: "var(--header-height)", zIndex: 40 }}>
@@ -387,7 +438,7 @@ export const App: FC = () => {
   if (device.isTablet) {
     return (
       <div className="liminal-root" style={styles.appRoot}>
-        <HeaderBar networkStatus={networkStatus} inFlight={headerInFlight} />
+        <HeaderBar networkStatus={networkStatus} inFlight={headerInFlight} onEditProfile={() => setProfileSetupMode("edit")} />
         {device.isSolflareInAppBrowser && <SolflareBanner />}
         <NetworkBanner />
         <ToastContainer />
@@ -395,6 +446,7 @@ export const App: FC = () => {
         {disclaimerOpen && (
           <DisclaimerModal onAccept={() => setDisclaimerOpen(false)} />
         )}
+        {profileSetupModal}
         <div style={styles.tabletLayoutOuter}>
           <div style={styles.tabletLayout}>
             <main style={{ ...styles.tabletPane, ...panelEntranceStyle(0) }}>
@@ -415,7 +467,7 @@ export const App: FC = () => {
   // ------------------------------------------------------------------
   return (
     <div className="liminal-root" style={styles.appRoot}>
-      <HeaderBar networkStatus={networkStatus} inFlight={headerInFlight} />
+      <HeaderBar networkStatus={networkStatus} inFlight={headerInFlight} onEditProfile={() => setProfileSetupMode("edit")} />
       {device.isSolflareInAppBrowser && <SolflareBanner />}
         <NetworkBanner />
       <ToastContainer />
@@ -423,6 +475,7 @@ export const App: FC = () => {
         {disclaimerOpen && (
           <DisclaimerModal onAccept={() => setDisclaimerOpen(false)} />
         )}
+        {profileSetupModal}
       <div style={styles.desktopLayoutOuter}>
         <div style={styles.desktopLayout}>
           <aside style={{ ...styles.sideCol, ...panelEntranceStyle(0) }}>

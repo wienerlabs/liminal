@@ -477,6 +477,14 @@ input:focus:not(:focus-visible) {
   50%      { opacity: 0.65; }
 }
 
+/* Generic fade-in — used by ProfileSetup's avatar stage swap so the
+   selected avatar cross-fades between selections without a JS
+   animation library. */
+@keyframes liminal-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
 /* TwapLoadingState — concentric rings rotating in alternating
    directions. Two keyframes, components apply the right one based on
    ring index parity. */
