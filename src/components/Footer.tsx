@@ -49,7 +49,8 @@ export const Footer: FC<FooterProps> = ({ compact = false }) => (
             title={name}
             aria-label={`${name} logo`}
             role="img"
-            style={styles.logoInner}
+            className="liminal-halo"
+            style={{ ...styles.logoInner, borderRadius: 6, padding: "2px 4px" }}
           >
             <Logo height={LOGO_CAP} size={LOGO_CAP} />
           </span>

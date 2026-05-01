@@ -522,6 +522,74 @@ input:focus:not(:focus-visible) {
 }
 
 /* ===================================================================== */
+/* Micro-interactions — hover halo + card lift                          */
+/* ===================================================================== */
+
+/* Card lift — soft elevation on hover for desktop pointers. The
+   transform stays at translate(0, -2px) so layout doesn't shift; the
+   shadow does the bulk of the depth illusion. Touch devices skip the
+   transform but keep the brighter border to confirm tap target. */
+.liminal-lift {
+  transition:
+    transform var(--motion-base) var(--ease-out),
+    box-shadow var(--motion-base) var(--ease-out),
+    border-color var(--motion-base) var(--ease-out);
+}
+@media (hover: hover) {
+  .liminal-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06), 0 2px 6px rgba(0, 0, 0, 0.04);
+    border-color: var(--color-accent-border);
+  }
+}
+:root[data-theme="dark"] .liminal-lift:hover {
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+@media (prefers-reduced-motion: reduce) {
+  .liminal-lift,
+  .liminal-lift:hover {
+    transform: none;
+    transition: none;
+  }
+}
+
+/* Halo — soft glow pulse on hover. Used on token logos, partner logos
+   in the footer, and any "tap me" affordance that benefits from a
+   gentle invitation. Pure box-shadow, no transform; safe to layer over
+   liminal-lift. */
+.liminal-halo {
+  transition: box-shadow 220ms var(--ease-out);
+}
+@media (hover: hover) {
+  .liminal-halo:hover {
+    box-shadow: 0 0 0 4px rgba(249, 178, 215, 0.18);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .liminal-halo,
+  .liminal-halo:hover {
+    transition: none;
+  }
+}
+
+/* Press — quick scale-down feedback for buttons. Applied via
+   :active so it only fires on actual click/tap, not focus. */
+.liminal-press {
+  transition: transform 80ms var(--ease-out);
+}
+@media (hover: hover) {
+  .liminal-press:active {
+    transform: scale(0.97);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .liminal-press,
+  .liminal-press:active {
+    transform: none;
+  }
+}
+
+/* ===================================================================== */
 /* Range slider — touch-friendly thumb (light theme variant)            */
 /* ===================================================================== */
 

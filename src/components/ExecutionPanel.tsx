@@ -619,10 +619,33 @@ export const ExecutionPanel: FC = () => {
               </div>
             )}
 
-            {/* Partner logos moved out of welcome state into the global
-                <Footer /> rendered at the bottom of every layout (App.tsx).
-                Keeps attribution visible across all execution states, not
-                just the first-time view. */}
+            {/* Hero stats strip — three terse metrics that anchor what
+                LIMINAL actually is, beneath the connect CTA. Numbers are
+                static "kind-of-truths" sourced from the architecture
+                doc (4 partners, mainnet target, non-custodial). They
+                don't pretend to be live aggregate metrics — that lives
+                in the Analytics > Protocol tab once the user is in.
+                The strip helps a first-time visitor decide "OK, I'll
+                connect" before scrolling away.
+                Partner logos themselves moved to the global <Footer />
+                so they stay visible across all execution states. */}
+            <ul style={styles.heroStats} aria-label="LIMINAL stats">
+              <li style={styles.heroStatCell}>
+                <div style={styles.heroStatValue}>4</div>
+                <div style={styles.heroStatLabel}>Partners</div>
+                <div style={styles.heroStatHint}>DFlow · Kamino · QuickNode · Solflare</div>
+              </li>
+              <li style={styles.heroStatCell}>
+                <div style={styles.heroStatValue}>0</div>
+                <div style={styles.heroStatLabel}>Custody</div>
+                <div style={styles.heroStatHint}>Funds stay in your wallet</div>
+              </li>
+              <li style={styles.heroStatCell}>
+                <div style={styles.heroStatValue}>Mainnet</div>
+                <div style={styles.heroStatLabel}>Network</div>
+                <div style={styles.heroStatHint}>Live execution, no testnet sim</div>
+              </li>
+            </ul>
           </div>
         </div>
       ) : state.status === ExecutionStatus.DONE ? (
@@ -1017,6 +1040,23 @@ export const ExecutionPanel: FC = () => {
             <StepIndicator currentStep={deriveStep(state.status)} />
           </div>
 
+          {/* Live Kamino yield ticker — only renders while an execution
+              is actually mid-flight, has a vault, and we know the
+              principal in USD. Estimates live accrual via APY × time
+              since start. Pure read-side — does not affect the state
+              machine; the canonical totalYieldEarned still lands at
+              completion via the depositor effect. */}
+          {isInFlight && optimalVault && state.startedAt && amountUsd > 0 && (
+            <div style={styles.section}>
+              <LiveYieldTicker
+                principalUsd={amountUsd}
+                apyPct={optimalVault.supplyAPY}
+                startedAt={state.startedAt}
+                vaultName={optimalVault.symbol}
+              />
+            </div>
+          )}
+
           {/* Timeline (her durumda ama bos slices ile idle gosterir) */}
           {state.slices.length > 0 && (
             <div style={styles.section}>
@@ -1152,6 +1192,60 @@ export const ExecutionPanel: FC = () => {
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
+// LiveYieldTicker — live Kamino accrual estimate during an execution.
+//
+// Why it exists: the state machine only writes `totalYieldEarned` at
+// completion. During the long minutes/hours a TWAP execution runs, the
+// user sees a flat "$0.00" until the very end, which under-sells the
+// "earn while you trade" pitch.
+//
+// We compute a client-side estimate: principal × (apy/100) × (elapsedSec /
+// SECONDS_PER_YEAR). Updates every 1s via setInterval, AnimatedNumber
+// smooths the visual transition. This is read-only; the canonical
+// totalYieldEarned (post-Kamino-withdraw) wins at completion. We label
+// the chip "live estimate" so the user understands it's not bank-truth.
+// ---------------------------------------------------------------------------
+
+const SECONDS_PER_YEAR = 365.25 * 24 * 60 * 60;
+
+const LiveYieldTicker: FC<{
+  principalUsd: number;
+  apyPct: number;
+  startedAt: Date;
+  vaultName: string;
+}> = ({ principalUsd, apyPct, startedAt, vaultName }) => {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const elapsedSec = Math.max(0, (now - startedAt.getTime()) / 1000);
+  const estimated = principalUsd * (apyPct / 100) * (elapsedSec / SECONDS_PER_YEAR);
+
+  return (
+    <div style={styles.yieldTicker} role="status" aria-live="polite">
+      <span style={styles.yieldTickerDot} aria-hidden="true" />
+      <span style={styles.yieldTickerLabel}>
+        Kamino accruing in {vaultName} vault
+      </span>
+      <span style={styles.yieldTickerValue}>
+        +
+        <AnimatedNumber
+          value={estimated}
+          prefix="$"
+          decimals={estimated < 1 ? 6 : 4}
+          duration={900}
+        />
+      </span>
+      <span style={styles.yieldTickerHint}>
+        @ {apyPct.toFixed(2)}% · live estimate
+      </span>
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
 // SmartToChips — quick-pick targets for the "To" leg of the pair.
 //
 // Heuristic ranking:
@@ -1259,7 +1353,10 @@ const FormCard: FC<{
   subtitle?: string;
   children: React.ReactNode;
 }> = ({ step, title, subtitle, children }) => (
-  <section style={styles.formCard}>
+  // `liminal-lift` adds the desktop-only hover lift + soft shadow. The
+  // border-radius lives in styles.formCard so the lift doesn't fight
+  // the card's own outline.
+  <section style={styles.formCard} className="liminal-lift">
     <header style={styles.formCardHeader}>
       <span style={styles.formCardStep}>{String(step).padStart(2, "0")}</span>
       <span style={styles.formCardTitle}>{title}</span>
@@ -1900,6 +1997,45 @@ const styles: Record<string, CSSProperties> = {
     color: THEME.textMuted,
     lineHeight: 1.5,
   },
+  // Live Kamino yield ticker — gentle "money is moving" chip rendered
+  // above the timeline during in-flight execution. Pulsing dot anchors
+  // attention; AnimatedNumber inside ticks smoothly.
+  yieldTicker: {
+    display: "flex",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 10,
+    padding: "10px 14px",
+    background: "var(--color-accent-bg-soft)",
+    border: "1px solid var(--color-accent-border)",
+    borderRadius: 999,
+    fontFamily: MONO,
+    fontSize: 13,
+  },
+  yieldTickerDot: {
+    width: 8,
+    height: 8,
+    borderRadius: "50%",
+    background: "var(--color-success)",
+    boxShadow: "0 0 0 4px rgba(34, 197, 94, 0.18), 0 0 10px var(--color-success)",
+    animation: "liminal-active-pulse 1.6s var(--ease-out) infinite",
+    flexShrink: 0,
+  },
+  yieldTickerLabel: {
+    color: THEME.text,
+    fontWeight: 600,
+    flexShrink: 0,
+  },
+  yieldTickerValue: {
+    color: "var(--color-success)",
+    fontWeight: 700,
+    fontVariantNumeric: "tabular-nums",
+  },
+  yieldTickerHint: {
+    color: THEME.textMuted,
+    fontSize: 11,
+    marginLeft: "auto",
+  },
   // Smart-pick chip row — appears under the token pair when From is
   // set but To is empty. Tight spacing so it reads as a hint, not a
   // separate config step.
@@ -2447,6 +2583,54 @@ const styles: Record<string, CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     gap: 12,
+  },
+  // Hero stats strip — 3-cell grid of terse "vital signs" beneath the
+  // connect CTA. Each cell has a big number, a 1-word label, and a
+  // tooltip-style hint underneath.
+  heroStats: {
+    display: "grid",
+    gridTemplateColumns: "repeat(3, 1fr)",
+    gap: 12,
+    margin: "20px 0 0",
+    padding: "14px 12px",
+    listStyle: "none",
+    background: "var(--surface-card)",
+    border: "1px solid var(--color-stroke)",
+    borderRadius: 12,
+  },
+  heroStatCell: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 2,
+    textAlign: "center",
+    minWidth: 0,
+  },
+  heroStatValue: {
+    fontFamily: SANS,
+    fontSize: 24,
+    fontWeight: 800,
+    color: "var(--color-5-strong)",
+    lineHeight: 1,
+    fontVariantNumeric: "tabular-nums",
+  },
+  heroStatLabel: {
+    fontFamily: MONO,
+    fontSize: 11,
+    fontWeight: 600,
+    color: THEME.textMuted,
+    letterSpacing: "0.05em",
+    textTransform: "uppercase",
+    marginTop: 4,
+  },
+  heroStatHint: {
+    fontFamily: SANS,
+    fontSize: 10,
+    color: "var(--color-text-subtle)",
+    lineHeight: 1.4,
+    marginTop: 2,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
   },
   welcomeFeature: {
     display: "flex",
