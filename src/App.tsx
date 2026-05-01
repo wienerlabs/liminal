@@ -53,6 +53,7 @@ import DisclaimerModal, {
   hasAcceptedDisclaimer,
 } from "./components/DisclaimerModal";
 import { useProfile } from "./hooks/useProfile";
+import { useDcaRunner } from "./hooks/useDcaRunner";
 import { getActiveNetworkConfig } from "./services/network";
 
 // ---------------------------------------------------------------------------
@@ -78,7 +79,8 @@ type MobileTab = "wallet" | "execute" | "analytics";
 
 export const App: FC = () => {
   const device = useDeviceDetection();
-  const { state } = useExecutionMachine();
+  const machine = useExecutionMachine();
+  const { state } = machine;
   const networkStatus = useNetworkStatus();
 
   const [wallet, setWallet] = useState<WalletState>(() => getWalletState());
@@ -133,6 +135,16 @@ export const App: FC = () => {
       }
     })();
   }, [device.isSolflareInAppBrowser]);
+
+  // DCA runner — ticks every 30s, fires due schedules through the
+  // machine when the wallet is connected and the user isn't mid-run.
+  // Mounted once at the App root.
+  useDcaRunner({
+    walletConnected: wallet.connected,
+    walletAddress: wallet.address,
+    machine,
+    state,
+  });
 
   const inFlight = IN_FLIGHT_STATUSES.has(state.status);
   const sliceN = state.currentSliceIndex + 1;
