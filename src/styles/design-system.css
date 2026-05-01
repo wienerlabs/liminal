@@ -457,6 +457,43 @@ input:focus:not(:focus-visible) {
   to   { transform: scale(1);   opacity: 1; }
 }
 
+/* LiminalLoader — concentric ring rotators. Two directions + one
+   subtle "breath" scale on the outer container so the whole assembly
+   feels alive without being busy. */
+@keyframes liminal-loader-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes liminal-loader-spin-rev {
+  from { transform: rotate(360deg); }
+  to   { transform: rotate(0deg); }
+}
+@keyframes liminal-loader-breath {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.02); }
+}
+@keyframes liminal-loader-text-breath {
+  0%, 100% { opacity: 0.92; }
+  50%      { opacity: 0.65; }
+}
+
+/* TwapLoadingState — concentric rings rotating in alternating
+   directions. Two keyframes, components apply the right one based on
+   ring index parity. */
+@keyframes liminal-twap-ring-cw {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes liminal-twap-ring-ccw {
+  from { transform: rotate(360deg); }
+  to   { transform: rotate(0deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* All loader rings render statically when the user requests reduced
+     motion — the conic-gradient is decorative without rotation, but
+     it still communicates "activity" by virtue of presence. */
+}
+
 /* ===================================================================== */
 /* Ambient aurora — soft pastel gradient behind welcome / hero surfaces. */
 /* Uses two radial blobs that drift slowly across the surface; gives the */

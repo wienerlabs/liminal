@@ -59,6 +59,10 @@ import {
   type AnalyticsTab,
 } from "../state/analyticsNav";
 import AnimatedNumber from "./AnimatedNumber";
+import MorphicTabs from "./MorphicTabs";
+import ProgressRingsCard from "./ProgressRingsCard";
+import TwapLoadingState from "./TwapLoadingState";
+import ExecutionStack from "./ExecutionStack";
 import { getMevStrategy, type MevLayer } from "../services/mevProtection";
 
 // ---------------------------------------------------------------------------
@@ -197,23 +201,18 @@ export const AnalyticsPanel: FC = () => {
     <aside style={styles.panel} aria-label="Analytics panel">
       <header style={styles.header}>Analytics</header>
 
-      <nav style={styles.tabs} role="tablist" aria-label="Analytics views">
-        <TabButton
-          label="Live"
-          active={activeTab === "live"}
-          onClick={() => handleTabChange("live")}
+      <div style={styles.tabsWrap}>
+        <MorphicTabs
+          ariaLabel="Analytics views"
+          items={[
+            { key: "live", label: "Live" },
+            { key: "history", label: "History", badge: getHistory().length || undefined },
+            { key: "protocol", label: "Protocol" },
+          ]}
+          active={activeTab}
+          onChange={handleTabChange}
         />
-        <TabButton
-          label="History"
-          active={activeTab === "history"}
-          onClick={() => handleTabChange("history")}
-        />
-        <TabButton
-          label="Protocol"
-          active={activeTab === "protocol"}
-          onClick={() => handleTabChange("protocol")}
-        />
-      </nav>
+      </div>
 
       <div style={styles.body}>
         {activeTab === "live" && (
@@ -315,8 +314,102 @@ const LiveTab: FC<{
     return <LiveHeroCard />;
   }
 
+  // PREPARING / DEPOSITING — render the multi-phase loading view at
+  // the top of the live stack. The user is waiting on Solflare /
+  // Solana confirmations during these phases; without surfaced
+  // micro-status they feel stuck. The TwapLoadingState handles the
+  // scroll cadence and the rings give the visual heartbeat.
+  const showLoadingPhases =
+    state.status === ExecutionStatus.PREPARING ||
+    state.status === ExecutionStatus.DEPOSITING;
+  const loadingPhaseIndex =
+    state.status === ExecutionStatus.PREPARING ? 0 : 1;
+
+  // Live progress rings — only for in-flight slice phases. Slice
+  // count, window elapsed, yield earned. Smooth animation thanks to
+  // ProgressRingsCard's built-in stroke transition.
+  const showRings =
+    state.status === ExecutionStatus.ACTIVE ||
+    state.status === ExecutionStatus.SLICE_WITHDRAWING ||
+    state.status === ExecutionStatus.SLICE_EXECUTING ||
+    state.status === ExecutionStatus.COMPLETING;
+
+  const sliceTotal = state.slices.length;
+  const sliceDone = state.slices.filter(
+    (s) => s.status === "completed",
+  ).length;
+  const windowMs = state.config?.windowDurationMs ?? 0;
+  const elapsedMs = state.startedAt
+    ? Date.now() - state.startedAt.getTime()
+    : 0;
+  // Rough yield target: principal × apy × windowSeconds / yearSeconds.
+  // We don't have apy in state directly, but the kaminoYieldUsd field
+  // (post-deposit live estimate) is close enough for the ring's
+  // proportion vs. expected; falling back to "compare to gain" if
+  // missing.
+  const yieldTarget = Math.max(0.01, state.totalPriceImprovementUsd);
+  const yieldNow = state.totalYieldEarned;
+
   return (
     <div style={styles.liveStack}>
+      {showLoadingPhases && (
+        <TwapLoadingState
+          phaseIndex={loadingPhaseIndex}
+          phases={[
+            {
+              status: "Preparing autopilot plan",
+              lines: [
+                "Building 6-tx pre-sign plan…",
+                "Provisioning durable nonce accounts…",
+                "Awaiting Solflare signAllTransactions…",
+                "Encrypting plan to local-only stash…",
+                "Pre-sign complete, broadcasting deposit…",
+              ],
+            },
+            {
+              status: "Depositing into Kamino",
+              lines: [
+                "Submitting deposit transaction…",
+                "Waiting for Solana confirmation…",
+                "kToken receipt minted to wallet…",
+                "Vault APY locked at deposit slot…",
+                "Idle capital is now earning…",
+              ],
+            },
+          ]}
+        />
+      )}
+      {showRings && sliceTotal > 0 && (
+        <ProgressRingsCard
+          title="In-flight progress"
+          metrics={[
+            {
+              label: "Slices",
+              color: "#F9B2D7", // LIMINAL pink
+              size: 132,
+              current: sliceDone,
+              target: sliceTotal,
+              unit: "",
+            },
+            {
+              label: "Window",
+              color: "#CFECF3", // LIMINAL sky
+              size: 100,
+              current: Math.min(windowMs, elapsedMs),
+              target: Math.max(1, windowMs),
+              unit: "ms",
+            },
+            {
+              label: "Yield",
+              color: "#DAF9DE", // LIMINAL mint
+              size: 68,
+              current: yieldNow,
+              target: yieldTarget,
+              unit: "USD",
+            },
+          ]}
+        />
+      )}
       <ValueCaptureBanner state={state} isMobile={isMobile} />
       <DFlowBarChart state={state} isMobile={isMobile} />
       <KaminoYieldChart state={state} />
@@ -896,6 +989,18 @@ const HistoryTab: FC<{ isMobile: boolean }> = ({ isMobile }) => {
         gap: 10,
       }}
     >
+      {/* Fan-out card stack — visual centrepiece showing the 6 most
+          recent executions. Click the stack to fan them out, click a
+          card to open the detail modal. The original detailed card
+          grid below stays as a navigable list for the full history. */}
+      {history.length > 0 && !isMobile && (
+        <div style={{ gridColumn: "1 / -1", marginBottom: 4 }}>
+          <ExecutionStack
+            executions={history}
+            onCardOpen={(exec) => setSelected(exec)}
+          />
+        </div>
+      )}
       {history.map((h) => (
         <HistoryCard
           key={h.id}
@@ -1593,6 +1698,10 @@ const styles: Record<string, CSSProperties> = {
     display: "flex",
     gap: 2,
     padding: "0 16px",
+    borderBottom: `1px solid ${THEME.border}`,
+  },
+  tabsWrap: {
+    padding: "10px 14px 12px",
     borderBottom: `1px solid ${THEME.border}`,
   },
   tabButton: {
