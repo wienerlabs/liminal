@@ -60,6 +60,7 @@ import DisclaimerModal, {
 } from "./components/DisclaimerModal";
 import { useProfile } from "./hooks/useProfile";
 import { useDcaRunner } from "./hooks/useDcaRunner";
+import { usePairQueueRunner } from "./hooks/usePairQueueRunner";
 import Tutorial, { replayTutorial } from "./components/Tutorial";
 import { getActiveNetworkConfig } from "./services/network";
 
@@ -149,6 +150,15 @@ export const App: FC = () => {
   useDcaRunner({
     walletConnected: wallet.connected,
     walletAddress: wallet.address,
+    machine,
+    state,
+  });
+
+  // Pair-queue runner — same pattern as DCA but for sequential
+  // multi-pair runs. Tighter 15s tick because the user expects step 2
+  // to start quickly after step 1 finishes.
+  usePairQueueRunner({
+    walletConnected: wallet.connected,
     machine,
     state,
   });
