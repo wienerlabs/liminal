@@ -967,14 +967,30 @@ const HistoryTab: FC<{ isMobile: boolean }> = ({ isMobile }) => {
 
   if (history.length === 0) {
     return (
-      <div style={styles.historyEmptyCard}>
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-          <circle cx="12" cy="12" r="10" stroke="var(--color-text-muted)" strokeWidth="1.5" />
-          <path d="M12 6v6l4 2" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeLinecap="round" />
-        </svg>
-        <div style={styles.historyEmptyText}>
-          Completed executions will appear here.
-        </div>
+      <div style={styles.historyEmptyWrap}>
+        {/* Demo cards — show users what the stack will look like
+            BEFORE they have real history. The 4 sample executions
+            are clearly marked with a "demo" pill so they don't
+            get mistaken for real entries. Hidden on mobile because
+            the fan-out math assumes desktop width; mobile users see
+            the simple text card instead. */}
+        {!isMobile ? (
+          <ExecutionStack
+            executions={[]}
+            demoMode
+            title="Preview · what your history will look like"
+          />
+        ) : (
+          <div style={styles.historyEmptyCard}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="10" stroke="var(--color-text-muted)" strokeWidth="1.5" />
+              <path d="M12 6v6l4 2" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+            <div style={styles.historyEmptyText}>
+              Completed executions will appear here.
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -1967,6 +1983,9 @@ const styles: Record<string, CSSProperties> = {
   },
 
   // History empty
+  historyEmptyWrap: {
+    padding: "12px 0",
+  },
   historyEmptyCard: {
     display: "flex",
     flexDirection: "column",

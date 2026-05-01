@@ -20,7 +20,11 @@
  */
 
 import { useState, type CSSProperties, type FC } from "react";
-import type { HistoricalExecution } from "../services/analyticsStore";
+import type {
+  HistoricalExecution,
+  SessionSummary,
+  SliceAnalytics,
+} from "../services/analyticsStore";
 
 const MONO = "var(--font-mono)";
 const SANS = "var(--font-sans)";
@@ -36,6 +40,16 @@ export type ExecutionStackProps = {
   onCardOpen?: (execution: HistoricalExecution) => void;
   className?: string;
   style?: CSSProperties;
+  /**
+   * Demo mode — when true and `executions` is empty, render 4 sample
+   * cards so the user can see what the stack looks like before they've
+   * actually run anything. Demo cards are visually marked with a
+   * "demo" pill so users don't confuse them with real history.
+   */
+  demoMode?: boolean;
+  /** Optional headline rendered above the stack ("Your history" /
+   * "Preview"). When omitted, no header renders. */
+  title?: string;
 };
 
 function formatUsd(n: number): string {
@@ -72,9 +86,16 @@ export const ExecutionStack: FC<ExecutionStackProps> = ({
   onCardOpen,
   className,
   style,
+  demoMode = false,
+  title,
 }) => {
   const [expanded, setExpanded] = useState(false);
-  const cards = executions.slice(0, 6);
+  // Demo mode kicks in when the consumer asks for it AND there's no
+  // real history to show. Real history always wins over demos.
+  const useDemo = demoMode && executions.length === 0;
+  const cards = useDemo
+    ? DEMO_EXECUTIONS
+    : executions.slice(0, 6);
   const totalCards = cards.length;
   const now = new Date();
 
@@ -88,18 +109,36 @@ export const ExecutionStack: FC<ExecutionStackProps> = ({
   const fannedCenterOffset = fannedTotalWidth / 2;
 
   return (
-    <button
-      type="button"
-      onClick={(e) => {
-        // Toggle on backdrop click only — individual card clicks bubble
-        // here too, but they already invoked onCardOpen and stopped
-        // propagation.
-        if (e.target === e.currentTarget) setExpanded((v) => !v);
-      }}
-      aria-label={expanded ? "Collapse execution stack" : "Expand execution stack"}
+    <div
       className={className}
-      style={{ ...styles.wrapper, ...style }}
+      style={{ ...styles.outer, ...style }}
     >
+      {(title || useDemo) && (
+        <div style={styles.titleRow}>
+          {title && <span style={styles.titleText}>{title}</span>}
+          {useDemo && (
+            <span style={styles.demoPill} aria-label="Demo cards — not real history">
+              demo
+            </span>
+          )}
+          {!useDemo && executions.length > 0 && (
+            <span style={styles.titleHint}>
+              {expanded ? "Click backdrop to collapse" : "Click stack to fan out"}
+            </span>
+          )}
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={(e) => {
+          // Toggle on backdrop click only — individual card clicks bubble
+          // here too, but they already invoked onCardOpen and stopped
+          // propagation.
+          if (e.target === e.currentTarget) setExpanded((v) => !v);
+        }}
+        aria-label={expanded ? "Collapse execution stack" : "Expand execution stack"}
+        style={styles.wrapper}
+      >
       {cards.map((exec, index) => {
         const stackX = index * STACK_X_STEP - stackCenterOffset;
         const stackY = index * STACK_Y_STEP;
@@ -189,9 +228,85 @@ export const ExecutionStack: FC<ExecutionStackProps> = ({
           </div>
         );
       })}
-    </button>
+      </button>
+    </div>
   );
 };
+
+// ---------------------------------------------------------------------------
+// Demo executions — used when the consumer passes `demoMode` and the
+// real history is empty. Numbers are illustrative ("here's roughly what
+// you'd capture on a SOL→USDC TWAP"). Visually marked with a "demo"
+// pill so users don't read these as their own.
+// ---------------------------------------------------------------------------
+
+function makeDemoSummary(
+  totalUsd: number,
+  bps: number,
+  yieldUsd: number,
+  durationMs: number,
+  completedSlices: number,
+  skippedSlices: number,
+): SessionSummary {
+  return {
+    totalInputAmount: 0,
+    totalOutputAmount: 0,
+    averageExecutionPrice: 0,
+    baselinePrice: 0,
+    totalPriceImprovementBps: bps,
+    totalPriceImprovementUsd: totalUsd - yieldUsd,
+    totalKaminoYieldUsd: yieldUsd,
+    totalValueCaptureUsd: totalUsd,
+    executionDurationMs: durationMs,
+    completedSlices,
+    skippedSlices,
+    startedAt: new Date(Date.now() - durationMs - 1000),
+    completedAt: new Date(Date.now() - 1000),
+  };
+}
+
+const DEMO_EXECUTIONS: HistoricalExecution[] = [
+  {
+    id: "demo-1",
+    inputMint: "So11111111111111111111111111111111111111112",
+    outputMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    inputSymbol: "SOL",
+    outputSymbol: "USDC",
+    summary: makeDemoSummary(58.42, 18.4, 11.20, 60 * 60 * 1000, 4, 0),
+    slices: [] as SliceAnalytics[],
+    createdAt: new Date(Date.now() - 30 * 60 * 1000), // 30m ago
+  },
+  {
+    id: "demo-2",
+    inputMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    outputMint: "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+    inputSymbol: "USDC",
+    outputSymbol: "USDT",
+    summary: makeDemoSummary(2.81, 4.2, 0.67, 30 * 60 * 1000, 3, 0),
+    slices: [] as SliceAnalytics[],
+    createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000), // 3h ago
+  },
+  {
+    id: "demo-3",
+    inputMint: "So11111111111111111111111111111111111111112",
+    outputMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    inputSymbol: "SOL",
+    outputSymbol: "USDC",
+    summary: makeDemoSummary(124.7, 22.1, 28.3, 2 * 60 * 60 * 1000, 6, 1),
+    slices: [] as SliceAnalytics[],
+    createdAt: new Date(Date.now() - 26 * 60 * 60 * 1000), // 1d ago
+  },
+  {
+    id: "demo-4",
+    inputMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    outputMint: "So11111111111111111111111111111111111111112",
+    inputSymbol: "USDC",
+    outputSymbol: "SOL",
+    summary: makeDemoSummary(7.15, 9.8, 1.44, 60 * 60 * 1000, 4, 0),
+    slices: [] as SliceAnalytics[],
+    createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3d ago
+  },
+];
 
 const Spec: FC<{ label: string; value: string; color?: string }> = ({
   label,
@@ -207,6 +322,45 @@ const Spec: FC<{ label: string; value: string; color?: string }> = ({
 );
 
 const styles: Record<string, CSSProperties> = {
+  outer: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+    width: "100%",
+  },
+  titleRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    padding: "0 8px",
+  },
+  titleText: {
+    fontFamily: MONO,
+    fontSize: 11,
+    fontWeight: 700,
+    color: "var(--color-text-muted)",
+    textTransform: "uppercase",
+    letterSpacing: "0.08em",
+  },
+  titleHint: {
+    marginLeft: "auto",
+    fontFamily: MONO,
+    fontSize: 10,
+    color: "var(--color-text-subtle)",
+    letterSpacing: 0,
+  },
+  demoPill: {
+    fontFamily: MONO,
+    fontSize: 9,
+    fontWeight: 700,
+    letterSpacing: "0.1em",
+    textTransform: "uppercase",
+    padding: "2px 7px",
+    borderRadius: 999,
+    background: "var(--color-accent-bg-soft)",
+    color: "var(--color-5-strong)",
+    border: "1px solid var(--color-accent-border)",
+  },
   wrapper: {
     position: "relative",
     width: "100%",
