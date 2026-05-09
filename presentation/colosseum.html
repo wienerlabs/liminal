@@ -183,6 +183,21 @@
       }
 
       /* =============================================================
+         Universal link reset — kill the default browser blue. Every
+         <a> in the deck (brand, CTA, footnote) inherits LIMINAL ink
+         color and gets explicit underline-on-intent only.
+         ============================================================= */
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+      a:focus-visible {
+        outline: 2px solid var(--pink-strong);
+        outline-offset: 3px;
+        border-radius: 4px;
+      }
+
+      /* =============================================================
          Deck shell
          ============================================================= */
       .deck {
@@ -202,9 +217,9 @@
         justify-content: space-between;
         padding: 18px 32px;
         border-bottom: 1px solid var(--stroke);
-        background: rgba(255, 255, 255, 0.45);
-        backdrop-filter: blur(14px) saturate(140%);
-        -webkit-backdrop-filter: blur(14px) saturate(140%);
+        background: rgba(255, 255, 255, 0.55);
+        backdrop-filter: blur(16px) saturate(140%);
+        -webkit-backdrop-filter: blur(16px) saturate(140%);
         flex-shrink: 0;
       }
       .brand {
@@ -213,24 +228,33 @@
         gap: 12px;
         font-family: var(--font-mono);
         font-weight: 700;
-        font-size: 16px;
-        letter-spacing: 0.02em;
+        font-size: 17px;
+        letter-spacing: 0.04em;
+        color: var(--ink) !important;
+        text-decoration: none;
+        transition: opacity 200ms var(--ease-out);
+      }
+      .brand:hover {
+        opacity: 0.7;
       }
       .brand-mark {
-        width: 28px;
-        height: 28px;
+        width: 32px;
+        height: 32px;
         border-radius: 50%;
-        background: var(--ink);
+        background: var(--paper);
+        border: 1.5px solid var(--ink);
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        color: var(--paper);
-        font-size: 14px;
-        font-weight: 700;
+        flex-shrink: 0;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(26, 26, 26, 0.08);
       }
       .brand-mark img {
-        width: 28px;
-        height: 28px;
+        width: 32px;
+        height: 32px;
+        object-fit: contain;
+        display: block;
       }
       .topbar-meta {
         display: flex;
@@ -280,14 +304,73 @@
         }
       }
 
+      /* =============================================================
+         Reveal animation — children of the active slide cascade in
+         on a 60ms-stepped delay. Triggered by the .is-active class
+         landing on the parent slide. Pure CSS, no JS observers.
+         ============================================================= */
+      .slide.is-active > * {
+        animation: reveal 540ms var(--ease-out) backwards;
+      }
+      .slide.is-active > *:nth-child(1) { animation-delay: 90ms; }
+      .slide.is-active > *:nth-child(2) { animation-delay: 150ms; }
+      .slide.is-active > *:nth-child(3) { animation-delay: 210ms; }
+      .slide.is-active > *:nth-child(4) { animation-delay: 270ms; }
+      .slide.is-active > *:nth-child(5) { animation-delay: 330ms; }
+      .slide.is-active > *:nth-child(6) { animation-delay: 390ms; }
+      .slide.is-active > *:nth-child(7) { animation-delay: 450ms; }
+      @keyframes reveal {
+        from { opacity: 0; transform: translateY(18px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+
+      /* Cascade reveal for grid children too — gives the card layouts
+         a nice "deal" quality where each card lands a beat after the
+         last. Limited to 12 children so we don't generate enormous
+         CSS for nothing. */
+      .cascade > * {
+        animation: cascade 460ms var(--ease-out) backwards;
+      }
+      .slide.is-active .cascade > *:nth-child(1) { animation-delay: 280ms; }
+      .slide.is-active .cascade > *:nth-child(2) { animation-delay: 340ms; }
+      .slide.is-active .cascade > *:nth-child(3) { animation-delay: 400ms; }
+      .slide.is-active .cascade > *:nth-child(4) { animation-delay: 460ms; }
+      .slide.is-active .cascade > *:nth-child(5) { animation-delay: 520ms; }
+      .slide.is-active .cascade > *:nth-child(6) { animation-delay: 580ms; }
+      .slide.is-active .cascade > *:nth-child(7) { animation-delay: 640ms; }
+      .slide.is-active .cascade > *:nth-child(8) { animation-delay: 700ms; }
+      .slide.is-active .cascade > *:nth-child(9) { animation-delay: 760ms; }
+      .slide.is-active .cascade > *:nth-child(10) { animation-delay: 820ms; }
+      .slide.is-active .cascade > *:nth-child(11) { animation-delay: 880ms; }
+      .slide.is-active .cascade > *:nth-child(12) { animation-delay: 940ms; }
+      @keyframes cascade {
+        from { opacity: 0; transform: translateY(20px) scale(0.96); }
+        to   { opacity: 1; transform: translateY(0) scale(1); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .slide.is-active > *,
+        .slide.is-active .cascade > * {
+          animation: none;
+        }
+      }
+
       /* Common slide elements */
       .eyebrow {
         font-family: var(--font-mono);
-        font-size: 12px;
+        font-size: 13px;
         font-weight: 700;
-        letter-spacing: 0.18em;
+        letter-spacing: 0.2em;
         text-transform: uppercase;
         color: var(--pink-strong);
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .eyebrow::before {
+        content: "";
+        width: 28px;
+        height: 1.5px;
+        background: var(--pink-strong);
       }
       h1.title,
       h2.title {
@@ -421,14 +504,46 @@
 
       .card {
         padding: 22px 22px;
-        background: rgba(255, 255, 255, 0.55);
+        background: rgba(255, 255, 255, 0.62);
         border: 1px solid var(--stroke);
         border-radius: 16px;
-        backdrop-filter: blur(8px) saturate(130%);
-        -webkit-backdrop-filter: blur(8px) saturate(130%);
+        backdrop-filter: blur(10px) saturate(140%);
+        -webkit-backdrop-filter: blur(10px) saturate(140%);
         display: flex;
         flex-direction: column;
         gap: 8px;
+        transition:
+          transform 260ms var(--ease-out),
+          box-shadow 260ms var(--ease-out),
+          border-color 260ms var(--ease-out),
+          background 260ms var(--ease-out);
+        position: relative;
+        overflow: hidden;
+      }
+      .card::after {
+        /* Subtle inner sheen — makes glass cards feel like real
+           material instead of flat backdrop-filter. */
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          135deg,
+          rgba(255, 255, 255, 0.5) 0%,
+          rgba(255, 255, 255, 0) 30%,
+          rgba(255, 255, 255, 0) 100%
+        );
+        pointer-events: none;
+        opacity: 0.7;
+      }
+      @media (hover: hover) {
+        .card:hover {
+          transform: translateY(-4px);
+          box-shadow:
+            0 12px 32px rgba(26, 26, 26, 0.10),
+            0 4px 12px rgba(249, 178, 215, 0.18);
+          border-color: var(--pink-strong);
+          background: rgba(255, 255, 255, 0.78);
+        }
       }
       .card .ord {
         font-family: var(--font-mono);
@@ -636,56 +751,262 @@
 
       /* =============================================================
          Slide 5 — partner integration depth
+         Each partner gets a card with a colored logo halo, the brand
+         name, a "role" tag, and bullet points. The halo color is
+         picked to match each partner's identity:
+           DFlow      → soft accent pink
+           Kamino     → mint (Kamino's brand uses cool greens)
+           QuickNode  → sky / pale blue
+           Solflare   → warm yellow (matches their flame accent)
          ============================================================= */
       .partner-card {
-        padding: 22px;
-        background: rgba(255, 255, 255, 0.55);
+        padding: 24px;
+        background: rgba(255, 255, 255, 0.7);
         border: 1px solid var(--stroke);
-        border-radius: 16px;
-        backdrop-filter: blur(8px);
+        border-radius: 18px;
+        backdrop-filter: blur(12px) saturate(140%);
+        -webkit-backdrop-filter: blur(12px) saturate(140%);
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: 12px;
+        position: relative;
+        overflow: hidden;
+        transition:
+          transform 280ms var(--ease-out),
+          box-shadow 280ms var(--ease-out),
+          border-color 280ms var(--ease-out);
+      }
+      /* Halo — soft glow pinned to top-right that hints at partner color */
+      .partner-card::before {
+        content: "";
+        position: absolute;
+        top: -40%;
+        right: -30%;
+        width: 280px;
+        height: 280px;
+        border-radius: 50%;
+        background: radial-gradient(
+          circle,
+          var(--halo, var(--pink)) 0%,
+          transparent 70%
+        );
+        opacity: 0.45;
+        pointer-events: none;
+        filter: blur(30px);
+      }
+      .partner-card.dflow    { --halo: #ff8ac4; }
+      .partner-card.kamino   { --halo: #89fcb3; }
+      .partner-card.quicknode { --halo: #8ad4f0; }
+      .partner-card.solflare { --halo: #ffc857; }
+      @media (hover: hover) {
+        .partner-card:hover {
+          transform: translateY(-4px);
+          box-shadow:
+            0 16px 40px rgba(26, 26, 26, 0.10),
+            0 4px 12px rgba(0, 0, 0, 0.05);
+          border-color: var(--ink);
+        }
+      }
+      .partner-head {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        position: relative;
+        z-index: 1;
+      }
+      .partner-logo {
+        flex-shrink: 0;
+        width: 56px;
+        height: 56px;
+        border-radius: 14px;
+        background: var(--paper);
+        border: 1px solid var(--stroke);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--ink);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+      }
+      .partner-logo svg {
+        width: 32px;
+        height: 32px;
       }
       .partner-name {
         display: flex;
-        align-items: center;
-        gap: 10px;
+        flex-direction: column;
+        gap: 2px;
         font-family: var(--font-display);
         font-weight: 700;
         font-size: 22px;
+        line-height: 1.1;
         color: var(--ink);
       }
       .partner-tag {
         font-family: var(--font-mono);
         font-size: 11px;
         font-weight: 700;
-        letter-spacing: 0.08em;
+        letter-spacing: 0.12em;
         text-transform: uppercase;
         color: var(--muted);
       }
       .partner-card ul {
-        margin: 6px 0 0 0;
+        margin: 4px 0 0 0;
         padding: 0;
         list-style: none;
         display: flex;
         flex-direction: column;
-        gap: 6px;
+        gap: 7px;
+        position: relative;
+        z-index: 1;
       }
       .partner-card li {
         font-family: var(--font-mono);
         font-size: 13px;
         color: var(--muted);
-        padding-left: 14px;
+        padding-left: 16px;
         position: relative;
         line-height: 1.5;
       }
       .partner-card li::before {
-        content: "·";
+        content: "→";
         position: absolute;
         left: 0;
         color: var(--pink-strong);
         font-weight: 700;
+      }
+
+      /* =============================================================
+         Logo rail — strip of partner logos used on cover + close.
+         Each logo sits in a small chip with the partner color halo.
+         ============================================================= */
+      .logo-rail {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .logo-rail .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 14px 8px 8px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.7);
+        border: 1px solid var(--stroke);
+        font-family: var(--font-mono);
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--ink);
+        backdrop-filter: blur(8px);
+        transition:
+          transform 220ms var(--ease-out),
+          box-shadow 220ms var(--ease-out);
+      }
+      @media (hover: hover) {
+        .logo-rail .chip:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 16px rgba(26, 26, 26, 0.08);
+        }
+      }
+      .logo-rail .chip-icon {
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        background: var(--paper);
+        border: 1px solid var(--stroke);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--ink);
+      }
+      .logo-rail .chip-icon svg {
+        width: 16px;
+        height: 16px;
+      }
+
+      /* =============================================================
+         LIMINAL watermark — soft logo placement in bottom-right of
+         non-cover slides, anchors brand without competing with content.
+         ============================================================= */
+      .liminal-watermark {
+        position: absolute;
+        bottom: 22px;
+        right: 32px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        opacity: 0.32;
+        pointer-events: none;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--ink);
+      }
+      .liminal-watermark img {
+        width: 22px;
+        height: 22px;
+      }
+
+      /* =============================================================
+         Cover hero — big LIMINAL mark + composed wordmark
+         ============================================================= */
+      .cover-hero {
+        display: flex;
+        align-items: center;
+        gap: 28px;
+        margin-bottom: 8px;
+      }
+      .cover-mark {
+        width: 96px;
+        height: 96px;
+        border-radius: 50%;
+        background: linear-gradient(
+          135deg,
+          var(--pink) 0%,
+          var(--sky) 50%,
+          var(--mint) 100%
+        );
+        padding: 4px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow:
+          0 16px 40px rgba(249, 178, 215, 0.35),
+          0 4px 12px rgba(26, 26, 26, 0.08);
+        animation: mark-breathe 5s ease-in-out infinite;
+      }
+      .cover-mark-inner {
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        background: var(--paper);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+      }
+      .cover-mark-inner img {
+        width: 64px;
+        height: 64px;
+        object-fit: contain;
+      }
+      @keyframes mark-breathe {
+        0%, 100% { transform: scale(1) rotate(0deg); }
+        50%      { transform: scale(1.04) rotate(2deg); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .cover-mark { animation: none; }
+      }
+      .cover-wordmark {
+        font-family: var(--font-display);
+        font-weight: 700;
+        font-size: clamp(56px, 7vw, 96px);
+        line-height: 1;
+        letter-spacing: -0.04em;
+        color: var(--ink);
+        margin: 0;
       }
 
       /* =============================================================
@@ -921,7 +1242,13 @@
   <body>
     <div class="deck" id="deck">
       <header class="topbar">
-        <a class="brand" href="../" aria-label="LIMINAL home">
+        <a
+          class="brand"
+          href="https://liminal.app"
+          target="_blank"
+          rel="noreferrer"
+          aria-label="Open LIMINAL terminal"
+        >
           <span class="brand-mark"><img src="../public/logo.png" alt="" /></span>
           <span>LIMINAL</span>
         </a>
@@ -936,6 +1263,14 @@
         <!--  Slide 1 — Cover                                              -->
         <!-- ============================================================ -->
         <section class="slide cover" data-slide="1">
+          <div class="cover-hero">
+            <div class="cover-mark" aria-hidden="true">
+              <span class="cover-mark-inner">
+                <img src="../public/logo.png" alt="LIMINAL" />
+              </span>
+            </div>
+            <h1 class="cover-wordmark">LIMINAL</h1>
+          </div>
           <span class="eyebrow">Earn while you trade</span>
           <h1 class="title">
             The intelligent execution<br />
@@ -952,11 +1287,48 @@
             <span><strong>0</strong> custody · funds stay in your wallet</span>
             <span><strong>4</strong> partners</span>
           </div>
-          <div class="cover-partners row">
-            <span class="pill">DFlow</span>
-            <span class="pill">Kamino</span>
-            <span class="pill">QuickNode</span>
-            <span class="pill">Solflare</span>
+          <div class="logo-rail">
+            <span class="chip">
+              <span class="chip-icon" style="color: #ff8ac4;">
+                <svg viewBox="0 0 329 329" fill="currentColor" aria-hidden="true">
+                  <path d="M126.705 27.668c-47.483 14.221-84.891 51.613-99.153 98.872h50.669c4.38 0 8.58-1.74 11.677-4.835l31.966-31.948c3.1-3.098 4.841-7.3 4.841-11.683z"/>
+                  <path d="M151.397 89.199c-.204 4.118-1.927 8.024-4.848 10.943l-46.488 46.461-.591.561c-3.017 2.732-6.94 4.253-11.017 4.253H15.747l-.457-.007c-9.549-.261-16.967-8.685-14.96-18.151C14.432 66.757 66.84 14.395 133.391.323c9.553-2.02 18.027 5.717 18.027 15.544v72.506z"/>
+                  <path d="M126.705 301.166c-47.483-14.221-84.891-51.613-99.153-98.872h50.669c4.38 0 8.58 1.739 11.677 4.835l31.966 31.947c3.1 3.098 4.841 7.301 4.841 11.684z"/>
+                  <path d="M151.397 239.635c-.204-4.118-1.927-8.024-4.848-10.943l-46.488-46.461-.591-.561c-3.017-2.732-6.94-4.253-11.017-4.253H15.747l-.457.007c-9.549.261-16.967 8.685-14.96 18.151 14.101 66.502 66.509 118.864 133.06 132.936 9.553 2.02 18.027-5.717 18.027-15.544v-72.506z"/>
+                  <path d="M301.287 126.528c-14.284-47.268-51.697-84.656-99.17-98.854v50.375c0 4.38 1.739 8.58 4.836 11.678l31.951 31.961c3.098 3.099 7.301 4.84 11.682 4.84z"/>
+                  <path d="M240.351 151.417c-4.346 0-8.517-1.731-11.602-4.816l-46.466-46.483c-2.92-2.92-4.642-6.828-4.846-10.948l-.02-.827v-72.47c0-9.828 8.464-17.566 18.01-15.552 66.534 14.041 118.944 66.401 133.075 132.921 2.045 9.623-5.641 18.175-15.408 18.175z"/>
+                  <path d="M202.13 301.166c47.482-14.223 84.889-51.615 99.151-98.872h-50.669c-4.379 0-8.578 1.739-11.676 4.834l-31.964 31.944c-3.1 3.098-4.842 7.301-4.842 11.684z"/>
+                  <path d="M177.437 239.631c.204-4.119 1.927-8.024 4.848-10.943l46.487-46.457.591-.561c2.816-2.55 6.42-4.045 10.203-4.233l.814-.02h72.708l.456.007c9.549.261 16.967 8.685 14.96 18.151-14.1 66.5-66.508 118.861-133.059 132.936-9.553 2.02-18.028-5.716-18.028-15.542v-72.512z"/>
+                </svg>
+              </span>
+              DFlow
+            </span>
+            <span class="chip">
+              <span class="chip-icon" style="color: #1a1a1a;">
+                <svg viewBox="0 0 35 50" fill="currentColor" aria-hidden="true">
+                  <path d="M10.263 2.782H0v46.684h10.263V2.782z"/>
+                  <path d="M33.347 48.876c-4.835-3.334-8.102-9.534-8.102-16.64s3.267-13.307 8.102-16.64v-.562H19.97c-3.13 4.85-4.97 10.78-4.97 17.202s1.837 12.348 4.97 17.202h13.377v-.562z"/>
+                </svg>
+              </span>
+              Kamino
+            </span>
+            <span class="chip">
+              <span class="chip-icon" style="color: #2563eb;">
+                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M11 2 A9 9 0 1 0 11 20 A9 9 0 1 0 11 2 Z M11 5 A6 6 0 1 1 11 17 A6 6 0 1 1 11 5 Z" fill-rule="evenodd"/>
+                  <path d="M14.5 16.5 L19 21 L21 19 L16.5 14.5 Z"/>
+                </svg>
+              </span>
+              QuickNode
+            </span>
+            <span class="chip">
+              <span class="chip-icon" style="color: #fc822b;">
+                <svg viewBox="0 0 50 50" fill="currentColor" aria-hidden="true">
+                  <path d="M24.23 26.42l2.46-2.38 4.59 1.5c3.01 1 4.51 2.84 4.51 5.43 0 1.96-.75 3.26-2.25 4.93l-.46.5.17-1.17c.67-4.26-.58-6.09-4.72-7.43l-4.3-1.38zM18.05 11.85l12.52 4.17-2.71 2.59-6.51-2.17c-2.25-.75-3.01-1.96-3.3-4.51v-.08zM17.3 33.06l2.84-2.71 5.34 1.75c2.8.92 3.76 2.13 3.46 5.18l-11.65-4.22zM13.71 20.95c0-.79.42-1.54 1.13-2.17.75 1.09 2.05 2.05 4.09 2.71l4.42 1.46-2.46 2.38-4.34-1.42c-2-.67-2.84-1.67-2.84-2.96M26.82 42.87c9.18-6.09 14.11-10.23 14.11-15.32 0-3.38-2-5.26-6.43-6.72l-3.34-1.13 9.14-8.77-1.84-1.96-2.71 2.38-12.81-4.22c-3.97 1.29-8.97 5.09-8.97 8.89 0 .42.04.83.17 1.29-3.3 1.88-4.63 3.63-4.63 5.8 0 2.05 1.09 4.09 4.55 5.22l2.75.92-9.52 9.14 1.84 1.96 2.96-2.71 14.73 5.22z"/>
+                </svg>
+              </span>
+              Solflare
+            </span>
           </div>
         </section>
 
@@ -966,7 +1338,7 @@
         <section class="slide" data-slide="2">
           <span class="eyebrow">Problem</span>
           <h2 class="title">Three things break on big Solana swaps.</h2>
-          <div class="grid-3">
+          <div class="grid-3 cascade">
             <div class="card">
               <span class="ord">01 · Spread</span>
               <h3>Market orders pay slippage twice.</h3>
@@ -998,6 +1370,10 @@
           <p class="footnote">
             Aggregators solve <em>one</em> of these. LIMINAL solves all three.
           </p>
+          <span class="liminal-watermark">
+            <img src="../public/logo.png" alt="" />
+            <span>LIMINAL</span>
+          </span>
         </section>
 
         <!-- ============================================================ -->
@@ -1006,7 +1382,7 @@
         <section class="slide" data-slide="3">
           <span class="eyebrow">Solution</span>
           <h2 class="title">One terminal. Four partners. Composite alpha.</h2>
-          <div class="grid-4">
+          <div class="grid-4 cascade">
             <div class="card">
               <span class="ord">DFlow</span>
               <h3>RFQ-routed slices</h3>
@@ -1043,6 +1419,10 @@
               </p>
             </div>
           </div>
+          <span class="liminal-watermark">
+            <img src="../public/logo.png" alt="" />
+            <span>LIMINAL</span>
+          </span>
         </section>
 
         <!-- ============================================================ -->
@@ -1085,64 +1465,119 @@
             SOL/USDC during the past week. Replay any of them in the
             Analytics&nbsp;→&nbsp;History tab.
           </p>
+          <span class="liminal-watermark">
+            <img src="../public/logo.png" alt="" />
+            <span>LIMINAL</span>
+          </span>
         </section>
 
         <!-- ============================================================ -->
         <!--  Slide 5 — Integration depth                                  -->
+        <!--  Each partner = inline SVG logo + colored halo + role tag +   -->
+        <!--  4 concrete integration callouts. No marketing words; every   -->
+        <!--  bullet maps to a real code path in the dApp.                 -->
         <!-- ============================================================ -->
         <section class="slide" data-slide="5">
           <span class="eyebrow">Integration depth</span>
           <h2 class="title">Each partner is in the critical path, not bolted on.</h2>
-          <div class="grid-2">
-            <div class="partner-card">
-              <div class="partner-name">
-                DFlow
-                <span class="partner-tag">Execution layer</span>
-              </div>
+          <div class="grid-2 cascade">
+            <!-- DFlow ------------------------------------------------- -->
+            <article class="partner-card dflow">
+              <header class="partner-head">
+                <span class="partner-logo" style="color: #ff2e7e;">
+                  <svg viewBox="0 0 329 329" fill="currentColor" aria-hidden="true">
+                    <path d="M126.705 27.668c-47.483 14.221-84.891 51.613-99.153 98.872h50.669c4.38 0 8.58-1.74 11.677-4.835l31.966-31.948c3.1-3.098 4.841-7.3 4.841-11.683z"/>
+                    <path d="M151.397 89.199c-.204 4.118-1.927 8.024-4.848 10.943l-46.488 46.461-.591.561c-3.017 2.732-6.94 4.253-11.017 4.253H15.747l-.457-.007c-9.549-.261-16.967-8.685-14.96-18.151C14.432 66.757 66.84 14.395 133.391.323c9.553-2.02 18.027 5.717 18.027 15.544v72.506z"/>
+                    <path d="M126.705 301.166c-47.483-14.221-84.891-51.613-99.153-98.872h50.669c4.38 0 8.58 1.739 11.677 4.835l31.966 31.947c3.1 3.098 4.841 7.301 4.841 11.684z"/>
+                    <path d="M151.397 239.635c-.204-4.118-1.927-8.024-4.848-10.943l-46.488-46.461-.591-.561c-3.017-2.732-6.94-4.253-11.017-4.253H15.747l-.457.007c-9.549.261-16.967 8.685-14.96 18.151 14.101 66.502 66.509 118.864 133.06 132.936 9.553 2.02 18.027-5.717 18.027-15.544v-72.506z"/>
+                    <path d="M301.287 126.528c-14.284-47.268-51.697-84.656-99.17-98.854v50.375c0 4.38 1.739 8.58 4.836 11.678l31.951 31.961c3.098 3.099 7.301 4.84 11.682 4.84z"/>
+                    <path d="M240.351 151.417c-4.346 0-8.517-1.731-11.602-4.816l-46.466-46.483c-2.92-2.92-4.642-6.828-4.846-10.948l-.02-.827v-72.47c0-9.828 8.464-17.566 18.01-15.552 66.534 14.041 118.944 66.401 133.075 132.921 2.045 9.623-5.641 18.175-15.408 18.175z"/>
+                    <path d="M202.13 301.166c47.482-14.223 84.889-51.615 99.151-98.872h-50.669c-4.379 0-8.578 1.739-11.676 4.834l-31.964 31.944c-3.1 3.098-4.842 7.301-4.842 11.684z"/>
+                    <path d="M177.437 239.631c.204-4.119 1.927-8.024 4.848-10.943l46.487-46.457.591-.561c2.816-2.55 6.42-4.045 10.203-4.233l.814-.02h72.708l.456.007c9.549.261 16.967 8.685 14.96 18.151-14.1 66.5-66.508 118.861-133.059 132.936-9.553 2.02-18.028-5.716-18.028-15.542v-72.512z"/>
+                  </svg>
+                </span>
+                <div class="partner-name">
+                  DFlow
+                  <span class="partner-tag">Execution layer</span>
+                </div>
+              </header>
               <ul>
                 <li>Quote comparison on every slice — market vs. DFlow side-by-side, rendered live</li>
                 <li>MEV-protected execution via Jupiter Ultra RFQ + DFlow-endorsed market makers</li>
                 <li>Adaptive route fallback chain on MTU edge cases (excludes Whirlpool/Phoenix when needed)</li>
                 <li>Slippage threshold: defer-not-fail, single retry, then user prompt</li>
               </ul>
-            </div>
-            <div class="partner-card">
-              <div class="partner-name">
-                Kamino
-                <span class="partner-tag">Yield layer</span>
-              </div>
+            </article>
+
+            <!-- Kamino ------------------------------------------------ -->
+            <article class="partner-card kamino">
+              <header class="partner-head">
+                <span class="partner-logo" style="color: #1a1a1a;">
+                  <svg viewBox="0 0 35 50" fill="currentColor" aria-hidden="true">
+                    <path d="M10.263 2.782H0v46.684h10.263V2.782z"/>
+                    <path d="M33.347 48.876c-4.835-3.334-8.102-9.534-8.102-16.64s3.267-13.307 8.102-16.64v-.562H19.97c-3.13 4.85-4.97 10.78-4.97 17.202s1.837 12.348 4.97 17.202h13.377v-.562z"/>
+                  </svg>
+                </span>
+                <div class="partner-name">
+                  Kamino
+                  <span class="partner-tag">Yield layer</span>
+                </div>
+              </header>
               <ul>
                 <li>Auto-vault selection by APY × liquidity × audit status, per input mint</li>
                 <li>Deposit on configure → partial withdraw 0.4s before each slice → final withdraw at completion</li>
                 <li>kToken accounting reconciles real yield earned, not estimated</li>
                 <li>Lending-only — no CLMM exposure, no impermanent loss</li>
               </ul>
-            </div>
-            <div class="partner-card">
-              <div class="partner-name">
-                QuickNode
-                <span class="partner-tag">Data layer</span>
-              </div>
+            </article>
+
+            <!-- QuickNode --------------------------------------------- -->
+            <article class="partner-card quicknode">
+              <header class="partner-head">
+                <span class="partner-logo" style="color: #2563eb;">
+                  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M11 2 A9 9 0 1 0 11 20 A9 9 0 1 0 11 2 Z M11 5 A6 6 0 1 1 11 17 A6 6 0 1 1 11 5 Z" fill-rule="evenodd"/>
+                    <path d="M14.5 16.5 L19 21 L21 19 L16.5 14.5 Z"/>
+                  </svg>
+                </span>
+                <div class="partner-name">
+                  QuickNode
+                  <span class="partner-tag">Data layer</span>
+                </div>
+              </header>
               <ul>
                 <li>Dedicated RPC + Streams for slot confirmation under 500ms</li>
                 <li>Pyth price feed driving 5s polling loop on every active mint</li>
                 <li>Wallet event subscriptions for balance + kToken position deltas</li>
                 <li>Network meter in the header reads live RPC latency, drops bars when congested</li>
               </ul>
-            </div>
-            <div class="partner-card">
-              <div class="partner-name">
-                Solflare
-                <span class="partner-tag">UX layer</span>
-              </div>
+            </article>
+
+            <!-- Solflare ---------------------------------------------- -->
+            <article class="partner-card solflare">
+              <header class="partner-head">
+                <span class="partner-logo" style="color: #fc822b;">
+                  <svg viewBox="0 0 50 50" fill="currentColor" aria-hidden="true">
+                    <path d="M24.23 26.42l2.46-2.38 4.59 1.5c3.01 1 4.51 2.84 4.51 5.43 0 1.96-.75 3.26-2.25 4.93l-.46.5.17-1.17c.67-4.26-.58-6.09-4.72-7.43l-4.3-1.38zM18.05 11.85l12.52 4.17-2.71 2.59-6.51-2.17c-2.25-.75-3.01-1.96-3.3-4.51v-.08zM17.3 33.06l2.84-2.71 5.34 1.75c2.8.92 3.76 2.13 3.46 5.18l-11.65-4.22zM13.71 20.95c0-.79.42-1.54 1.13-2.17.75 1.09 2.05 2.05 4.09 2.71l4.42 1.46-2.46 2.38-4.34-1.42c-2-.67-2.84-1.67-2.84-2.96M26.82 42.87c9.18-6.09 14.11-10.23 14.11-15.32 0-3.38-2-5.26-6.43-6.72l-3.34-1.13 9.14-8.77-1.84-1.96-2.71 2.38-12.81-4.22c-3.97 1.29-8.97 5.09-8.97 8.89 0 .42.04.83.17 1.29-3.3 1.88-4.63 3.63-4.63 5.8 0 2.05 1.09 4.09 4.55 5.22l2.75.92-9.52 9.14 1.84 1.96 2.96-2.71 14.73 5.22z"/>
+                  </svg>
+                </span>
+                <div class="partner-name">
+                  Solflare
+                  <span class="partner-tag">UX layer</span>
+                </div>
+              </header>
               <ul>
                 <li>Wallet-adapter sole-supported on purpose — no Phantom fallback dilutes depth</li>
                 <li>Versioned transaction batching cuts 4-slice popups from 10 to 6</li>
                 <li>simulateTransaction before every broadcast — no silent failures</li>
                 <li>Deep linking + in-app browser auto-connect on mount</li>
               </ul>
-            </div>
+            </article>
           </div>
+          <span class="liminal-watermark">
+            <img src="../public/logo.png" alt="" />
+            <span>LIMINAL</span>
+          </span>
         </section>
 
         <!-- ============================================================ -->
@@ -1197,6 +1632,10 @@
             built-in tutorial. The whole state machine — IDLE → CONFIGURED →
             DEPOSITING → ACTIVE → DONE — surfaced as one fluid step indicator.
           </p>
+          <span class="liminal-watermark">
+            <img src="../public/logo.png" alt="" />
+            <span>LIMINAL</span>
+          </span>
         </section>
 
         <!-- ============================================================ -->
@@ -1205,7 +1644,7 @@
         <section class="slide" data-slide="7">
           <span class="eyebrow">What's inside</span>
           <h2 class="title">Twelve features, one terminal.</h2>
-          <div class="feature-grid">
+          <div class="feature-grid cascade">
             <div class="feature-card">
               <strong>TWAP execution</strong>Time-weighted slicing with
               configurable window + slice count + slippage threshold.
@@ -1255,6 +1694,10 @@
               service worker (no workbox), network-first navigations.
             </div>
           </div>
+          <span class="liminal-watermark">
+            <img src="../public/logo.png" alt="" />
+            <span>LIMINAL</span>
+          </span>
         </section>
 
         <!-- ============================================================ -->
@@ -1263,7 +1706,7 @@
         <section class="slide" data-slide="8">
           <span class="eyebrow">Traction</span>
           <h2 class="title">Mainnet only. Real activity.</h2>
-          <div class="grid-4">
+          <div class="grid-4 cascade">
             <div class="stat">
               <span class="stat-value">100%</span>
               <span class="stat-label">Mainnet</span>
@@ -1295,6 +1738,10 @@
             Every metric on the dashboard derives from real mainnet activity —
             no mock data lives in the production bundle.
           </p>
+          <span class="liminal-watermark">
+            <img src="../public/logo.png" alt="" />
+            <span>LIMINAL</span>
+          </span>
         </section>
 
         <!-- ============================================================ -->
@@ -1303,7 +1750,7 @@
         <section class="slide" data-slide="9">
           <span class="eyebrow">Roadmap</span>
           <h2 class="title">Shipped → near-term → composable future.</h2>
-          <div class="timeline">
+          <div class="timeline cascade">
             <div class="timeline-row is-now">
               <span class="timeline-when">Shipped · live</span>
               <div class="timeline-body">
@@ -1352,12 +1799,24 @@
               </div>
             </div>
           </div>
+          <span class="liminal-watermark">
+            <img src="../public/logo.png" alt="" />
+            <span>LIMINAL</span>
+          </span>
         </section>
 
         <!-- ============================================================ -->
         <!--  Slide 10 — Close / Ask                                       -->
         <!-- ============================================================ -->
         <section class="slide" data-slide="10">
+          <div class="cover-hero">
+            <div class="cover-mark" aria-hidden="true">
+              <span class="cover-mark-inner">
+                <img src="../public/logo.png" alt="LIMINAL" />
+              </span>
+            </div>
+            <h1 class="cover-wordmark">LIMINAL</h1>
+          </div>
           <span class="eyebrow">Vote · run · tell a friend</span>
           <h2 class="title">
             Earn while you trade.<br />
