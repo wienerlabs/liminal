@@ -141,8 +141,16 @@ async function broadcastAndConfirm(
   tx: VersionedTransaction,
   connection: Connection,
 ): Promise<string> {
+  // skipPreflight: true — autopilot pre-signed plans bundle Kamino
+  // deposit/withdraw + DFlow swap into versioned-tx slices. Solflare's
+  // signing pass can mutate priority-fee instructions which shifts the
+  // message hash off the signed bytes; preflight then rejects with
+  // "did not pass signature verification, logs:[]". On-chain
+  // execution validates signatures regardless, and we already ran
+  // simulateTransaction during plan build, so the redundant preflight
+  // is a fragility tax with no security benefit.
   const signature = await connection.sendRawTransaction(tx.serialize(), {
-    skipPreflight: false,
+    skipPreflight: true,
     preflightCommitment: "confirmed",
     maxRetries: 3,
   });

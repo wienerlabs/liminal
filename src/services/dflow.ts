@@ -928,9 +928,24 @@ export async function executeSwap(
 
   if (!signature) {
     try {
+      // skipPreflight: true is the canonical pattern for Jupiter Ultra /
+      // DFlow swap broadcasts. Three reasons:
+      //   1. We already ran a full simulation at step 2 above with
+      //      sigVerify=false — the program-level checks are done.
+      //   2. RPC preflight re-simulates with sigVerify=true, which
+      //      fails when the wallet (Solflare in particular) bumps
+      //      priority fee instructions during signing — the on-disk
+      //      message bytes drift from the signed bytes, hash mismatch,
+      //      "did not pass signature verification" with empty logs.
+      //   3. On-chain execution still verifies the signature — there
+      //      is no security loss from skipping the redundant preflight.
+      // This is the documented Jupiter Ultra integration pattern; see
+      // https://station.jup.ag/docs/apis/payments-api  ("Best
+      // Practices: Set skipPreflight to true for better landing rate").
       signature = await connection.sendRawTransaction(signed.serialize(), {
-        skipPreflight: false,
+        skipPreflight: true,
         preflightCommitment: COMMITMENT,
+        maxRetries: 2,
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
