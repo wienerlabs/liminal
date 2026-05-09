@@ -37,9 +37,7 @@ import {
   subscribeWallet,
   type WalletState,
 } from "./services/solflare";
-import WalletPanel from "./components/WalletPanel";
 import ExecutionPanel from "./components/ExecutionPanel";
-import AnalyticsPanel from "./components/AnalyticsPanel";
 import WalletPage from "./pages/WalletPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
 import HeaderBar from "./components/HeaderBar";
@@ -607,14 +605,14 @@ export const App: FC = () => {
               <AnalyticsPage />
             </div>
           ) : (
-            <div style={styles.tabletLayout}>
-              <main style={{ ...styles.tabletPane, ...panelEntranceStyle(0) }}>
-                <ExecutionPanel />
-              </main>
-              <aside style={{ ...styles.tabletPane, ...panelEntranceStyle(1) }}>
-                <AnalyticsPanel />
-              </aside>
-            </div>
+            <main
+              style={{
+                ...styles.executeFocus,
+                ...panelEntranceStyle(0),
+              }}
+            >
+              <ExecutionPanel />
+            </main>
           )}
         </div>
         <Footer />
@@ -649,17 +647,14 @@ export const App: FC = () => {
             <AnalyticsPage />
           </div>
         ) : (
-          <div style={styles.desktopLayout}>
-            <aside style={{ ...styles.sideCol, ...panelEntranceStyle(0) }}>
-              <WalletPanel />
-            </aside>
-            <main style={{ ...styles.middleCol, ...panelEntranceStyle(1) }}>
-              <ExecutionPanel />
-            </main>
-            <aside style={{ ...styles.sideColRight, ...panelEntranceStyle(2) }}>
-              <AnalyticsPanel />
-            </aside>
-          </div>
+          <main
+            style={{
+              ...styles.executeFocus,
+              ...panelEntranceStyle(0),
+            }}
+          >
+            <ExecutionPanel />
+          </main>
         )}
       </div>
       {!wallet.connected && !device.isSolflareInAppBrowser && (
@@ -828,6 +823,19 @@ const styles: Record<string, CSSProperties> = {
     margin: "0 auto",
     padding: "var(--space-4) 0",
     animation: "liminal-panel-enter 500ms var(--ease-out) both",
+  },
+  // Home/Execute focus: the splash + form lives on its own with
+  // generous breathing room. Wallet and Analytics live behind dedicated
+  // routes (#/wallet, #/analytics), so the home page stays focused on
+  // the single primary action.
+  executeFocus: {
+    flex: 1,
+    display: "block",
+    width: "100%",
+    maxWidth: 880,
+    margin: "0 auto",
+    padding: "var(--space-4) var(--space-3)",
+    minWidth: 0,
   },
   // Adaptive 3-col grid using CSS clamp() — works tablet → ultra-wide
   // without a JS isTablet branch:
