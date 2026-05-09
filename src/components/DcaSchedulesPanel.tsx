@@ -61,37 +61,53 @@ export const DcaSchedulesPanel: FC = () => {
   return (
     <section style={styles.root} aria-label="DCA schedules">
       <header style={styles.header}>
-        <span style={styles.headerIcon} aria-hidden="true">
-          ↻
-        </span>
-        <span>DCA schedules</span>
+        <span style={styles.headerLabel}>Schedules</span>
         <span style={styles.headerCount}>{list.length}</span>
       </header>
       <ul style={styles.list}>
         {list.map((s) => (
           <li key={s.id} style={styles.row}>
+            <span
+              style={{
+                ...styles.statusDot,
+                background: s.paused
+                  ? "var(--color-text-muted)"
+                  : "var(--color-5)",
+                boxShadow: s.paused
+                  ? "none"
+                  : "0 0 6px var(--color-5)",
+              }}
+              aria-hidden="true"
+            />
             <div style={styles.rowMain}>
               <div style={styles.rowTitle}>
-                {s.plan.inputSymbol} → {s.plan.outputSymbol}
-                <span style={styles.rowCadence}>
-                  · every {humanInterval(s.cadence.intervalMs)}
+                <span style={styles.pair}>
+                  {s.plan.inputSymbol} → {s.plan.outputSymbol}
+                </span>
+                <span style={styles.dot} aria-hidden="true">·</span>
+                <span style={styles.cadence}>
+                  every {humanInterval(s.cadence.intervalMs)}
                 </span>
               </div>
               <div style={styles.rowMeta}>
                 {s.plan.amountPerCycle.toLocaleString("en-US", {
                   maximumFractionDigits: 4,
                 })}{" "}
-                {s.plan.inputSymbol} per cycle ·{" "}
-                {s.cyclesDone} / {s.cadence.totalCycles > 0 ? s.cadence.totalCycles : "∞"}
-                {" · next "}
-                {s.paused ? "paused" : formatCountdown(new Date(s.nextFireAt), now)}
+                {s.plan.inputSymbol}
+                <span style={styles.metaDivider} aria-hidden="true">·</span>
+                {s.cyclesDone}/
+                {s.cadence.totalCycles > 0 ? s.cadence.totalCycles : "∞"}
+                <span style={styles.metaDivider} aria-hidden="true">·</span>
+                {s.paused
+                  ? "paused"
+                  : formatCountdown(new Date(s.nextFireAt), now)}
               </div>
             </div>
             <div style={styles.rowActions}>
               <button
                 type="button"
                 onClick={() => pauseSchedule(s.id, !s.paused)}
-                style={styles.pauseButton}
+                style={styles.ghostButton}
                 className="liminal-press"
                 aria-label={s.paused ? "Resume schedule" : "Pause schedule"}
               >
@@ -100,7 +116,7 @@ export const DcaSchedulesPanel: FC = () => {
               <button
                 type="button"
                 onClick={() => cancelSchedule(s.id)}
-                style={styles.cancelButton}
+                style={styles.ghostButton}
                 className="liminal-press"
                 aria-label="Cancel schedule"
               >
@@ -111,8 +127,7 @@ export const DcaSchedulesPanel: FC = () => {
         ))}
       </ul>
       <div style={styles.footnote}>
-        DCA is local-first: this tab must stay open for cycles to fire.
-        Closing the tab pauses the schedule until you return.
+        Local-first — keep this tab open for cycles to fire.
       </div>
     </section>
   );
@@ -121,40 +136,36 @@ export const DcaSchedulesPanel: FC = () => {
 const styles: Record<string, CSSProperties> = {
   root: {
     margin: "10px 16px",
-    padding: "14px 16px",
+    padding: "12px 14px",
     background: "var(--surface-card)",
     border: "1px solid var(--color-stroke)",
     borderRadius: 12,
     display: "flex",
     flexDirection: "column",
-    gap: 10,
-    backdropFilter: "blur(12px) saturate(130%)",
-    WebkitBackdropFilter: "blur(12px) saturate(130%)",
+    gap: 8,
   },
   header: {
     display: "flex",
     alignItems: "center",
     gap: 8,
+    paddingBottom: 2,
+  },
+  headerLabel: {
     fontFamily: MONO,
-    fontSize: 13,
-    fontWeight: 700,
+    fontSize: 10,
+    fontWeight: 600,
     color: "var(--color-text-muted)",
     textTransform: "uppercase",
-    letterSpacing: "0.06em",
-  },
-  headerIcon: {
-    fontSize: 14,
+    letterSpacing: "0.14em",
   },
   headerCount: {
-    marginLeft: "auto",
     fontFamily: MONO,
-    fontSize: 11,
-    fontWeight: 700,
-    background: "var(--color-accent-bg-soft)",
-    color: "var(--color-5-strong)",
-    border: "1px solid var(--color-accent-border)",
-    borderRadius: 999,
-    padding: "1px 7px",
+    fontSize: 10,
+    fontWeight: 600,
+    color: "var(--color-text-muted)",
+    fontVariantNumeric: "tabular-nums",
+    letterSpacing: "0.06em",
+    marginLeft: "auto",
   },
   list: {
     listStyle: "none",
@@ -162,74 +173,94 @@ const styles: Record<string, CSSProperties> = {
     padding: 0,
     display: "flex",
     flexDirection: "column",
-    gap: 8,
+    gap: 4,
   },
   row: {
     display: "flex",
     gap: 10,
-    padding: "10px 12px",
-    background: "var(--surface-raised)",
-    border: "1px solid var(--color-stroke)",
+    padding: "8px 10px",
+    background: "transparent",
+    border: "1px solid transparent",
     borderRadius: 8,
     alignItems: "center",
+    transition:
+      "background var(--motion-base) var(--ease-out), border-color var(--motion-base) var(--ease-out)",
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: "50%",
+    flexShrink: 0,
+    transition: "background var(--motion-base) var(--ease-out)",
   },
   rowMain: {
     flex: 1,
     display: "flex",
     flexDirection: "column",
-    gap: 4,
+    gap: 2,
     minWidth: 0,
   },
   rowTitle: {
-    fontFamily: SANS,
-    fontWeight: 700,
-    fontSize: 14,
+    display: "flex",
+    alignItems: "baseline",
+    gap: 6,
+    fontFamily: MONO,
+    fontSize: 13,
     color: "var(--color-text)",
+    fontVariantNumeric: "tabular-nums",
   },
-  rowCadence: {
+  pair: {
+    fontWeight: 600,
+    letterSpacing: "0.01em",
+  },
+  cadence: {
     fontWeight: 400,
     color: "var(--color-text-muted)",
-    marginLeft: 6,
+  },
+  dot: {
+    color: "var(--color-text-muted)",
+    opacity: 0.5,
   },
   rowMeta: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 6,
     fontFamily: MONO,
-    fontSize: 12,
+    fontSize: 11,
     color: "var(--color-text-muted)",
     fontVariantNumeric: "tabular-nums",
   },
+  metaDivider: {
+    opacity: 0.4,
+  },
   rowActions: {
     display: "inline-flex",
-    gap: 6,
+    gap: 4,
     flexShrink: 0,
   },
-  pauseButton: {
-    padding: "5px 10px",
+  ghostButton: {
+    padding: "4px 10px",
     fontFamily: MONO,
-    fontSize: 12,
-    fontWeight: 600,
-    color: "var(--color-text)",
-    background: "var(--surface-card)",
-    border: "1px solid var(--color-stroke)",
-    borderRadius: 6,
-    cursor: "pointer",
-  },
-  cancelButton: {
-    padding: "5px 10px",
-    fontFamily: MONO,
-    fontSize: 12,
-    fontWeight: 600,
-    color: "var(--color-warn)",
+    fontSize: 11,
+    fontWeight: 500,
+    color: "var(--color-text-muted)",
     background: "transparent",
-    border: "1px solid var(--color-stroke)",
+    border: "1px solid transparent",
     borderRadius: 6,
     cursor: "pointer",
+    letterSpacing: "0.04em",
+    transition:
+      "color var(--motion-base) var(--ease-out), background var(--motion-base) var(--ease-out), border-color var(--motion-base) var(--ease-out)",
   },
   footnote: {
-    fontFamily: SANS,
-    fontSize: 12,
+    fontFamily: MONO,
+    fontSize: 10,
     color: "var(--color-text-muted)",
-    fontStyle: "italic",
-    lineHeight: 1.4,
+    letterSpacing: "0.04em",
+    paddingTop: 2,
+    borderTop: "1px dashed var(--color-stroke)",
+    marginTop: 2,
+    paddingLeft: 2,
   },
 };
 

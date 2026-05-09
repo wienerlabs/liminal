@@ -300,20 +300,34 @@ const NavPill: FC<{ label: string; active: boolean; onClick: () => void }> = ({
   active,
   onClick,
 }) => {
+  const [hovered, setHovered] = useState(false);
   return (
     <button
       type="button"
       onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onFocus={() => setHovered(true)}
+      onBlur={() => setHovered(false)}
       style={{
         ...styles.navPill,
         background: active
-          ? "var(--color-accent-bg-strong)"
-          : "transparent",
+          ? "var(--color-5)"
+          : hovered
+            ? "var(--color-accent-bg-soft)"
+            : "transparent",
         borderColor: active
           ? "var(--color-accent-border)"
           : "transparent",
-        color: active ? "var(--color-text)" : "var(--color-text-muted)",
+        color: active
+          ? "var(--color-text-inverse, #fff)"
+          : hovered
+            ? "var(--color-text)"
+            : "var(--color-text-muted)",
         fontWeight: active ? 600 : 500,
+        boxShadow: active
+          ? "0 2px 8px -2px rgba(244, 140, 196, 0.45)"
+          : "none",
       }}
       aria-current={active ? "page" : undefined}
     >
