@@ -357,11 +357,19 @@ export async function batchWithdrawAndSwap(
   }
 
   // --- Broadcast ---------------------------------------------------------
+  // skipPreflight: true — see dflow.ts executeSwap broadcast comment.
+  // Wallets (Solflare in particular) can mutate priority-fee
+  // instructions during the sign pass; the resulting message-hash
+  // drift fails preflight with "did not pass signature verification,
+  // logs:[]". We already ran a full simulateTransaction above, and
+  // on-chain execution validates the signature, so the redundant
+  // preflight buys nothing but flakiness.
   let signature: string;
   try {
     signature = await connection.sendRawTransaction(signed.serialize(), {
-      skipPreflight: false,
+      skipPreflight: true,
       preflightCommitment: COMMITMENT,
+      maxRetries: 2,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -456,11 +464,16 @@ async function sendInstructionSet({
 
   const signed = await signTransaction(transaction);
 
+  // skipPreflight: true — same rationale as the batched broadcast
+  // path above: avoid the priority-fee-bump signature drift that
+  // makes preflight's sigVerify unreliable. We simulated upstream
+  // already; on-chain execution still validates the signature.
   let signature: string;
   try {
     signature = await connection.sendRawTransaction(signed.serialize(), {
-      skipPreflight: false,
+      skipPreflight: true,
       preflightCommitment: COMMITMENT,
+      maxRetries: 2,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
