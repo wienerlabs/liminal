@@ -22,6 +22,7 @@ import {
 } from "react";
 import "./styles/design-system.css";
 import { useDeviceDetection } from "./hooks/useDeviceDetection";
+import { useRoute, type Route } from "./hooks/useRoute";
 import { useExecutionMachine } from "./hooks/useExecutionMachine";
 import { useNetworkStatus } from "./hooks/useNetworkStatus";
 import { useTheme } from "./hooks/useTheme";
@@ -39,6 +40,8 @@ import {
 import WalletPanel from "./components/WalletPanel";
 import ExecutionPanel from "./components/ExecutionPanel";
 import AnalyticsPanel from "./components/AnalyticsPanel";
+import WalletPage from "./pages/WalletPage";
+import AnalyticsPage from "./pages/AnalyticsPage";
 import HeaderBar from "./components/HeaderBar";
 import Footer from "./components/Footer";
 import CommandPalette, {
@@ -83,10 +86,14 @@ const SANS = "var(--font-sans)";
 // App component
 // ---------------------------------------------------------------------------
 
-type MobileTab = "wallet" | "execute" | "analytics";
+// Route → mobile-tab mapping (route "home" === "execute" tab on mobile).
+function routeToTab(r: Route): "wallet" | "execute" | "analytics" {
+  return r === "home" ? "execute" : r;
+}
 
 export const App: FC = () => {
   const device = useDeviceDetection();
+  const { route, navigate: navigateRoute } = useRoute();
   const machine = useExecutionMachine();
   const { state } = machine;
   const networkStatus = useNetworkStatus();
@@ -125,7 +132,13 @@ export const App: FC = () => {
     }
   }, [wallet.connected, disclaimerOpen, profile]);
 
-  const [mobileTab, setMobileTab] = useState<MobileTab>("execute");
+  // mobileTab is now derived from route; setMobileTab is a thin
+  // wrapper that pushes through the router so URL hash + UI stay in
+  // sync regardless of which control fires the change.
+  const mobileTab = routeToTab(route);
+  const setMobileTab = (tab: "wallet" | "execute" | "analytics"): void => {
+    navigateRoute(tab === "execute" ? "home" : tab);
+  };
 
   // Solflare in-app browser: auto-connect on mount.
   useEffect(() => {
@@ -457,20 +470,20 @@ export const App: FC = () => {
           });
         }
       } else if (verb === "go") {
-        if (device.isMobile && (arg === "wallet" || arg === "execute" || arg === "analytics")) {
+        if (arg === "wallet" || arg === "execute" || arg === "analytics") {
           out.push({
             id: `slash.go.${arg}`,
             label: `Go to ${arg}`,
             category: "Slash → navigation",
-            run: () => setMobileTab(arg as MobileTab),
+            run: () => setMobileTab(arg),
           });
-        } else if (device.isMobile) {
-          ["wallet", "execute", "analytics"].forEach((tab) =>
+        } else {
+          (["wallet", "execute", "analytics"] as const).forEach((tab) =>
             out.push({
               id: `slash.go.${tab}`,
               label: `Go to ${tab}`,
               category: "Slash → navigation",
-              run: () => setMobileTab(tab as MobileTab),
+              run: () => setMobileTab(tab),
             }),
           );
         }
@@ -531,9 +544,9 @@ export const App: FC = () => {
         )}
 
         <main style={styles.mobileBody}>
-          {mobileTab === "wallet" && <WalletPanel />}
+          {mobileTab === "wallet" && <WalletPage />}
           {mobileTab === "execute" && <ExecutionPanel />}
-          {mobileTab === "analytics" && <AnalyticsPanel />}
+          {mobileTab === "analytics" && <AnalyticsPage />}
           <Footer compact />
         </main>
 
@@ -585,14 +598,24 @@ export const App: FC = () => {
         {completionFlourish}
         {tutorialOverlay}
         <div style={styles.tabletLayoutOuter}>
-          <div style={styles.tabletLayout}>
-            <main style={{ ...styles.tabletPane, ...panelEntranceStyle(0) }}>
-              <ExecutionPanel />
-            </main>
-            <aside style={{ ...styles.tabletPane, ...panelEntranceStyle(1) }}>
-              <AnalyticsPanel />
-            </aside>
-          </div>
+          {route === "wallet" ? (
+            <div style={styles.fullPageWrap}>
+              <WalletPage />
+            </div>
+          ) : route === "analytics" ? (
+            <div style={styles.fullPageWrap}>
+              <AnalyticsPage />
+            </div>
+          ) : (
+            <div style={styles.tabletLayout}>
+              <main style={{ ...styles.tabletPane, ...panelEntranceStyle(0) }}>
+                <ExecutionPanel />
+              </main>
+              <aside style={{ ...styles.tabletPane, ...panelEntranceStyle(1) }}>
+                <AnalyticsPanel />
+              </aside>
+            </div>
+          )}
         </div>
         <Footer />
       </div>
@@ -617,17 +640,27 @@ export const App: FC = () => {
         {completionFlourish}
         {tutorialOverlay}
       <div style={styles.desktopLayoutOuter}>
-        <div style={styles.desktopLayout}>
-          <aside style={{ ...styles.sideCol, ...panelEntranceStyle(0) }}>
-            <WalletPanel />
-          </aside>
-          <main style={{ ...styles.middleCol, ...panelEntranceStyle(1) }}>
-            <ExecutionPanel />
-          </main>
-          <aside style={{ ...styles.sideColRight, ...panelEntranceStyle(2) }}>
-            <AnalyticsPanel />
-          </aside>
-        </div>
+        {route === "wallet" ? (
+          <div style={styles.fullPageWrap}>
+            <WalletPage />
+          </div>
+        ) : route === "analytics" ? (
+          <div style={styles.fullPageWrap}>
+            <AnalyticsPage />
+          </div>
+        ) : (
+          <div style={styles.desktopLayout}>
+            <aside style={{ ...styles.sideCol, ...panelEntranceStyle(0) }}>
+              <WalletPanel />
+            </aside>
+            <main style={{ ...styles.middleCol, ...panelEntranceStyle(1) }}>
+              <ExecutionPanel />
+            </main>
+            <aside style={{ ...styles.sideColRight, ...panelEntranceStyle(2) }}>
+              <AnalyticsPanel />
+            </aside>
+          </div>
+        )}
       </div>
       {!wallet.connected && !device.isSolflareInAppBrowser && (
         <div style={styles.desktopFooterHint}>
@@ -783,6 +816,18 @@ const styles: Record<string, CSSProperties> = {
     maxWidth: 1800,
     margin: "0 auto",
     padding: "0 var(--space-4)",
+  },
+  // Full-page wrapper for /wallet and /analytics routes — single column,
+  // generous max-width so charts + tables breathe but content stays
+  // readable on ultra-wide. Used by both tablet and desktop branches.
+  fullPageWrap: {
+    flex: 1,
+    display: "block",
+    width: "100%",
+    maxWidth: 1280,
+    margin: "0 auto",
+    padding: "var(--space-4) 0",
+    animation: "liminal-panel-enter 500ms var(--ease-out) both",
   },
   // Adaptive 3-col grid using CSS clamp() — works tablet → ultra-wide
   // without a JS isTablet branch:

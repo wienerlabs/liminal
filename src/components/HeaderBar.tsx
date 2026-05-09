@@ -33,6 +33,7 @@ import {
 import { LiminalMark } from "./BrandLogos";
 import { getMevStrategy } from "../services/mevProtection";
 import { useDeviceDetection } from "../hooks/useDeviceDetection";
+import { useRoute } from "../hooks/useRoute";
 import { useWalletSummary } from "../hooks/useWalletSummary";
 import { useProfile } from "../hooks/useProfile";
 import { openPalette } from "./CommandPalette";
@@ -98,6 +99,7 @@ export const HeaderBar: FC<HeaderBarProps> = ({
   const [wallet, setWallet] = useState<WalletState>(() => getWalletState());
   useEffect(() => subscribeWallet(setWallet), []);
   const device = useDeviceDetection();
+  const { route, navigate } = useRoute();
   const summary = useWalletSummary();
   const { profile } = useProfile(wallet.address);
 
@@ -138,12 +140,42 @@ export const HeaderBar: FC<HeaderBarProps> = ({
 
   return (
     <header style={styles.header}>
-      <a href="/" style={styles.brand} aria-label="LIMINAL home">
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          navigate("home");
+        }}
+        style={styles.brand}
+        aria-label="LIMINAL home"
+      >
         <LiminalMark size={40} />
         <span style={styles.wordmark}>LIMINAL</span>
-      </a>
+      </button>
 
-      {/* Connected-state summary bar — sits between the brand and the
+      {/* Primary nav — Execute / Wallet / Analytics. Hidden on mobile
+          because the bottom tab bar covers the same routes there. */}
+      {!device.isMobile && (
+        <nav style={styles.navPills} aria-label="Primary">
+          <NavPill
+            label="Execute"
+            active={route === "home"}
+            onClick={() => navigate("home")}
+          />
+          <NavPill
+            label="Wallet"
+            active={route === "wallet"}
+            onClick={() => navigate("wallet")}
+          />
+          <NavPill
+            label="Analytics"
+            active={route === "analytics"}
+            onClick={() => navigate("analytics")}
+          />
+        </nav>
+      )}
+
+      {/* Connected-state summary bar — sits between nav and the
           right-side controls. Stays empty (just a flex spacer) when
           wallet disconnected and no execution is mid-flight, which is
           the IDLE landing experience. */}
@@ -254,6 +286,39 @@ export const HeaderBar: FC<HeaderBarProps> = ({
         )}
       </div>
     </header>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// NavPill — primary navigation segmented pill (Execute/Wallet/Analytics).
+// Active route uses the LIMINAL accent palette; inactive pills are subtle
+// outlines that highlight on hover. Hidden on mobile (bottom tab bar).
+// ---------------------------------------------------------------------------
+
+const NavPill: FC<{ label: string; active: boolean; onClick: () => void }> = ({
+  label,
+  active,
+  onClick,
+}) => {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        ...styles.navPill,
+        background: active
+          ? "var(--color-accent-bg-strong)"
+          : "transparent",
+        borderColor: active
+          ? "var(--color-accent-border)"
+          : "transparent",
+        color: active ? "var(--color-text)" : "var(--color-text-muted)",
+        fontWeight: active ? 600 : 500,
+      }}
+      aria-current={active ? "page" : undefined}
+    >
+      {label}
+    </button>
   );
 };
 
@@ -581,6 +646,10 @@ const styles: Record<string, CSSProperties> = {
     marginLeft: "-6px",
     borderRadius: "var(--radius-sm)",
     transition: "background var(--motion-base) var(--ease-out)",
+    background: "transparent",
+    border: "none",
+    cursor: "pointer",
+    fontFamily: "inherit",
   },
   wordmark: {
     fontFamily: SANS,
@@ -589,6 +658,34 @@ const styles: Record<string, CSSProperties> = {
     letterSpacing: "0.04em",
     color: "var(--color-text)",
     lineHeight: 1,
+  },
+  // Primary nav pills — sit immediately right of the brand. flex:0 so
+  // they don't grow; summary region picks up the slack.
+  navPills: {
+    display: "flex",
+    alignItems: "center",
+    gap: 4,
+    padding: 3,
+    borderRadius: 10,
+    background: "var(--surface-glass, rgba(255, 255, 255, 0.4))",
+    border: "1px solid var(--color-stroke)",
+    flexShrink: 0,
+  },
+  navPill: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "6px 14px",
+    borderRadius: 8,
+    border: "1px solid transparent",
+    cursor: "pointer",
+    fontFamily: SANS,
+    fontSize: 13,
+    letterSpacing: "0.01em",
+    whiteSpace: "nowrap",
+    transition:
+      "background var(--motion-base) var(--ease-out), color var(--motion-base) var(--ease-out), border-color var(--motion-base) var(--ease-out)",
+    minHeight: 30,
   },
   // Center summary region — flex:1 absorbs free space, contents are
   // pushed to the left edge so the right cluster always anchors right.
