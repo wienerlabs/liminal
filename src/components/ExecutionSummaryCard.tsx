@@ -276,7 +276,7 @@ function buildShareIntent(args: {
   const durStr = formatDuration(args.durationMs);
 
   const text = [
-    `Just executed ${sizeStr} ${args.inputSymbol} → ${args.outputSymbol} on @liminal.`,
+    `Just executed ${sizeStr} ${args.inputSymbol} → ${args.outputSymbol} on @WLiminal5.`,
     `${usdStr} (${bpsStr}) vs. Jupiter direct over ${durStr}.`,
     `Earn while you trade.`,
   ].join("\n");
