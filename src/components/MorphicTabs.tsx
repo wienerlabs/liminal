@@ -125,47 +125,65 @@ export function MorphicTabs<K extends string>({
 
 const MONO = "var(--font-mono)";
 
+/* Compact tokens — 4 tabs need to fit a ~280px right-column on
+   desktop, so we trim padding + font + gap aggressively without
+   losing legibility. Mono at 13px is still tabular-readable. The
+   bar gets overflow-x:auto as a hard fallback for ultra-narrow
+   viewports. */
 const styles: Record<string, CSSProperties> = {
   outer: {
     display: "flex",
     justifyContent: "center",
     width: "100%",
+    minWidth: 0,
   },
   bar: {
-    display: "inline-flex",
+    display: "flex",
     alignItems: "center",
-    padding: 4,
-    borderRadius: 14,
+    padding: 3,
+    borderRadius: 12,
     background: "var(--surface-glass, rgba(255, 255, 255, 0.5))",
     border: "1px solid var(--color-stroke)",
     backdropFilter: "blur(8px)",
     WebkitBackdropFilter: "blur(8px)",
     width: "100%",
+    minWidth: 0,
+    /* If 4+ tabs ever blow past the column width on a tiny viewport,
+       scroll instead of letting the last tab clip off-canvas. The
+       scrollbar is hidden on Webkit + Firefox so the bar still reads
+       as a clean pill. */
+    overflowX: "auto",
+    scrollbarWidth: "none",
   },
   tab: {
-    flex: 1,
+    flex: "1 1 0",
+    minWidth: 0,
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
-    padding: "8px 14px",
+    gap: 4,
+    padding: "7px 6px",
     border: "none",
     cursor: "pointer",
     fontFamily: MONO,
-    fontSize: 15,
+    fontSize: 13,
     letterSpacing: 0,
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
     transition:
       "background var(--motion-base) var(--ease-out), color var(--motion-base) var(--ease-out), border-radius 380ms cubic-bezier(0.4, 0, 0.2, 1), margin 380ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow var(--motion-base) var(--ease-out)",
   },
   badge: {
     fontFamily: MONO,
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: 700,
-    padding: "1px 6px",
+    padding: "1px 5px",
     borderRadius: 999,
     fontVariantNumeric: "tabular-nums",
-    minWidth: 18,
+    minWidth: 16,
     textAlign: "center",
+    flexShrink: 0,
   },
 };
 
