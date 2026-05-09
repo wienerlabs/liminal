@@ -171,6 +171,13 @@ export const App: FC = () => {
   // transition. The ASCII overlay auto-dismisses after 3s, but the
   // edge-trigger here means it doesn't re-pop on later state writes
   // that keep the same DONE status.
+  //
+  // Dev / demo helper: visiting the app with `?flourish=demo` (or
+  // calling `window.__liminalFlourish()` from the console) fires the
+  // overlay manually so the celebration can be reviewed without
+  // running a real execution. Useful for design reviews and stage
+  // demos. The query param is honored only on first paint — it does
+  // not fire on every render.
   const [flourishVisible, setFlourishVisible] = useState(false);
   const prevStatusRef = useRef<ExecutionStatus>(state.status);
   useEffect(() => {
@@ -182,6 +189,26 @@ export const App: FC = () => {
     }
     prevStatusRef.current = state.status;
   }, [state.status]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    // ?flourish=demo URL param — one-shot trigger on mount.
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("flourish") === "demo") {
+        setFlourishVisible(true);
+      }
+    } catch {
+      /* ignore SSR / malformed-URL edge cases */
+    }
+    // Console helper — `window.__liminalFlourish()` fires from the
+    // dev console for ad-hoc design reviews. Cleared on unmount.
+    (window as unknown as { __liminalFlourish?: () => void }).__liminalFlourish =
+      () => setFlourishVisible(true);
+    return () => {
+      delete (window as unknown as { __liminalFlourish?: () => void })
+        .__liminalFlourish;
+    };
+  }, []);
 
   const executeBadge = inFlight && sliceM > 0 ? `${sliceN}/${sliceM}` : undefined;
 
