@@ -329,7 +329,6 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 11,
     letterSpacing: "0.1em",
     fontWeight: 700,
-    textTransform: "uppercase",
     color: "var(--color-5-strong)",
     marginBottom: 6,
   },

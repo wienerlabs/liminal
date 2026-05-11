@@ -614,7 +614,7 @@ const MevPopover: FC<{ strategy: ReturnType<typeof getMevStrategy> }> = ({
                   fontSize: 12,
                 }}
               >
-                · {layer.active ? "ACTIVE" : "READY"}
+                · {layer.active ? "Active" : "Ready"}
               </span>
             </div>
             <div style={styles.mevPopoverLayerDesc}>{layer.description}</div>

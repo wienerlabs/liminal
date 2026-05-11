@@ -339,7 +339,6 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 13,
     fontWeight: 700,
     color: "var(--color-text-muted)",
-    textTransform: "uppercase",
     letterSpacing: "0.08em",
   },
   titleHint: {
@@ -354,7 +353,6 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 11,
     fontWeight: 700,
     letterSpacing: "0.1em",
-    textTransform: "uppercase",
     padding: "2px 7px",
     borderRadius: 999,
     background: "var(--color-accent-bg-soft)",
@@ -440,7 +438,6 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 12,
     fontWeight: 600,
     color: "var(--color-text-muted)",
-    textTransform: "uppercase",
     letterSpacing: "0.05em",
   },
   tally: {
@@ -452,7 +449,6 @@ const styles: Record<string, CSSProperties> = {
     fontFamily: MONO,
     fontSize: 13,
     color: "var(--color-text-muted)",
-    textTransform: "uppercase",
     letterSpacing: "0.05em",
   },
   tallyValue: {

@@ -769,7 +769,6 @@ const styles: Record<string, CSSProperties> = {
     color: "var(--color-text-muted)",
     width: 64,
     flexShrink: 0,
-    textTransform: "uppercase",
     letterSpacing: "0.04em",
     fontSize: 12,
   },

@@ -1636,7 +1636,6 @@ const VerifiedMark: FC<{ verified: boolean }> = ({ verified }) => (
       fontSize: 9,
       fontWeight: 700,
       letterSpacing: "0.04em",
-      textTransform: "uppercase",
       color: verified ? "var(--color-success)" : "var(--color-warn)",
       background: verified
         ? "rgba(34, 197, 94, 0.12)"
@@ -2258,7 +2257,6 @@ const styles: Record<string, CSSProperties> = {
     fontVariantNumeric: "tabular-nums",
     marginLeft: "auto",
     letterSpacing: "0.04em",
-    textTransform: "uppercase",
   },
   formCardBody: {
     display: "flex",
@@ -2271,7 +2269,6 @@ const styles: Record<string, CSSProperties> = {
     fontWeight: 600,
     color: THEME.textMuted,
     letterSpacing: "0.08em",
-    textTransform: "uppercase",
     marginTop: 4,
   },
   formCardFootnote: {
@@ -2912,7 +2909,6 @@ const styles: Record<string, CSSProperties> = {
     fontWeight: 600,
     color: THEME.textMuted,
     letterSpacing: "0.05em",
-    textTransform: "uppercase",
     marginTop: 4,
   },
   heroStatHint: {

@@ -206,7 +206,6 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 13,
     fontWeight: 700,
     color: "var(--color-text-muted)",
-    textTransform: "uppercase",
     letterSpacing: "0.08em",
   },
   body: {
@@ -236,7 +235,6 @@ const styles: Record<string, CSSProperties> = {
     fontWeight: 600,
     color: "var(--color-text-muted)",
     letterSpacing: "0.04em",
-    textTransform: "uppercase",
   },
   legendValue: {
     fontFamily: SANS,

@@ -343,7 +343,6 @@ const styles: Record<string, CSSProperties> = {
     letterSpacing: "0.12em",
     fontWeight: 700,
     color: "var(--color-5-strong)",
-    textTransform: "uppercase",
   },
   title: {
     fontFamily: SANS,
@@ -388,7 +387,6 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 13,
     fontWeight: 600,
     letterSpacing: "0.12em",
-    textTransform: "uppercase",
     color: "var(--color-text-muted)",
     animation: "liminal-fade-in 200ms var(--ease-out, ease)",
   },
