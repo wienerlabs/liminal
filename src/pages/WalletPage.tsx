@@ -15,12 +15,12 @@
 
 import { useMemo, useState, type CSSProperties, type FC } from "react";
 import {
-  connectWallet,
   disconnectWallet,
   getWalletState,
   subscribeWallet,
   type WalletState,
 } from "../services/solflare";
+import WalletPickerModal from "../components/WalletPickerModal";
 import { useEffect } from "react";
 import { useWalletSummary } from "../hooks/useWalletSummary";
 import { useProfile } from "../hooks/useProfile";
@@ -44,6 +44,7 @@ const WalletPage: FC = () => {
 
   const network = useMemo(() => getActiveNetworkConfig(), []);
   const [copied, setCopied] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const handleCopy = (): void => {
     if (!wallet.address) return;
@@ -121,27 +122,18 @@ const WalletPage: FC = () => {
           <div style={styles.connectBlock}>
             <button
               type="button"
-              onClick={() => void connectWallet()}
+              onClick={() => setPickerOpen(true)}
               disabled={wallet.connecting}
               style={styles.connectButton}
               className="liminal-press"
-              aria-label="Connect Solflare wallet"
+              aria-label="Connect a Solana wallet"
             >
               <span style={styles.connectButtonDot} aria-hidden="true" />
-              {wallet.connecting ? "Connecting…" : "Connect Solflare"}
+              {wallet.connecting ? "Connecting…" : "Connect wallet"}
             </button>
             <p style={styles.connectHint}>
-              LIMINAL signs every transaction through Solflare with
-              simulation guards. Get the extension at{" "}
-              <a
-                href="https://solflare.com/"
-                target="_blank"
-                rel="noopener noreferrer"
-                style={styles.connectLink}
-              >
-                solflare.com
-              </a>
-              .
+              LIMINAL works with Solflare, Phantom, and Backpack. Every
+              transaction is signed with simulation guards.
             </p>
           </div>
         )}
@@ -153,6 +145,11 @@ const WalletPage: FC = () => {
       <section style={styles.panelSlot}>
         <WalletPanel />
       </section>
+
+      <WalletPickerModal
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+      />
     </div>
   );
 };
