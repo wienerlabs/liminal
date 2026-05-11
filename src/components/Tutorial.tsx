@@ -179,18 +179,61 @@ export const Tutorial: FC<TutorialProps> = ({
   if (!step) return null;
 
   // Card position — derived from rect when available, fallback centre.
+  // Clamped to the viewport so the buttons never disappear off-screen,
+  // even when the spotlighted target is near the page bottom (e.g. the
+  // "Built with" footer step) or near a viewport edge.
+  const CARD_WIDTH = 340;
+  // Slight over-estimate so the card always reserves enough room for
+  // a 4-line body plus all three action buttons (real measured height
+  // is ~246px on the longest step, so 270 gives a small safety margin).
+  const CARD_EST_HEIGHT = 270;
+  const MARGIN = 20;
+  const GAP = 16;
+  let cardLeft: number | string = "50%";
+  let cardTop: number | string = "50%";
+  if (rect) {
+    const spaceBelow = window.innerHeight - rect.bottom - GAP;
+    const spaceAbove = rect.top - GAP;
+    const preferTop = step.side === "top";
+    if (preferTop && spaceAbove >= CARD_EST_HEIGHT + MARGIN) {
+      cardTop = rect.top - CARD_EST_HEIGHT - GAP;
+    } else if (!preferTop && spaceBelow >= CARD_EST_HEIGHT + MARGIN) {
+      cardTop = rect.bottom + GAP;
+    } else if (spaceBelow >= CARD_EST_HEIGHT + MARGIN) {
+      cardTop = rect.bottom + GAP;
+    } else if (spaceAbove >= CARD_EST_HEIGHT + MARGIN) {
+      cardTop = rect.top - CARD_EST_HEIGHT - GAP;
+    } else {
+      // Neither above nor below has enough room — pin near the
+      // bottom of the viewport so the action buttons stay visible.
+      cardTop = Math.max(MARGIN, window.innerHeight - CARD_EST_HEIGHT - MARGIN);
+    }
+    const idealLeft = rect.left + rect.width / 2 - CARD_WIDTH / 2;
+    cardLeft = Math.max(
+      MARGIN,
+      Math.min(window.innerWidth - CARD_WIDTH - MARGIN, idealLeft),
+    );
+    // Final hard clamp: regardless of branch chosen above, never let
+    // the card extend past the viewport bottom. If the estimate was
+    // tight, the inner scroll (overflowY: auto) keeps the body
+    // readable while the action buttons remain visible.
+    if (typeof cardTop === "number") {
+      cardTop = Math.max(
+        MARGIN,
+        Math.min(cardTop, window.innerHeight - CARD_EST_HEIGHT - MARGIN),
+      );
+    }
+  }
   const cardStyle: CSSProperties = {
     position: "fixed",
     zIndex: 401,
-    left: rect ? Math.max(20, Math.min(window.innerWidth - 360, rect.left)) : "50%",
-    top: rect
-      ? step.side === "top"
-        ? Math.max(20, rect.top - 140)
-        : rect.bottom + 16
-      : "50%",
+    left: cardLeft,
+    top: cardTop,
     transform: rect ? undefined : "translate(-50%, -50%)",
-    width: 340,
+    width: CARD_WIDTH,
     maxWidth: "calc(100vw - 40px)",
+    maxHeight: `calc(100vh - ${MARGIN * 2}px)`,
+    overflowY: "auto",
     background: "var(--surface-raised)",
     border: "1px solid var(--color-stroke)",
     borderRadius: 14,
@@ -338,7 +381,10 @@ const styles: Record<string, CSSProperties> = {
     fontFamily: "var(--font-mono)",
     fontSize: 12,
     fontWeight: 700,
-    color: "var(--color-text-inverse)",
+    // Fixed white — `--color-text-inverse` in light theme is the same
+    // near-black as `--color-text`, so using it here made the label
+    // invisible on the black button.
+    color: "#ffffff",
     background: "var(--color-text)",
     border: "1px solid var(--color-text)",
     borderRadius: 6,

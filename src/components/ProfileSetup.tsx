@@ -187,7 +187,7 @@ export const ProfileSetup: FC<ProfileSetupProps> = ({
                     <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
                       <path
                         d="M2.5 6.5l2.5 2.5 5-5"
-                        stroke="var(--color-text-inverse)"
+                        stroke="#ffffff"
                         strokeWidth="1.8"
                         strokeLinecap="round"
                         strokeLinejoin="round"
@@ -512,7 +512,7 @@ const styles: Record<string, CSSProperties> = {
     fontFamily: MONO,
     fontSize: 15,
     fontWeight: 700,
-    color: "var(--color-text-inverse)",
+    color: "#ffffff",
     background: "var(--color-text)",
     border: "1px solid var(--color-text)",
     borderRadius: 10,
