@@ -15,6 +15,7 @@
 
 import { useMemo, useState, type CSSProperties, type FC } from "react";
 import {
+  connectWallet,
   disconnectWallet,
   getWalletState,
   subscribeWallet,
@@ -102,21 +103,46 @@ const WalletPage: FC = () => {
             />
           </div>
         </div>
-        {wallet.connected && (
+        {wallet.connected ? (
           <div style={styles.actions}>
             <ActionButton onClick={handleCopy} disabled={!wallet.address}>
               {copied ? "Copied ✓" : "Copy address"}
             </ActionButton>
             {explorerUrl && (
-              <ActionButton
-                href={explorerUrl}
-              >
+              <ActionButton href={explorerUrl}>
                 View on Solscan ↗
               </ActionButton>
             )}
             <ActionButton onClick={() => void disconnectWallet()} variant="danger">
               Disconnect
             </ActionButton>
+          </div>
+        ) : (
+          <div style={styles.connectBlock}>
+            <button
+              type="button"
+              onClick={() => void connectWallet()}
+              disabled={wallet.connecting}
+              style={styles.connectButton}
+              className="liminal-press"
+              aria-label="Connect Solflare wallet"
+            >
+              <span style={styles.connectButtonDot} aria-hidden="true" />
+              {wallet.connecting ? "Connecting…" : "Connect Solflare"}
+            </button>
+            <p style={styles.connectHint}>
+              LIMINAL signs every transaction through Solflare with
+              simulation guards. Get the extension at{" "}
+              <a
+                href="https://solflare.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={styles.connectLink}
+              >
+                solflare.com
+              </a>
+              .
+            </p>
           </div>
         )}
       </header>
@@ -288,6 +314,51 @@ const styles: Record<string, CSSProperties> = {
     display: "flex",
     flexWrap: "wrap",
     gap: "var(--space-2)",
+  },
+  connectBlock: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 10,
+    alignItems: "flex-start",
+  },
+  connectButton: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 10,
+    padding: "12px 20px",
+    minHeight: 44,
+    borderRadius: 12,
+    border: "1px solid var(--color-accent-border)",
+    background: "var(--color-5)",
+    color: "#ffffff",
+    fontFamily: MONO,
+    fontSize: 15,
+    fontWeight: 700,
+    cursor: "pointer",
+    boxShadow: "0 6px 20px rgba(249, 178, 215, 0.38)",
+    transition:
+      "filter var(--motion-base) var(--ease-out), transform 80ms var(--ease-out), box-shadow var(--motion-base) var(--ease-out)",
+  },
+  connectButtonDot: {
+    width: 10,
+    height: 10,
+    borderRadius: "50%",
+    background: "#ffffff",
+    boxShadow: "0 0 10px rgba(255,255,255,0.7)",
+    animation: "liminal-active-pulse 1.4s var(--ease-out) infinite",
+  },
+  connectHint: {
+    margin: 0,
+    fontFamily: SANS,
+    fontSize: 13,
+    color: "var(--color-text-muted)",
+    lineHeight: 1.5,
+    maxWidth: 520,
+  },
+  connectLink: {
+    color: "var(--color-5-strong)",
+    textDecoration: "underline",
+    textUnderlineOffset: 2,
   },
   action: {
     display: "inline-flex",
