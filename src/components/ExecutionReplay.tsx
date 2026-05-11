@@ -550,7 +550,7 @@ const styles: Record<string, CSSProperties> = {
     fontFamily: MONO,
     fontSize: 13,
     fontWeight: 700,
-    color: "var(--color-text-inverse)",
+    color: "#ffffff",
     background: "var(--color-text)",
     border: "1px solid var(--color-text)",
     borderRadius: 10,
