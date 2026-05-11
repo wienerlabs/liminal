@@ -16,6 +16,7 @@
   "dependencies": {
     "@kamino-finance/klend-sdk": "^7.3.22",
     "@sentry/react": "^10.49.0",
+    "@solana-program/compute-budget": "^0.9.0",
     "@solana/kit": "^3.0.3",
     "@solana/web3.js": "^1.95.3",
     "@types/three": "^0.184.0",
