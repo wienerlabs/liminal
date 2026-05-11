@@ -483,7 +483,6 @@ const styles: Record<string, CSSProperties> = {
     fontWeight: 700,
     letterSpacing: "0.08em",
     color: "var(--color-text-muted)",
-    textTransform: "uppercase",
   },
   row: {
     display: "flex",

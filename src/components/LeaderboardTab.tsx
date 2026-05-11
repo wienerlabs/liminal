@@ -301,7 +301,6 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 12,
     fontWeight: 700,
     color: "var(--color-text-muted)",
-    textTransform: "uppercase",
     letterSpacing: "0.06em",
   },
   yourCardRank: {
@@ -333,7 +332,6 @@ const styles: Record<string, CSSProperties> = {
     fontFamily: MONO,
     fontSize: 11,
     color: "var(--color-text-muted)",
-    textTransform: "uppercase",
     letterSpacing: "0.04em",
   },
   emptyState: {
@@ -353,7 +351,6 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 12,
     fontWeight: 700,
     color: "var(--color-text-muted)",
-    textTransform: "uppercase",
     letterSpacing: "0.06em",
   },
   boardHint: {
@@ -406,7 +403,6 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 9,
     fontWeight: 700,
     letterSpacing: "0.06em",
-    textTransform: "uppercase",
     border: "1px solid",
     borderRadius: 4,
   },

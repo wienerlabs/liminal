@@ -155,7 +155,6 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 10,
     fontWeight: 600,
     color: "var(--color-text-muted)",
-    textTransform: "uppercase",
     letterSpacing: "0.14em",
   },
   headerCount: {

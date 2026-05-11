@@ -192,7 +192,6 @@ const styles: Record<string, CSSProperties> = {
     fontFamily: MONO,
     fontSize: 11,
     letterSpacing: "0.14em",
-    textTransform: "uppercase",
     color: "var(--color-text-muted)",
   },
   heroTitle: {
@@ -229,7 +228,6 @@ const styles: Record<string, CSSProperties> = {
     fontFamily: MONO,
     fontSize: 10,
     letterSpacing: "0.12em",
-    textTransform: "uppercase",
     color: "var(--color-text-muted)",
   },
   statValue: {

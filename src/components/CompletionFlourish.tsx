@@ -241,7 +241,6 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 11,
     color: "var(--color-text-muted)",
     letterSpacing: "0.12em",
-    textTransform: "uppercase",
     opacity: 0.7,
   },
 };

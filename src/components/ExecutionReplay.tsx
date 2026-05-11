@@ -404,7 +404,6 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 11,
     fontWeight: 700,
     color: "var(--color-5-strong)",
-    textTransform: "uppercase",
     letterSpacing: "0.1em",
   },
   title: {
@@ -450,7 +449,6 @@ const styles: Record<string, CSSProperties> = {
     fontFamily: MONO,
     fontSize: 11,
     color: "var(--color-text-muted)",
-    textTransform: "uppercase",
     letterSpacing: "0.04em",
   },
   tickerValue: {
