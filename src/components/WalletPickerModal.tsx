@@ -26,11 +26,13 @@ import {
   type CSSProperties,
   type FC,
 } from "react";
+import { createPortal } from "react-dom";
 import {
   connectWallet,
   SUPPORTED_WALLETS,
   type WalletId,
 } from "../services/solflare";
+import { WalletLogo } from "./WalletLogos";
 
 const MONO = "var(--font-mono)";
 const SANS = "var(--font-sans)";
@@ -90,8 +92,13 @@ export const WalletPickerModal: FC<WalletPickerModalProps> = ({
   };
 
   if (!open) return null;
+  if (typeof document === "undefined") return null;
 
-  return (
+  // Portal to document.body so the modal escapes any transformed /
+  // filtered ancestor (panels with `animation`/`transform` create
+  // their own containing block for `position: fixed`, which would
+  // pin the modal to the panel's top edge instead of the viewport).
+  const modal = (
     <div
       role="dialog"
       aria-modal="true"
@@ -132,7 +139,7 @@ export const WalletPickerModal: FC<WalletPickerModalProps> = ({
                   }}
                   className="liminal-press"
                 >
-                  <WalletGlyph id={w.id} />
+                  <WalletLogo id={w.id} size={40} />
                   <div style={styles.rowMain}>
                     <div style={styles.rowLabel}>{w.label}</div>
                     <div style={styles.rowMeta}>
@@ -182,37 +189,8 @@ export const WalletPickerModal: FC<WalletPickerModalProps> = ({
       </div>
     </div>
   );
-};
 
-const WalletGlyph: FC<{ id: WalletId }> = ({ id }) => {
-  const color =
-    id === "solflare"
-      ? "#f9b2d7"
-      : id === "phantom"
-        ? "#ab9ff2"
-        : "#e33e3f";
-  const letter = id === "solflare" ? "S" : id === "phantom" ? "P" : "B";
-  return (
-    <span
-      aria-hidden="true"
-      style={{
-        width: 36,
-        height: 36,
-        borderRadius: 10,
-        background: color,
-        color: "#1a1a1a",
-        fontFamily: MONO,
-        fontWeight: 700,
-        fontSize: 16,
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        flexShrink: 0,
-      }}
-    >
-      {letter}
-    </span>
-  );
+  return createPortal(modal, document.body);
 };
 
 const styles: Record<string, CSSProperties> = {
