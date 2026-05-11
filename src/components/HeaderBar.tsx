@@ -26,6 +26,7 @@ import {
   type FC,
 } from "react";
 import {
+  connectWallet,
   getWalletState,
   subscribeWallet,
   type WalletState,
@@ -232,12 +233,27 @@ export const HeaderBar: FC<HeaderBarProps> = ({
           </div>
         )}
 
-        {/* Connected + profile saved → render the rich ProfileChip
-            (avatar + username) which opens the editor on click. The
-            classic wallet badge stays as a fallback for the "wallet
-            connected but no profile yet" interstitial and the
-            disconnected state. */}
-        {wallet.connected && profile && onEditProfile ? (
+        {/* Three states for the wallet slot:
+            1. Disconnected → prominent pink Connect Solflare CTA so
+               first-time visitors don't have to scroll the splash to
+               find the auth action.
+            2. Connected + profile saved → ProfileChip (avatar + name)
+               that opens the profile editor on click.
+            3. Connected but no profile yet → fallback wallet badge
+               with the short address. */}
+        {!wallet.connected ? (
+          <button
+            type="button"
+            onClick={() => void connectWallet()}
+            disabled={wallet.connecting}
+            style={styles.connectCta}
+            className="liminal-press"
+            aria-label="Connect Solflare wallet"
+          >
+            <span style={styles.connectDot} aria-hidden="true" />
+            <span>{wallet.connecting ? "Connecting…" : device.isMobile ? "Connect" : "Connect Solflare"}</span>
+          </button>
+        ) : wallet.connected && profile && onEditProfile ? (
           <button
             type="button"
             onClick={onEditProfile}
@@ -784,6 +800,38 @@ const styles: Record<string, CSSProperties> = {
     whiteSpace: "nowrap",
     transition:
       "border-color var(--motion-base) var(--ease-out), background var(--motion-base) var(--ease-out)",
+  },
+  // ----- Connect CTA (disconnected state) -------------------------------
+  // Prominent pink button so first-time visitors see the auth path
+  // immediately. Replaces the old subtle "Not connected" outline chip.
+  connectCta: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 8,
+    padding: "8px 16px",
+    minHeight: 36,
+    borderRadius: 999,
+    border: "1px solid var(--color-accent-border)",
+    background: "var(--color-5)",
+    color: "#ffffff",
+    fontFamily: MONO,
+    fontSize: 13,
+    fontWeight: 700,
+    letterSpacing: 0,
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+    boxShadow: "0 4px 14px rgba(249, 178, 215, 0.36)",
+    transition:
+      "filter var(--motion-base) var(--ease-out), transform 80ms var(--ease-out), box-shadow var(--motion-base) var(--ease-out)",
+  },
+  connectDot: {
+    width: 8,
+    height: 8,
+    borderRadius: "50%",
+    background: "#ffffff",
+    boxShadow: "0 0 8px rgba(255,255,255,0.7)",
+    animation: "liminal-active-pulse 1.4s var(--ease-out) infinite",
+    flexShrink: 0,
   },
   // ----- Right cluster ---------------------------------------------------
   kbdLauncher: {
