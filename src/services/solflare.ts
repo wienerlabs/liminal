@@ -33,12 +33,17 @@ export type WalletState = {
 };
 
 /**
- * Solflare tarayıcı eklentisinin `window.solflare` üzerinden expose ettiği
- * minimum arayüz. Transaction imzalama metodları bir sonraki bloklarda
- * kullanılacak (Kamino deposit, DFlow swap, vb.).
+ * Tarayıcı eklentisinin `window.<wallet>` üzerinden expose ettiği minimum
+ * arayüz. Solflare, Phantom ve Backpack üçü de aynı interface'i destekler
+ * (Phantom Solflare API'sını birebir takip etmiş, Backpack da uyumlu).
+ *
+ * Transaction imzalama metodları Kamino deposit / DFlow swap / durable-
+ * nonce pre-signing flow'ları için kullanılır.
  */
-interface SolflareProvider {
+interface WalletProvider {
   isSolflare?: boolean;
+  isPhantom?: boolean;
+  isBackpack?: boolean;
   isConnected: boolean;
   publicKey: { toString(): string } | null;
   connect(opts?: { onlyIfTrusted?: boolean }): Promise<void>;
@@ -57,8 +62,61 @@ interface SolflareProvider {
 
 declare global {
   interface Window {
-    solflare?: SolflareProvider;
+    solflare?: WalletProvider;
+    phantom?: { solana?: WalletProvider };
+    backpack?: WalletProvider;
   }
+}
+
+export type WalletId = "solflare" | "phantom" | "backpack";
+
+export type WalletInfo = {
+  id: WalletId;
+  label: string;
+  /** Browser download / install URL when extension isn't present. */
+  downloadUrl: string;
+  /** Returns true if the extension is installed in this browser. */
+  detect: () => boolean;
+};
+
+export const SUPPORTED_WALLETS: readonly WalletInfo[] = [
+  {
+    id: "solflare",
+    label: "Solflare",
+    downloadUrl: "https://solflare.com/download",
+    detect: () =>
+      typeof window !== "undefined" && !!window.solflare?.isSolflare,
+  },
+  {
+    id: "phantom",
+    label: "Phantom",
+    downloadUrl: "https://phantom.app/download",
+    detect: () =>
+      typeof window !== "undefined" && !!window.phantom?.solana?.isPhantom,
+  },
+  {
+    id: "backpack",
+    label: "Backpack",
+    downloadUrl: "https://backpack.app/downloads",
+    detect: () =>
+      typeof window !== "undefined" && !!window.backpack?.isBackpack,
+  },
+] as const;
+
+function resolveProvider(id: WalletId): WalletProvider | null {
+  if (typeof window === "undefined") return null;
+  if (id === "solflare") return window.solflare ?? null;
+  if (id === "phantom") return window.phantom?.solana ?? null;
+  if (id === "backpack") return window.backpack ?? null;
+  return null;
+}
+
+function walletLabel(id: WalletId): string {
+  return SUPPORTED_WALLETS.find((w) => w.id === id)?.label ?? id;
+}
+
+function walletDownloadUrl(id: WalletId): string {
+  return SUPPORTED_WALLETS.find((w) => w.id === id)?.downloadUrl ?? "";
 }
 
 // ---------------------------------------------------------------------------
@@ -66,7 +124,8 @@ declare global {
 // ---------------------------------------------------------------------------
 
 const SESSION_KEY = "liminal:solflare:connected";
-const SOLFLARE_DOWNLOAD_URL = "https://solflare.com/download";
+const SELECTED_WALLET_KEY = "liminal:wallet:selected";
+const DEFAULT_WALLET: WalletId = "solflare";
 
 type Listener = (state: WalletState) => void;
 
@@ -78,6 +137,13 @@ class SolflareService {
   };
   private listeners = new Set<Listener>();
   private initialized = false;
+  private selectedWallet: WalletId = DEFAULT_WALLET;
+  private boundProvider: WalletProvider | null = null;
+  private handlers: {
+    connect: (...args: unknown[]) => void;
+    disconnect: (...args: unknown[]) => void;
+    accountChanged: (...args: unknown[]) => void;
+  } | null = null;
 
   /** Reactive state subscription. Returns unsubscribe fn. */
   subscribe(fn: Listener): () => void {
@@ -97,11 +163,19 @@ class SolflareService {
     this.listeners.forEach((fn) => fn(this.state));
   }
 
-  private getProvider(): SolflareProvider | null {
-    if (typeof window === "undefined") return null;
-    const provider = window.solflare;
-    if (!provider || !provider.isSolflare) return null;
-    return provider;
+  /** Returns the active wallet's window provider, or null if it's
+   * not installed. The "active" wallet is the one the user last
+   * picked via the picker (persisted) or the default Solflare. */
+  private getProvider(): WalletProvider | null {
+    return resolveProvider(this.selectedWallet);
+  }
+
+  getSelectedWalletId(): WalletId {
+    return this.selectedWallet;
+  }
+
+  getSelectedWalletLabel(): string {
+    return walletLabel(this.selectedWallet);
   }
 
   private safeStorage(): Storage | null {
@@ -113,6 +187,61 @@ class SolflareService {
     }
   }
 
+  private bindListeners(provider: WalletProvider): void {
+    // Tear down any previous binding so swapping wallets doesn't keep
+    // stale listeners firing.
+    if (this.boundProvider && this.handlers) {
+      try {
+        this.boundProvider.off?.("connect", this.handlers.connect);
+        this.boundProvider.off?.("disconnect", this.handlers.disconnect);
+        this.boundProvider.off?.(
+          "accountChanged",
+          this.handlers.accountChanged,
+        );
+      } catch {
+        /* off() may not exist; ignore */
+      }
+    }
+    const handlers = {
+      connect: () => {
+        const addr = provider.publicKey?.toString() ?? null;
+        this.setState({
+          connected: !!addr,
+          connecting: false,
+          address: addr,
+        });
+        if (addr) this.safeStorage()?.setItem(SESSION_KEY, "1");
+      },
+      disconnect: () => {
+        this.setState({ connected: false, connecting: false, address: null });
+        this.safeStorage()?.removeItem(SESSION_KEY);
+      },
+      accountChanged: () => {
+        const addr = provider.publicKey?.toString() ?? null;
+        this.setState({ connected: !!addr, address: addr });
+      },
+    };
+    provider.on("connect", handlers.connect);
+    provider.on("disconnect", handlers.disconnect);
+    provider.on("accountChanged", handlers.accountChanged);
+    this.boundProvider = provider;
+    this.handlers = handlers;
+  }
+
+  /**
+   * Pick which wallet the service should drive. Persisted so a refresh
+   * keeps the choice. Called by the wallet picker modal before connect.
+   */
+  selectWallet(id: WalletId): void {
+    if (id === this.selectedWallet) return;
+    this.selectedWallet = id;
+    this.safeStorage()?.setItem(SELECTED_WALLET_KEY, id);
+    // Force re-bind on next init so listeners track the new provider.
+    this.initialized = false;
+    // Optimistic state reset — the new wallet hasn't connected yet.
+    this.setState({ connected: false, connecting: false, address: null });
+  }
+
   /**
    * Provider event listener'larını kurar ve session persistence için sessiz
    * reconnect dener. İdempotent — birden fazla çağrılabilir.
@@ -121,28 +250,22 @@ class SolflareService {
     if (this.initialized) return;
     this.initialized = true;
 
+    // Read the persisted wallet choice on first init. After that the
+    // user only changes it through selectWallet().
+    const stored = this.safeStorage()?.getItem(SELECTED_WALLET_KEY) as
+      | WalletId
+      | null;
+    if (
+      stored &&
+      SUPPORTED_WALLETS.some((w) => w.id === stored)
+    ) {
+      this.selectedWallet = stored;
+    }
+
     const provider = this.getProvider();
     if (!provider) return;
 
-    provider.on("connect", () => {
-      const addr = provider.publicKey?.toString() ?? null;
-      this.setState({
-        connected: !!addr,
-        connecting: false,
-        address: addr,
-      });
-      if (addr) this.safeStorage()?.setItem(SESSION_KEY, "1");
-    });
-
-    provider.on("disconnect", () => {
-      this.setState({ connected: false, connecting: false, address: null });
-      this.safeStorage()?.removeItem(SESSION_KEY);
-    });
-
-    provider.on("accountChanged", () => {
-      const addr = provider.publicKey?.toString() ?? null;
-      this.setState({ connected: !!addr, address: addr });
-    });
+    this.bindListeners(provider);
 
     // Session persistence: daha önce bağlanmışsa sessiz reconnect.
     if (this.safeStorage()?.getItem(SESSION_KEY) === "1") {
@@ -158,15 +281,26 @@ class SolflareService {
     }
   }
 
-  /** Aktif kullanıcı etkileşimi ile Solflare bağlantısı. */
-  async connectWallet(): Promise<string> {
+  /**
+   * Active user-initiated wallet connection. Optional `id` argument
+   * lets the picker modal pass a different wallet before connecting
+   * (without forcing the caller to call selectWallet() separately).
+   */
+  async connectWallet(id?: WalletId): Promise<string> {
+    if (id && id !== this.selectedWallet) {
+      this.selectWallet(id);
+    }
     await this.init();
 
     const provider = this.getProvider();
+    const label = this.getSelectedWalletLabel();
     if (!provider) {
       throw new Error(
-        `Solflare wallet not found. Please install the Solflare extension: ${SOLFLARE_DOWNLOAD_URL}`,
+        `${label} wallet not found. Please install the ${label} extension: ${walletDownloadUrl(this.selectedWallet)}`,
       );
+    }
+    if (!this.boundProvider) {
+      this.bindListeners(provider);
     }
 
     try {
@@ -175,7 +309,7 @@ class SolflareService {
       const addr = provider.publicKey?.toString();
       if (!addr) {
         throw new Error(
-          "Solflare connection failed. Please try again.",
+          `${label} connection failed. Please try again.`,
         );
       }
       this.setState({
@@ -187,7 +321,7 @@ class SolflareService {
       return addr;
     } catch (err: unknown) {
       this.setState({ connecting: false });
-      throw normalizeConnectError(err);
+      throw normalizeConnectError(err, label);
     }
   }
 
@@ -198,24 +332,25 @@ class SolflareService {
    */
   async signTransaction<T>(tx: T): Promise<T> {
     const provider = this.getProvider();
+    const label = this.getSelectedWalletLabel();
     if (!provider) {
       throw new Error(
-        "Solflare wallet not found. Please install the Solflare extension and connect.",
+        `${label} wallet not found. Please install the ${label} extension and connect.`,
       );
     }
     if (!provider.isConnected || !this.state.connected) {
       throw new Error(
-        "Solflare not connected. Connect your wallet before signing a transaction.",
+        `${label} not connected. Connect your wallet before signing a transaction.`,
       );
     }
     if (typeof provider.signTransaction !== "function") {
       throw new Error(
-        "Your Solflare version does not support transaction signing. Please update Solflare.",
+        `Your ${label} version does not support transaction signing. Please update ${label}.`,
       );
     }
 
-    // Mobile: Solflare popup'ının/modal'ının tam açılmasını beklemek için
-    // 50ms kısa gecikme. Desktop'ta popup anında açılır, gecikme yok.
+    // Mobile: wallet popup'ının açılmasını beklemek için 50ms kısa
+    // gecikme. Desktop'ta popup anında açılır, gecikme yok.
     if (getIsMobileGlobal()) {
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
@@ -223,7 +358,7 @@ class SolflareService {
     try {
       return await provider.signTransaction(tx);
     } catch (err: unknown) {
-      throw normalizeSignError(err);
+      throw normalizeSignError(err, label);
     }
   }
 
@@ -238,14 +373,15 @@ class SolflareService {
   async signAllTransactions<T>(txs: T[]): Promise<T[]> {
     if (txs.length === 0) return [];
     const provider = this.getProvider();
+    const label = this.getSelectedWalletLabel();
     if (!provider) {
       throw new Error(
-        "Solflare wallet not found. Please install the Solflare extension and connect.",
+        `${label} wallet not found. Please install the ${label} extension and connect.`,
       );
     }
     if (!provider.isConnected || !this.state.connected) {
       throw new Error(
-        "Solflare not connected. Connect your wallet before signing transactions.",
+        `${label} not connected. Connect your wallet before signing transactions.`,
       );
     }
 
@@ -257,11 +393,11 @@ class SolflareService {
       if (typeof provider.signAllTransactions === "function") {
         return await provider.signAllTransactions(txs);
       }
-      // Fallback — older Solflare builds only expose signTransaction.
-      // Sequential sign keeps the flow alive at the cost of N popups.
+      // Fallback — older builds only expose signTransaction. Sequential
+      // sign keeps the flow alive at the cost of N popups.
       if (typeof provider.signTransaction !== "function") {
         throw new Error(
-          "Your Solflare version does not support transaction signing. Please update Solflare.",
+          `Your ${label} version does not support transaction signing. Please update ${label}.`,
         );
       }
       const signed: T[] = [];
@@ -270,7 +406,7 @@ class SolflareService {
       }
       return signed;
     } catch (err: unknown) {
-      throw normalizeSignError(err);
+      throw normalizeSignError(err, label);
     }
   }
 
@@ -290,7 +426,7 @@ class SolflareService {
   }
 }
 
-function normalizeSignError(err: unknown): Error {
+function normalizeSignError(err: unknown, label: string): Error {
   const message =
     err instanceof Error
       ? err.message
@@ -299,13 +435,13 @@ function normalizeSignError(err: unknown): Error {
         : "unknown error";
   if (/reject|cancel|denied|user rejected/i.test(message)) {
     return new Error(
-      "Transaction rejected in Solflare. Approve it to continue.",
+      `Transaction rejected in ${label}. Approve it to continue.`,
     );
   }
-  return new Error(`Solflare signing error: ${message}`);
+  return new Error(`${label} signing error: ${message}`);
 }
 
-function normalizeConnectError(err: unknown): Error {
+function normalizeConnectError(err: unknown, label: string): Error {
   const message =
     err instanceof Error
       ? err.message
@@ -317,13 +453,13 @@ function normalizeConnectError(err: unknown): Error {
       ? (err as { code?: number }).code
       : undefined;
 
-  // Solflare and EIP-1193 style rejection codes.
+  // EIP-1193 style rejection codes (Solflare/Phantom/Backpack all share).
   if (code === 4001 || /reject|cancel|denied|user rejected/i.test(message)) {
     return new Error(
-      'Solflare connection rejected. Click "Approve" in the Solflare popup to connect your wallet.',
+      `${label} connection rejected. Click "Approve" in the ${label} popup to connect your wallet.`,
     );
   }
-  return new Error(`Solflare connection error: ${message}`);
+  return new Error(`${label} connection error: ${message}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -336,8 +472,20 @@ export function initSolflare(): Promise<void> {
   return solflareService.init();
 }
 
-export function connectWallet(): Promise<string> {
-  return solflareService.connectWallet();
+export function connectWallet(id?: WalletId): Promise<string> {
+  return solflareService.connectWallet(id);
+}
+
+export function selectWallet(id: WalletId): void {
+  solflareService.selectWallet(id);
+}
+
+export function getSelectedWalletId(): WalletId {
+  return solflareService.getSelectedWalletId();
+}
+
+export function getSelectedWalletLabel(): string {
+  return solflareService.getSelectedWalletLabel();
 }
 
 export function disconnectWallet(): Promise<void> {

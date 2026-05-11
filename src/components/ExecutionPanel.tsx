@@ -24,12 +24,12 @@ import {
   type FC,
 } from "react";
 import {
-  connectWallet,
   getSOLBalance,
   getSPLTokenBalances,
   subscribeWallet,
   type WalletState,
 } from "../services/solflare";
+import WalletPickerModal from "./WalletPickerModal";
 import { selectOptimalVault, type KaminoVault } from "../services/kamino";
 import { usePriceMonitor } from "../hooks/usePriceMonitor";
 import { useExecutionMachine } from "../hooks/useExecutionMachine";
@@ -271,15 +271,10 @@ export const ExecutionPanel: FC = () => {
   // the user rejected the connection popup, they'd see no feedback at
   // all. Capture the error and render it next to the Connect button.
   const [connectError, setConnectError] = useState<string | null>(null);
-  const handleConnect = useCallback(async () => {
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const handleConnect = useCallback(() => {
     setConnectError(null);
-    try {
-      await connectWallet();
-    } catch (err) {
-      setConnectError(
-        err instanceof Error ? err.message : "Could not connect to Solflare.",
-      );
-    }
+    setPickerOpen(true);
   }, []);
   const { tokens: rawTokens, loading: tokensLoading, error: tokensError } =
     useAvailableTokens(wallet);
@@ -486,6 +481,10 @@ export const ExecutionPanel: FC = () => {
   // ------------------------------------------------------------------------
   return (
     <section style={styles.panel} aria-label="Execution panel">
+      <WalletPickerModal
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+      />
       <header style={styles.header}>Execute</header>
 
       {/* Multi-tab warning — surfaces only when ANOTHER tab in the
@@ -603,11 +602,11 @@ export const ExecutionPanel: FC = () => {
             </div>
             <Button
               variant="primary"
-              onClick={() => void handleConnect()}
+              onClick={() => handleConnect()}
               disabled={wallet.connecting}
               style={{ width: "100%", marginTop: 8, padding: "14px 28px" }}
             >
-              {wallet.connecting ? "Connecting…" : "Connect Solflare"}
+              {wallet.connecting ? "Connecting…" : "Connect wallet"}
             </Button>
             {connectError && (
               <div

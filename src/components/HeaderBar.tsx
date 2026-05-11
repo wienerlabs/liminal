@@ -26,11 +26,11 @@ import {
   type FC,
 } from "react";
 import {
-  connectWallet,
   getWalletState,
   subscribeWallet,
   type WalletState,
 } from "../services/solflare";
+import WalletPickerModal from "./WalletPickerModal";
 import { LiminalMark } from "./BrandLogos";
 import { getMevStrategy } from "../services/mevProtection";
 import { useDeviceDetection } from "../hooks/useDeviceDetection";
@@ -109,6 +109,7 @@ export const HeaderBar: FC<HeaderBarProps> = ({
     : null;
 
   const [copiedAddr, setCopiedAddr] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const handleCopyAddr = useCallback(() => {
     if (!wallet.address) return;
     void navigator.clipboard.writeText(wallet.address).then(() => {
@@ -244,14 +245,14 @@ export const HeaderBar: FC<HeaderBarProps> = ({
         {!wallet.connected ? (
           <button
             type="button"
-            onClick={() => void connectWallet()}
+            onClick={() => setPickerOpen(true)}
             disabled={wallet.connecting}
             style={styles.connectCta}
             className="liminal-press"
-            aria-label="Connect Solflare wallet"
+            aria-label="Connect a Solana wallet"
           >
             <span style={styles.connectDot} aria-hidden="true" />
-            <span>{wallet.connecting ? "Connecting…" : device.isMobile ? "Connect" : "Connect Solflare"}</span>
+            <span>{wallet.connecting ? "Connecting…" : device.isMobile ? "Connect" : "Connect wallet"}</span>
           </button>
         ) : wallet.connected && profile && onEditProfile ? (
           <button
@@ -301,6 +302,10 @@ export const HeaderBar: FC<HeaderBarProps> = ({
           </button>
         )}
       </div>
+      <WalletPickerModal
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+      />
     </header>
   );
 };
