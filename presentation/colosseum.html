@@ -19,20 +19,15 @@
           judges don't confuse it with the live app
 
       Slides
-        1  Cover                   "The intelligent execution terminal"
-        2  Problem                 Three things break on big swaps
-        3  Solution                One terminal, four partners
-        4  The Math                Composite alpha, real numbers
-        5  Integration depth       Per-partner depth callout
-        6  The Terminal            Product screenshot + UX moments
-        7  What's inside           TWAP / DCA / Limit / Queue / etc.
-        8  Traction                Mainnet metrics + demo link
-        9  Roadmap                 What's shipped, what's next
-       10  Close                   Ask + contact
+        1  Cover      "The intelligent execution terminal on Solana"
+        2  Problem    Three things break on big swaps
+        3  Solution   One terminal, four partners, composite alpha
+        4  The Math   10k SOL → USDC: +$58.42 real mainnet runs
+        5  Roadmap    30d · 90d · composability
 
       Controls
         ←  Prev slide       Space / →  Next slide
-        Esc  Jump to first  End  Jump to last   (1-9, 0)  Direct slide
+        Esc  Jump to first  End  Jump to last   (1-5)  Direct slide
     -->
 
     <style>
@@ -1244,7 +1239,7 @@
       <header class="topbar">
         <a
           class="brand"
-          href="https://liminal.app"
+          href="https://liminaltwap.com"
           target="_blank"
           rel="noreferrer"
           aria-label="Open LIMINAL terminal"
@@ -1271,16 +1266,15 @@
             </div>
             <h1 class="cover-wordmark">LIMINAL</h1>
           </div>
-          <span class="eyebrow">Earn while you trade</span>
+          <span class="eyebrow">Hello, Solana</span>
           <h1 class="title">
             The intelligent execution<br />
-            terminal for Solana.
+            terminal on Solana.
           </h1>
           <p class="lede">
-            LIMINAL splits your large swaps into time-weighted slices, routes
-            every fill through DFlow's MEV-protected RFQ pool, and parks the
-            idle portion in Kamino lending vaults — so the same trade earns
-            spread <em>and</em> yield instead of just slippage.
+            You earn while you trade — every slice captures spread through
+            DFlow's MEV-protected RFQ pool, and the idle portion earns yield
+            in Kamino vaults. Now let me show you why this matters.
           </p>
           <div class="cover-meta">
             <span><strong>Mainnet</strong> · live, no testnet sim</span>
@@ -1337,32 +1331,35 @@
         <!-- ============================================================ -->
         <section class="slide" data-slide="2">
           <span class="eyebrow">Problem</span>
-          <h2 class="title">Three things break on big Solana swaps.</h2>
+          <h2 class="title">
+            When you make a big swap on Solana,<br />
+            three things break at once.
+          </h2>
           <div class="grid-3 cascade">
             <div class="card">
-              <span class="ord">01 · Spread</span>
-              <h3>Market orders pay slippage twice.</h3>
+              <span class="ord">One</span>
+              <h3>You pay slippage.</h3>
               <p>
                 A single $10k+ swap on a Solana aggregator hits AMM curves at
-                full size — you eat the impact and the price-improvement that
-                an RFQ pool would have offered.
+                full size — you eat the impact and forfeit the price
+                improvement an RFQ pool would have offered.
               </p>
             </div>
             <div class="card">
-              <span class="ord">02 · MEV</span>
-              <h3>Sandwich attacks at the route level.</h3>
+              <span class="ord">Two</span>
+              <h3>MEV bots sandwich you.</h3>
               <p>
                 Public-mempool routes are visible to bots before they land.
-                Your fill ends up in a sandwich, between a frontrun and a
-                backrun, before the block confirms.
+                Your fill ends up between a frontrun and a backrun, before
+                the block confirms.
               </p>
             </div>
             <div class="card">
-              <span class="ord">03 · Idle capital</span>
-              <h3>The waiting half earns nothing.</h3>
+              <span class="ord">Three</span>
+              <h3>If you TWAP, your idle capital sits dead.</h3>
               <p>
-                Smart traders TWAP large positions over an hour. The portion
-                still waiting to swap sits in their wallet — interest-free —
+                Smart traders slice large positions over an hour. The portion
+                still waiting to swap sits in the wallet — interest-free —
                 while it could be earning Kamino yield.
               </p>
             </div>
@@ -1381,37 +1378,38 @@
         <!-- ============================================================ -->
         <section class="slide" data-slide="3">
           <span class="eyebrow">Solution</span>
-          <h2 class="title">One terminal. Four partners. Composite alpha.</h2>
+          <h2 class="title">One terminal, four partners.</h2>
           <div class="grid-4 cascade">
             <div class="card">
               <span class="ord">DFlow</span>
-              <h3>RFQ-routed slices</h3>
+              <h3>Routes every slice through an MEV-protected RFQ pool.</h3>
               <p>
-                Every slice clears against committed market-maker inventory in
-                Jupiter Ultra's pool. Spread captured, MEV neutralised.
+                Slices clear against committed market-maker inventory in
+                Jupiter Ultra's pool — spread captured, sandwich attacks
+                neutralised at the route level.
               </p>
             </div>
             <div class="card">
               <span class="ord">Kamino</span>
-              <h3>Yield on the wait</h3>
+              <h3>Parks the un-swapped balance in a vault — idle capital earns yield.</h3>
               <p>
                 Capital not yet swapped sits in the highest-APY Kamino lending
-                vault, accrues per second, gets withdrawn 0.4s before each
-                slice fires.
+                reserve, accrues per second, and is withdrawn moments before
+                each slice fires.
               </p>
             </div>
             <div class="card">
               <span class="ord">QuickNode</span>
-              <h3>Live nervous system</h3>
+              <h3>Watches prices live and decides when to fire.</h3>
               <p>
                 Pyth feeds + slot-confirmation streams + dedicated RPC drive
-                the price monitor that decides when each slice is allowed to
-                execute.
+                the price monitor that decides the exact moment each slice is
+                allowed to execute.
               </p>
             </div>
             <div class="card">
               <span class="ord">Solflare</span>
-              <h3>One signing surface</h3>
+              <h3>Single signing surface — the user never leaves.</h3>
               <p>
                 Wallet-native flow with versioned-transaction batching brings
                 a 4-slice run from 10 popups down to 6, with simulation on
@@ -1419,6 +1417,10 @@
               </p>
             </div>
           </div>
+          <p class="footnote">
+            We call this <em>composite alpha</em> — spread plus yield, at the
+            same time.
+          </p>
           <span class="liminal-watermark">
             <img src="../public/logo.png" alt="" />
             <span>LIMINAL</span>
@@ -1430,7 +1432,7 @@
         <!-- ============================================================ -->
         <section class="slide" data-slide="4">
           <span class="eyebrow">The math</span>
-          <h2 class="title">$10,000 SOL → USDC, executed two ways.</h2>
+          <h2 class="title">A $10,000 SOL → USDC swap.</h2>
           <div class="math-row">
             <div class="math-side">
               <h4>Jupiter direct</h4>
@@ -1461,9 +1463,9 @@
             </div>
           </div>
           <p class="footnote">
-            ≈ 18.4 bps composite alpha. Numbers from real mainnet runs over
-            SOL/USDC during the past week. Replay any of them in the
-            Analytics&nbsp;→&nbsp;History tab.
+            These numbers are real runs from mainnet — ≈ 18.4 bps composite
+            alpha over SOL/USDC during the past week. Replay any of them in
+            the Analytics&nbsp;→&nbsp;History tab.
           </p>
           <span class="liminal-watermark">
             <img src="../public/logo.png" alt="" />
@@ -1472,329 +1474,43 @@
         </section>
 
         <!-- ============================================================ -->
-        <!--  Slide 5 — Integration depth                                  -->
-        <!--  Each partner = inline SVG logo + colored halo + role tag +   -->
-        <!--  4 concrete integration callouts. No marketing words; every   -->
-        <!--  bullet maps to a real code path in the dApp.                 -->
+        <!--  Slide 5 — Roadmap                                            -->
         <!-- ============================================================ -->
         <section class="slide" data-slide="5">
-          <span class="eyebrow">Integration depth</span>
-          <h2 class="title">Each partner is in the critical path, not bolted on.</h2>
-          <div class="grid-2 cascade">
-            <!-- DFlow ------------------------------------------------- -->
-            <article class="partner-card dflow">
-              <header class="partner-head">
-                <span class="partner-logo" style="color: #ff2e7e;">
-                  <svg viewBox="0 0 329 329" fill="currentColor" aria-hidden="true">
-                    <path d="M126.705 27.668c-47.483 14.221-84.891 51.613-99.153 98.872h50.669c4.38 0 8.58-1.74 11.677-4.835l31.966-31.948c3.1-3.098 4.841-7.3 4.841-11.683z"/>
-                    <path d="M151.397 89.199c-.204 4.118-1.927 8.024-4.848 10.943l-46.488 46.461-.591.561c-3.017 2.732-6.94 4.253-11.017 4.253H15.747l-.457-.007c-9.549-.261-16.967-8.685-14.96-18.151C14.432 66.757 66.84 14.395 133.391.323c9.553-2.02 18.027 5.717 18.027 15.544v72.506z"/>
-                    <path d="M126.705 301.166c-47.483-14.221-84.891-51.613-99.153-98.872h50.669c4.38 0 8.58 1.739 11.677 4.835l31.966 31.947c3.1 3.098 4.841 7.301 4.841 11.684z"/>
-                    <path d="M151.397 239.635c-.204-4.118-1.927-8.024-4.848-10.943l-46.488-46.461-.591-.561c-3.017-2.732-6.94-4.253-11.017-4.253H15.747l-.457.007c-9.549.261-16.967 8.685-14.96 18.151 14.101 66.502 66.509 118.864 133.06 132.936 9.553 2.02 18.027-5.717 18.027-15.544v-72.506z"/>
-                    <path d="M301.287 126.528c-14.284-47.268-51.697-84.656-99.17-98.854v50.375c0 4.38 1.739 8.58 4.836 11.678l31.951 31.961c3.098 3.099 7.301 4.84 11.682 4.84z"/>
-                    <path d="M240.351 151.417c-4.346 0-8.517-1.731-11.602-4.816l-46.466-46.483c-2.92-2.92-4.642-6.828-4.846-10.948l-.02-.827v-72.47c0-9.828 8.464-17.566 18.01-15.552 66.534 14.041 118.944 66.401 133.075 132.921 2.045 9.623-5.641 18.175-15.408 18.175z"/>
-                    <path d="M202.13 301.166c47.482-14.223 84.889-51.615 99.151-98.872h-50.669c-4.379 0-8.578 1.739-11.676 4.834l-31.964 31.944c-3.1 3.098-4.842 7.301-4.842 11.684z"/>
-                    <path d="M177.437 239.631c.204-4.119 1.927-8.024 4.848-10.943l46.487-46.457.591-.561c2.816-2.55 6.42-4.045 10.203-4.233l.814-.02h72.708l.456.007c9.549.261 16.967 8.685 14.96 18.151-14.1 66.5-66.508 118.861-133.059 132.936-9.553 2.02-18.028-5.716-18.028-15.542v-72.512z"/>
-                  </svg>
-                </span>
-                <div class="partner-name">
-                  DFlow
-                  <span class="partner-tag">Execution layer</span>
-                </div>
-              </header>
-              <ul>
-                <li>Quote comparison on every slice — market vs. DFlow side-by-side, rendered live</li>
-                <li>MEV-protected execution via Jupiter Ultra RFQ + DFlow-endorsed market makers</li>
-                <li>Adaptive route fallback chain on MTU edge cases (excludes Whirlpool/Phoenix when needed)</li>
-                <li>Slippage threshold: defer-not-fail, single retry, then user prompt</li>
-              </ul>
-            </article>
-
-            <!-- Kamino ------------------------------------------------ -->
-            <article class="partner-card kamino">
-              <header class="partner-head">
-                <span class="partner-logo" style="color: #1a1a1a;">
-                  <svg viewBox="0 0 35 50" fill="currentColor" aria-hidden="true">
-                    <path d="M10.263 2.782H0v46.684h10.263V2.782z"/>
-                    <path d="M33.347 48.876c-4.835-3.334-8.102-9.534-8.102-16.64s3.267-13.307 8.102-16.64v-.562H19.97c-3.13 4.85-4.97 10.78-4.97 17.202s1.837 12.348 4.97 17.202h13.377v-.562z"/>
-                  </svg>
-                </span>
-                <div class="partner-name">
-                  Kamino
-                  <span class="partner-tag">Yield layer</span>
-                </div>
-              </header>
-              <ul>
-                <li>Auto-vault selection by APY × liquidity × audit status, per input mint</li>
-                <li>Deposit on configure → partial withdraw 0.4s before each slice → final withdraw at completion</li>
-                <li>kToken accounting reconciles real yield earned, not estimated</li>
-                <li>Lending-only — no CLMM exposure, no impermanent loss</li>
-              </ul>
-            </article>
-
-            <!-- QuickNode --------------------------------------------- -->
-            <article class="partner-card quicknode">
-              <header class="partner-head">
-                <span class="partner-logo" style="color: #2563eb;">
-                  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                    <path d="M11 2 A9 9 0 1 0 11 20 A9 9 0 1 0 11 2 Z M11 5 A6 6 0 1 1 11 17 A6 6 0 1 1 11 5 Z" fill-rule="evenodd"/>
-                    <path d="M14.5 16.5 L19 21 L21 19 L16.5 14.5 Z"/>
-                  </svg>
-                </span>
-                <div class="partner-name">
-                  QuickNode
-                  <span class="partner-tag">Data layer</span>
-                </div>
-              </header>
-              <ul>
-                <li>Dedicated RPC + Streams for slot confirmation under 500ms</li>
-                <li>Pyth price feed driving 5s polling loop on every active mint</li>
-                <li>Wallet event subscriptions for balance + kToken position deltas</li>
-                <li>Network meter in the header reads live RPC latency, drops bars when congested</li>
-              </ul>
-            </article>
-
-            <!-- Solflare ---------------------------------------------- -->
-            <article class="partner-card solflare">
-              <header class="partner-head">
-                <span class="partner-logo" style="color: #fc822b;">
-                  <svg viewBox="0 0 50 50" fill="currentColor" aria-hidden="true">
-                    <path d="M24.23 26.42l2.46-2.38 4.59 1.5c3.01 1 4.51 2.84 4.51 5.43 0 1.96-.75 3.26-2.25 4.93l-.46.5.17-1.17c.67-4.26-.58-6.09-4.72-7.43l-4.3-1.38zM18.05 11.85l12.52 4.17-2.71 2.59-6.51-2.17c-2.25-.75-3.01-1.96-3.3-4.51v-.08zM17.3 33.06l2.84-2.71 5.34 1.75c2.8.92 3.76 2.13 3.46 5.18l-11.65-4.22zM13.71 20.95c0-.79.42-1.54 1.13-2.17.75 1.09 2.05 2.05 4.09 2.71l4.42 1.46-2.46 2.38-4.34-1.42c-2-.67-2.84-1.67-2.84-2.96M26.82 42.87c9.18-6.09 14.11-10.23 14.11-15.32 0-3.38-2-5.26-6.43-6.72l-3.34-1.13 9.14-8.77-1.84-1.96-2.71 2.38-12.81-4.22c-3.97 1.29-8.97 5.09-8.97 8.89 0 .42.04.83.17 1.29-3.3 1.88-4.63 3.63-4.63 5.8 0 2.05 1.09 4.09 4.55 5.22l2.75.92-9.52 9.14 1.84 1.96 2.96-2.71 14.73 5.22z"/>
-                  </svg>
-                </span>
-                <div class="partner-name">
-                  Solflare
-                  <span class="partner-tag">UX layer</span>
-                </div>
-              </header>
-              <ul>
-                <li>Wallet-adapter sole-supported on purpose — no Phantom fallback dilutes depth</li>
-                <li>Versioned transaction batching cuts 4-slice popups from 10 to 6</li>
-                <li>simulateTransaction before every broadcast — no silent failures</li>
-                <li>Deep linking + in-app browser auto-connect on mount</li>
-              </ul>
-            </article>
-          </div>
-          <span class="liminal-watermark">
-            <img src="../public/logo.png" alt="" />
-            <span>LIMINAL</span>
-          </span>
-        </section>
-
-        <!-- ============================================================ -->
-        <!--  Slide 6 — The terminal (mock)                                -->
-        <!-- ============================================================ -->
-        <section class="slide" data-slide="6">
-          <span class="eyebrow">The product</span>
-          <h2 class="title">Single-screen terminal. No tabs to manage.</h2>
-          <div class="mock-terminal" aria-label="LIMINAL terminal mockup">
-            <div class="mock-pane">
-              <span class="mock-pane-header">Wallet</span>
-              <div class="mock-line short"></div>
-              <div class="mock-line tiny"></div>
-              <div class="mock-line"></div>
-              <div class="mock-line short"></div>
-              <div class="mock-row">
-                <span class="mock-pill">SOL</span>
-                <span class="mock-pill">USDC</span>
-              </div>
-              <div class="mock-line tiny"></div>
-              <div class="mock-line short"></div>
-            </div>
-            <div class="mock-pane center">
-              <span class="mock-pane-header">Execute</span>
-              <div class="mock-line accent"></div>
-              <div class="mock-line"></div>
-              <div class="mock-line short"></div>
-              <div class="mock-row">
-                <span class="mock-pill">30m</span>
-                <span class="mock-pill">1h</span>
-                <span class="mock-pill">2h</span>
-                <span class="mock-pill">4h</span>
-              </div>
-              <div class="mock-line"></div>
-              <div class="mock-line tiny"></div>
-              <div class="mock-line short"></div>
-              <div class="mock-block"></div>
-            </div>
-            <div class="mock-pane right">
-              <span class="mock-pane-header">Analytics</span>
-              <div class="mock-line short"></div>
-              <div class="mock-line accent"></div>
-              <div class="mock-line tiny"></div>
-              <div class="mock-line"></div>
-              <div class="mock-line short"></div>
-              <div class="mock-line accent"></div>
-              <div class="mock-line tiny"></div>
-            </div>
-          </div>
-          <p class="footnote">
-            Pastel-frosted glass, ABC Favorit Mono, ⌘K command palette,
-            built-in tutorial. The whole state machine — IDLE → CONFIGURED →
-            DEPOSITING → ACTIVE → DONE — surfaced as one fluid step indicator.
-          </p>
-          <span class="liminal-watermark">
-            <img src="../public/logo.png" alt="" />
-            <span>LIMINAL</span>
-          </span>
-        </section>
-
-        <!-- ============================================================ -->
-        <!--  Slide 7 — What's inside                                      -->
-        <!-- ============================================================ -->
-        <section class="slide" data-slide="7">
-          <span class="eyebrow">What's inside</span>
-          <h2 class="title">Twelve features, one terminal.</h2>
-          <div class="feature-grid cascade">
-            <div class="feature-card">
-              <strong>TWAP execution</strong>Time-weighted slicing with
-              configurable window + slice count + slippage threshold.
-            </div>
-            <div class="feature-card">
-              <strong>DCA scheduler</strong>Re-fire the same plan every 1h /
-              6h / 24h / 3d / 7d for N cycles.
-            </div>
-            <div class="feature-card">
-              <strong>Multi-pair queue</strong>Chain SOL→USDC→JUP→JTO as a
-              sequential queue; runner fires step 2 the moment step 1 lands.
-            </div>
-            <div class="feature-card">
-              <strong>Risk advisor</strong>5-rule engine reads your local
-              history, suggests slippage / pacing tweaks between runs.
-            </div>
-            <div class="feature-card">
-              <strong>Replay viewer</strong>Re-experience any historical run
-              at 1× / 5× / 30× / instant. Cumulative tickers animate.
-            </div>
-            <div class="feature-card">
-              <strong>⌘K command palette</strong>Slash mode: <kbd>/theme</kbd>
-              <kbd>/copy</kbd> <kbd>/disconnect</kbd> <kbd>/go execute</kbd>.
-            </div>
-            <div class="feature-card">
-              <strong>Profile + avatars</strong>Wallet IS the account.
-              4 LIMINAL-themed avatars + username, all local-first.
-            </div>
-            <div class="feature-card">
-              <strong>CSV export</strong>Tax-ready: per-execution rollup +
-              per-slice detail, RFC-4180 escape, UTF-8 BOM for Excel.
-            </div>
-            <div class="feature-card">
-              <strong>ASCII completion flourish</strong>3-second 3D ASCII
-              "CAPTURED" overlay celebrates each settled run.
-            </div>
-            <div class="feature-card">
-              <strong>Live Kamino ticker</strong>Yield ticker pulses up in
-              the header during in-flight runs. No flat zero between fills.
-            </div>
-            <div class="feature-card">
-              <strong>Local leaderboard</strong>Your stats vs. seeded
-              community demo, schema mirrors a future Supabase backend.
-            </div>
-            <div class="feature-card">
-              <strong>PWA offline shell</strong>Add to Home Screen, vanilla
-              service worker (no workbox), network-first navigations.
-            </div>
-          </div>
-          <span class="liminal-watermark">
-            <img src="../public/logo.png" alt="" />
-            <span>LIMINAL</span>
-          </span>
-        </section>
-
-        <!-- ============================================================ -->
-        <!--  Slide 8 — Traction                                           -->
-        <!-- ============================================================ -->
-        <section class="slide" data-slide="8">
-          <span class="eyebrow">Traction</span>
-          <h2 class="title">Mainnet only. Real activity.</h2>
-          <div class="grid-4 cascade">
-            <div class="stat">
-              <span class="stat-value">100%</span>
-              <span class="stat-label">Mainnet</span>
-              <span class="stat-hint">No testnet sim, no devnet detour</span>
-            </div>
-            <div class="stat">
-              <span class="stat-value">0</span>
-              <span class="stat-label">Custody</span>
-              <span class="stat-hint">Funds never leave the user's wallet</span>
-            </div>
-            <div class="stat">
-              <span class="stat-value">176</span>
-              <span class="stat-label">Tests passing</span>
-              <span class="stat-hint">Vitest suite + happy-dom across 16 files</span>
-            </div>
-            <div class="stat">
-              <span class="stat-value">~108KB</span>
-              <span class="stat-label">Main bundle gzip</span>
-              <span class="stat-hint">After lazy-loading three.js + recharts</span>
-            </div>
-          </div>
-          <div class="row">
-            <span class="pill pill-success">Live demo</span>
-            <span class="pill">liminal.app</span>
-            <span class="pill">@liminaltwap</span>
-          </div>
-          <p class="footnote">
-            Submitted with onchain history filterable by DFlow program ID.
-            Every metric on the dashboard derives from real mainnet activity —
-            no mock data lives in the production bundle.
-          </p>
-          <span class="liminal-watermark">
-            <img src="../public/logo.png" alt="" />
-            <span>LIMINAL</span>
-          </span>
-        </section>
-
-        <!-- ============================================================ -->
-        <!--  Slide 9 — Roadmap                                            -->
-        <!-- ============================================================ -->
-        <section class="slide" data-slide="9">
           <span class="eyebrow">Roadmap</span>
-          <h2 class="title">Shipped → near-term → composable future.</h2>
+          <h2 class="title">30 days · 90 days · composability.</h2>
           <div class="timeline cascade">
             <div class="timeline-row is-now">
-              <span class="timeline-when">Shipped · live</span>
+              <span class="timeline-when">In 30 days</span>
               <div class="timeline-body">
-                <strong>Composite-alpha terminal</strong>
+                <strong>Public leaderboard + REST/SDK</strong>
                 <p>
-                  TWAP + DCA + Multi-pair queue + Risk advisor + Replay
-                  viewer + Profile system + Tax CSV + PWA shell + 176 tests.
-                  4 partner integrations, mainnet-only.
+                  Supabase-backed shared leaderboard with opt-in submission,
+                  plus a REST API + SDK exposing the analytics and scheduler
+                  primitives so other dApps can embed LIMINAL execution.
                 </p>
               </div>
             </div>
             <div class="timeline-row">
-              <span class="timeline-when">Next 30 days</span>
+              <span class="timeline-when">In 90 days</span>
               <div class="timeline-body">
-                <strong>Public leaderboard + API</strong>
+                <strong>Conditional limit triggers + NFT attestations</strong>
                 <p>
-                  Supabase-backed shared leaderboard (schema is already
-                  mirrored locally), opt-in submission flow, REST/SDK exposing
-                  the analytics + scheduler primitives so other dApps can
-                  embed LIMINAL execution.
+                  Conditional triggers ("execute when SOL crosses $200") and
+                  on-chain NFT attestations of completed executions — portable
+                  proof-of-flow that follows the wallet across protocols.
                 </p>
               </div>
             </div>
             <div class="timeline-row">
-              <span class="timeline-when">Next 90 days</span>
+              <span class="timeline-when">After that</span>
               <div class="timeline-body">
-                <strong>Limit-on-execute conditions</strong>
+                <strong>Composability</strong>
                 <p>
-                  Conditional triggers ("execute when SOL crosses $200"),
-                  cross-tab leader election so DCA / pair-queue keeps firing
-                  even when the user closes a tab, NFT attestations of
-                  completed executions for portable proof-of-flow.
-                </p>
-              </div>
-            </div>
-            <div class="timeline-row">
-              <span class="timeline-when">Composability</span>
-              <div class="timeline-body">
-                <strong>LIMINAL as infrastructure</strong>
-                <p>
-                  Strategy marketplace (third parties publish + monetise
-                  TWAP/DCA strategies), webhook delivery on completion,
+                  Turning LIMINAL into a building block other protocols can
+                  embed — strategy marketplace, webhook delivery on completion,
                   multi-asset rebalancing flows. The composite-alpha primitive
-                  becomes a building block for other Solana protocols.
+                  becomes infrastructure.
                 </p>
               </div>
             </div>
@@ -1805,47 +1521,6 @@
           </span>
         </section>
 
-        <!-- ============================================================ -->
-        <!--  Slide 10 — Close / Ask                                       -->
-        <!-- ============================================================ -->
-        <section class="slide" data-slide="10">
-          <div class="cover-hero">
-            <div class="cover-mark" aria-hidden="true">
-              <span class="cover-mark-inner">
-                <img src="../public/logo.png" alt="LIMINAL" />
-              </span>
-            </div>
-            <h1 class="cover-wordmark">LIMINAL</h1>
-          </div>
-          <span class="eyebrow">Vote · run · tell a friend</span>
-          <h2 class="title">
-            Earn while you trade.<br />
-            Run a slice today.
-          </h2>
-          <p class="lede">
-            Open the terminal, connect your Solflare, and execute a small
-            test slice on mainnet. The Analytics panel will show you exactly
-            how much LIMINAL captured vs. a single Jupiter swap at the same
-            instant. That's the pitch — measurable, on-chain, today.
-          </p>
-          <div class="cta">
-            <div class="cta-buttons">
-              <a class="cta-btn" href="https://liminal.app" target="_blank" rel="noreferrer">
-                Open the terminal &nbsp;→
-              </a>
-              <a class="cta-btn secondary" href="https://x.com/liminaltwap" target="_blank" rel="noreferrer">
-                @liminaltwap
-              </a>
-              <a class="cta-btn secondary" href="https://github.com/wienerlabs/liminal" target="_blank" rel="noreferrer">
-                wienerlabs/liminal
-              </a>
-            </div>
-            <span class="footnote">
-              Built with DFlow · Kamino · QuickNode · Solflare.<br />
-              Submitted to Colosseum 2026 — Solana global hackathon.
-            </span>
-          </div>
-        </section>
       </main>
 
       <!-- ============================================================ -->
