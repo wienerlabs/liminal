@@ -2,15 +2,20 @@
  * LIMINAL — Disclaimer modal
  *
  * Blocking modal shown on the first wallet connect ever (per browser).
- * The user must explicitly acknowledge two things before they can
+ * The user must explicitly acknowledge FOUR things before they can
  * configure an execution:
  *
  *   1. Funds at risk — real mainnet transactions, real capital exposure.
- *   2. No warranty / hackathon software — experimental, no guarantee.
+ *   2. Not audited — no formal smart-contract / code audit completed,
+ *      partner integrations carry their own protocol risk.
+ *   3. Don't ape — start with amounts you can afford to lose; demo /
+ *      test slices first, scale up only after personal verification.
+ *   4. No warranty — provided as-is, hackathon-stage software, no
+ *      guarantee of performance, availability, or outcome.
  *
- * Acceptance persists in localStorage under `liminal:disclaimer:v1`.
- * Bumping the version forces re-acceptance (breaking UX changes,
- * updated ToS text, etc.).
+ * Acceptance persists in localStorage under `liminal:disclaimer:v2`.
+ * The v2 bump invalidates v1 acceptances so existing users see the
+ * expanded (audit + ape-warning) wording on next connect.
  *
  * Accessibility:
  *   - role=dialog, aria-modal, aria-labelledby, focus trap, body
@@ -27,7 +32,10 @@ import {
 import Button from "./Button";
 import { LiminalMark } from "./BrandLogos";
 
-const STORAGE_KEY = "liminal:disclaimer:v1";
+// Bumped from v1 → v2 when the audit + ape-warning acknowledgements were
+// added. Users who accepted the shorter v1 disclaimer will see the
+// expanded modal once on their next connect.
+const STORAGE_KEY = "liminal:disclaimer:v2";
 
 export function hasAcceptedDisclaimer(): boolean {
   try {
@@ -53,6 +61,8 @@ export type DisclaimerModalProps = {
 
 export const DisclaimerModal: FC<DisclaimerModalProps> = ({ onAccept }) => {
   const [ackRisk, setAckRisk] = useState(false);
+  const [ackNotAudited, setAckNotAudited] = useState(false);
+  const [ackDontApe, setAckDontApe] = useState(false);
   const [ackNoWarranty, setAckNoWarranty] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
@@ -92,7 +102,7 @@ export const DisclaimerModal: FC<DisclaimerModalProps> = ({ onAccept }) => {
     };
   }, []);
 
-  const canAccept = ackRisk && ackNoWarranty;
+  const canAccept = ackRisk && ackNotAudited && ackDontApe && ackNoWarranty;
 
   const handleAccept = (): void => {
     if (!canAccept) return;
@@ -118,8 +128,9 @@ export const DisclaimerModal: FC<DisclaimerModalProps> = ({ onAccept }) => {
         </h2>
 
         <p style={styles.lead}>
-          LIMINAL is experimental software. Please read and acknowledge the
-          following before configuring an execution.
+          LIMINAL is unaudited, hackathon-stage software running on Solana
+          mainnet. Read and acknowledge every line below before you
+          connect — there is no partial entry.
         </p>
 
         <label style={styles.check}>
@@ -131,8 +142,45 @@ export const DisclaimerModal: FC<DisclaimerModalProps> = ({ onAccept }) => {
           <span style={styles.checkText}>
             <strong>Funds at risk.</strong> Executions broadcast real
             transactions on Solana mainnet. Slippage, price movement, RPC
-            failures, or smart-contract conditions can cause partial or
-            full loss of the capital you configure for a trade.
+            failures, MEV, oracle staleness, or bugs in this app or any
+            of its integrations (Kamino, Jupiter Ultra/DFlow, Solflare,
+            QuickNode) can cause partial or total loss of the capital you
+            configure for a trade. Loss is a real outcome, not a corner
+            case.
+          </span>
+        </label>
+
+        <label style={styles.check}>
+          <input
+            type="checkbox"
+            checked={ackNotAudited}
+            onChange={(e) => setAckNotAudited(e.target.checked)}
+          />
+          <span style={styles.checkText}>
+            <strong>Not audited.</strong> The LIMINAL codebase has not
+            gone through a formal third-party security audit. The
+            partner protocols it composes (Kamino, Jupiter Ultra/DFlow,
+            Solflare, QuickNode, Pyth) carry their own independent risk —
+            their audit status, uptime, and economic guarantees are not
+            controlled by LIMINAL. A failure in any partner can affect
+            funds routed through this app.
+          </span>
+        </label>
+
+        <label style={styles.check}>
+          <input
+            type="checkbox"
+            checked={ackDontApe}
+            onChange={(e) => setAckDontApe(e.target.checked)}
+          />
+          <span style={styles.checkText}>
+            <strong>Don't ape.</strong> Start small. Run a tiny test
+            slice (a few dollars) to verify the full flow on your own
+            wallet on chain. Only scale up after you have personally
+            seen the deposit, the slice swaps, and the final withdraw
+            settle. Never put in more than you can afford to lose
+            entirely. Demo presets are demo presets — not production
+            settings.
           </span>
         </label>
 
@@ -143,11 +191,12 @@ export const DisclaimerModal: FC<DisclaimerModalProps> = ({ onAccept }) => {
             onChange={(e) => setAckNoWarranty(e.target.checked)}
           />
           <span style={styles.checkText}>
-            <strong>No warranty.</strong> LIMINAL is provided as-is. There
-            are no guarantees of performance, availability, or outcome. You
-            are solely responsible for reviewing each Solflare signing
-            prompt and understanding what it will do on-chain before
-            approving.
+            <strong>No warranty. Your responsibility.</strong> LIMINAL is
+            provided as-is with no guarantee of performance, availability,
+            or outcome. You are solely responsible for reading every
+            Solflare signing prompt and confirming what it does on chain
+            before approving. No author, contributor, or partner is
+            liable for losses incurred while using this software.
           </span>
         </label>
 
