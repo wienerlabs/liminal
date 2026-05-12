@@ -285,7 +285,7 @@ function buildShareIntent(args: {
   const trimmed = text.length > 270 ? text.slice(0, 267) + "…" : text;
   const params = new URLSearchParams({
     text: trimmed,
-    url: typeof window !== "undefined" ? window.location.origin : "https://liminal.app",
+    url: typeof window !== "undefined" ? window.location.origin : "https://liminaltwap.com",
   });
   return `https://twitter.com/intent/tweet?${params.toString()}`;
 }

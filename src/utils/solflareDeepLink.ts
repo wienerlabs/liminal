@@ -25,7 +25,7 @@ const SOLFLARE_DEEPLINK_SCHEME = "solflare://";
  * in-app browser. Uses `encodeURIComponent` on the destination to
  * preserve query strings and fragment identifiers.
  *
- * Returns the full deep link, e.g. `solflare://browse?url=https%3A%2F%2Fliminal.app`.
+ * Returns the full deep link, e.g. `solflare://browse?url=https%3A%2F%2Fliminaltwap.com`.
  */
 export function buildSolflareBrowseLink(url: string): string {
   if (!url) {

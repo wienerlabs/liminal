@@ -317,7 +317,7 @@ Bir execution window boyunca kullanıcı potansiyel olarak şu transaction'ları
 
 Solflare'in mobil uygulaması kendi in-app browser'ını içerir. LIMINAL bu browser içinde sorunsuz çalışmalıdır.
 
-**Teknik gereksinimler:** Responsive layout zorunlu, mobil ekranda analytics panel'i collapsible olmalı. Solflare in-app browser'ında window.solflare object'i injection farklı çalışabilir, bu edge case test edilmeli. Deep link formatı kullanılarak mobil kullanıcılar Solflare uygulamasından direkt LIMINAL'e yönlendirilebilir: `solflare://browse?url=liminal.app` formatı.
+**Teknik gereksinimler:** Responsive layout zorunlu, mobil ekranda analytics panel'i collapsible olmalı. Solflare in-app browser'ında window.solflare object'i injection farklı çalışabilir, bu edge case test edilmeli. Deep link formatı kullanılarak mobil kullanıcılar Solflare uygulamasından direkt LIMINAL'e yönlendirilebilir: `solflare://browse?url=liminaltwap.com` formatı.
 
 ### Deep Linking
 

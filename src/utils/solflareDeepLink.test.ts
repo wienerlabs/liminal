@@ -25,13 +25,13 @@ afterEach(() => {
 
 describe("buildSolflareBrowseLink", () => {
   it("wraps a simple https URL", () => {
-    const link = buildSolflareBrowseLink("https://liminal.app");
-    expect(link).toBe("solflare://browse?url=https%3A%2F%2Fliminal.app");
+    const link = buildSolflareBrowseLink("https://liminaltwap.com");
+    expect(link).toBe("solflare://browse?url=https%3A%2F%2Fliminaltwap.com");
   });
 
   it("preserves query strings and fragments via encoding", () => {
     const link = buildSolflareBrowseLink(
-      "https://liminal.app/exec?slice=2#anchor",
+      "https://liminaltwap.com/exec?slice=2#anchor",
     );
     expect(link).toContain(encodeURIComponent("?slice=2"));
     expect(link).toContain(encodeURIComponent("#anchor"));
@@ -61,10 +61,10 @@ describe("buildDeepLinkToCurrentPage", () => {
   it("encodes the current page URL", () => {
     Object.defineProperty(window, "location", {
       configurable: true,
-      value: { href: "https://liminal.app/execute" },
+      value: { href: "https://liminaltwap.com/execute" },
     });
     const link = buildDeepLinkToCurrentPage();
-    expect(link).toBe("solflare://browse?url=https%3A%2F%2Fliminal.app%2Fexecute");
+    expect(link).toBe("solflare://browse?url=https%3A%2F%2Fliminaltwap.com%2Fexecute");
   });
 });
 

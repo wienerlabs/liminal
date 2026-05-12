@@ -286,7 +286,7 @@ The Analytics **Protocol** tab renders a live "MEV Protection" card describing w
 ### Other improvements tracked
 
 - **Onchain activity** — hit the BLOK 8 target (5+ wallets × 50 txs on mainnet) before the hackathon submission deadline.
-- **WalletConnect deep-link** — mobile onboarding via `solflare://browse?url=liminal.app` (spec'd in BLOK 6, not yet implemented).
+- **WalletConnect deep-link** — mobile onboarding via `solflare://browse?url=liminaltwap.com` (spec'd in BLOK 6, not yet implemented).
 - **Token allowlist / rug filter** — surface a warning when the destination mint is unverified (Jupiter `isVerified` flag, Rugcheck risk score).
 - **On-chain history rebuild** — today analytics history lives in `localStorage` (FIFO 50). Reconstruct past executions from wallet signatures + our program IDs so users don't lose history when switching devices.
 
