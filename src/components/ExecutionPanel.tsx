@@ -63,6 +63,8 @@ import {
 } from "../services/dcaScheduler";
 import Button from "./Button";
 import Tooltip from "./Tooltip";
+import PreCheckBanner from "./PreCheckBanner";
+import { precheckBalances, type PreCheckResult } from "../services/preCheck";
 
 // ---------------------------------------------------------------------------
 // Theme
@@ -421,7 +423,10 @@ export const ExecutionPanel: FC = () => {
       if (document.querySelector('[role="dialog"]')) return;
       if (canConfigure) {
         e.preventDefault();
-        handleConfigureAndStartRef.current?.();
+        // Keyboard shortcut now flows through the pre-check, same as the
+        // button click — the modal lets the user verify on-chain numbers
+        // before committing any Solflare signature.
+        void handleConfigureAndStartRef.current?.();
       }
     };
     window.addEventListener("keydown", handler);
@@ -429,7 +434,22 @@ export const ExecutionPanel: FC = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canConfigure]);
 
-  const handleConfigureAndStartRef = useRef<(() => void) | null>(null);
+  // Ref now holds the async pre-check entry point. Keyboard shortcut and
+  // button onClick both route through here so behaviour stays consistent.
+  const handleConfigureAndStartRef = useRef<(() => void | Promise<void>) | null>(
+    null,
+  );
+
+  // --- Pre-flight balance check state ------------------------------------
+  // The user clicks "Start", we run precheckBalances(), surface a modal
+  // with the actual on-chain numbers. They confirm → handleConfigureAndStart
+  // fires. They cancel → modal closes, config stays intact for editing.
+  // Catches the `InstructionError[*, {"Custom":1}]` failure mode before
+  // any Solflare signature popup appears.
+  const [precheckResult, setPrecheckResult] = useState<PreCheckResult | null>(
+    null,
+  );
+  const [precheckLoading, setPrecheckLoading] = useState(false);
 
   // --- Actions ------------------------------------------------------------
   const handleConfigureAndStart = useCallback(() => {
@@ -468,7 +488,57 @@ export const ExecutionPanel: FC = () => {
     preSignEnabled,
   ]);
 
-  handleConfigureAndStartRef.current = handleConfigureAndStart;
+  // Ref is updated below after handleStartClick is declared.
+
+  // Pre-flight wrapper: read wallet + Kamino balances, then show the
+  // confirmation banner. Falls through to a direct start if the read
+  // itself fails — we'd rather let the user proceed than hard-block on
+  // a network blip with no diagnostic UI.
+  const handleStartClick = useCallback(async (): Promise<void> => {
+    if (!canConfigure || !optimalVault || !wallet.address) return;
+    setPrecheckLoading(true);
+    try {
+      const result = await precheckBalances({
+        walletAddress: wallet.address,
+        inputMint: fromMint,
+        totalAmount: amountNum,
+        sliceCount,
+        kaminoVaultAddress: optimalVault.marketAddress,
+      });
+      setPrecheckResult(result);
+    } catch (err) {
+      console.warn(
+        `[LIMINAL] Pre-check threw; proceeding without confirmation modal: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+      handleConfigureAndStart();
+    } finally {
+      setPrecheckLoading(false);
+    }
+  }, [
+    canConfigure,
+    optimalVault,
+    wallet.address,
+    fromMint,
+    amountNum,
+    sliceCount,
+    handleConfigureAndStart,
+  ]);
+
+  const handleConfirmPreCheck = useCallback(() => {
+    setPrecheckResult(null);
+    handleConfigureAndStart();
+  }, [handleConfigureAndStart]);
+
+  const handleCancelPreCheck = useCallback(() => {
+    setPrecheckResult(null);
+  }, []);
+
+  // Bind the keyboard-shortcut ref to the pre-check entry point. Has to
+  // sit AFTER handleStartClick's declaration so the assignment captures
+  // the latest closure on each render.
+  handleConfigureAndStartRef.current = handleStartClick;
 
   const handleWindowPreset = useCallback((ms: number, suggested: number) => {
     if (isInFlight) return;
@@ -485,6 +555,14 @@ export const ExecutionPanel: FC = () => {
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}
       />
+      {precheckResult && (
+        <PreCheckBanner
+          result={precheckResult}
+          loading={precheckLoading}
+          onConfirm={handleConfirmPreCheck}
+          onCancel={handleCancelPreCheck}
+        />
+      )}
       <header style={styles.header}>Execute</header>
 
       {/* Multi-tab warning — surfaces only when ANOTHER tab in the
@@ -1195,19 +1273,22 @@ export const ExecutionPanel: FC = () => {
             );
           })()}
 
-          {/* Start button */}
+          {/* Start button — triggers the pre-flight balance check
+              (modal), then the configure+start flow on confirm. */}
           <div style={styles.footer}>
             <Button
               variant="primary"
-              onClick={handleConfigureAndStart}
-              disabled={!canConfigure}
+              onClick={() => {
+                void handleStartClick();
+              }}
+              disabled={!canConfigure || precheckLoading}
               style={{
                 width: "100%",
                 padding: "14px 28px",
                 minHeight: isMobile ? 56 : undefined,
               }}
             >
-              START EXECUTION
+              {precheckLoading ? "CHECKING BALANCES…" : "START EXECUTION"}
             </Button>
 
             {/* Schedule-as-DCA — only shown when the form is valid and
