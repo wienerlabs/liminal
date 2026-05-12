@@ -992,9 +992,16 @@ export async function executeSwap(
       // Transient RPC blip — fall through and retry on next tick.
     }
     if (value?.err) {
-      throw new Error(
-        `Transaction failed on-chain: ${safeStringify(value.err)}`,
-      );
+      // `value.err` is an unknown shape — Solana RPC returns it either as
+      // a string ("BlockhashNotFound") or a tagged object like
+      // `{ InstructionError: [...] }`. Stringify-with-fallback keeps both
+      // readable in the surfaced error message without pulling in the
+      // transactionBatcher's private safeStringify helper.
+      const errStr =
+        typeof value.err === "string"
+          ? value.err
+          : JSON.stringify(value.err);
+      throw new Error(`Transaction failed on-chain: ${errStr}`);
     }
     if (
       value?.confirmationStatus === "confirmed" ||
