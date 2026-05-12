@@ -1,112 +1,88 @@
 /**
  * LIMINAL — Wallet brand logos
  *
- * Inline SVG marks for the wallets we support in the picker. We embed
- * them as React components instead of remote <img> so:
- *   - No extra network requests during a connect flow.
- *   - The marks render even if the browser is offline.
- *   - Sizes scale crisply at any DPR.
+ * Official brand marks sourced from each project's wallet-adapter
+ * package (Phantom, Solflare) and Backpack's published adapter PNG.
+ * Stored under `/public/wallet-logos/` and served as static assets so
+ * the bundle stays small and the artwork is pixel-faithful to the
+ * brands' own materials.
  *
- * The artwork is a simplified-but-recognizable take on each brand —
- * faithful to the dominant shape + color so users see "the wallet I
- * know" at a glance. Full official PNGs are available on each
- * brand's marketing site if a higher fidelity is ever needed.
+ * Provenance:
+ *   - phantom.svg   → anza-xyz/wallet-adapter packages/wallets/phantom
+ *   - solflare.svg  → anza-xyz/wallet-adapter packages/wallets/solflare
+ *   - backpack.png  → @solana/wallet-adapter-backpack@0.1.14 src/adapter.ts
+ *
+ * If a logo file 404s the <img> falls back to its `alt` text. We do
+ * not maintain a homemade SVG fallback anymore — using the brand's
+ * own mark is the whole point.
  */
 
 import type { FC } from "react";
+import type { WalletId } from "../services/solflare";
 
 export type WalletLogoProps = {
   size?: number;
 };
 
-// -----------------------------------------------------------------------------
-// Solflare — orange/yellow sun-burst inside a rounded square.
-// -----------------------------------------------------------------------------
+const LOGO_PATH: Record<WalletId, string> = {
+  solflare: "/wallet-logos/solflare.svg",
+  phantom: "/wallet-logos/phantom.svg",
+  backpack: "/wallet-logos/backpack.png",
+};
+
+const LOGO_ALT: Record<WalletId, string> = {
+  solflare: "Solflare",
+  phantom: "Phantom",
+  backpack: "Backpack",
+};
+
+const imgStyle = (size: number): React.CSSProperties => ({
+  width: size,
+  height: size,
+  // Same rounded-square silhouette across all three so the picker stays
+  // visually consistent even though each brand mark has its own corner
+  // radius baked into the artwork.
+  borderRadius: 14,
+  display: "block",
+  // Crisp scaling — wallets ship at 100-128px, the picker shows at 36-48px.
+  imageRendering: "auto",
+});
+
 export const SolflareLogo: FC<WalletLogoProps> = ({ size = 36 }) => (
-  <svg
+  <img
+    src={LOGO_PATH.solflare}
+    alt={LOGO_ALT.solflare}
     width={size}
     height={size}
-    viewBox="0 0 64 64"
-    fill="none"
-    xmlns="http://www.w3.org/2000/svg"
-    aria-hidden="true"
-  >
-    <rect width="64" height="64" rx="14" fill="url(#solflareGrad)" />
-    <defs>
-      <linearGradient
-        id="solflareGrad"
-        x1="0"
-        y1="0"
-        x2="64"
-        y2="64"
-        gradientUnits="userSpaceOnUse"
-      >
-        <stop stopColor="#FFC83C" />
-        <stop offset="1" stopColor="#FC822B" />
-      </linearGradient>
-    </defs>
-    {/* Sun core */}
-    <circle cx="32" cy="32" r="9" fill="#FFF6D8" />
-    {/* 8 rays */}
-    <g stroke="#FFF6D8" strokeWidth="3" strokeLinecap="round">
-      <line x1="32" y1="10" x2="32" y2="17" />
-      <line x1="32" y1="47" x2="32" y2="54" />
-      <line x1="10" y1="32" x2="17" y2="32" />
-      <line x1="47" y1="32" x2="54" y2="32" />
-      <line x1="16" y1="16" x2="21" y2="21" />
-      <line x1="43" y1="43" x2="48" y2="48" />
-      <line x1="48" y1="16" x2="43" y2="21" />
-      <line x1="21" y1="43" x2="16" y2="48" />
-    </g>
-  </svg>
+    style={imgStyle(size)}
+    referrerPolicy="no-referrer"
+    draggable={false}
+  />
 );
 
-// -----------------------------------------------------------------------------
-// Phantom — purple ghost mark.
-// -----------------------------------------------------------------------------
 export const PhantomLogo: FC<WalletLogoProps> = ({ size = 36 }) => (
-  <svg
+  <img
+    src={LOGO_PATH.phantom}
+    alt={LOGO_ALT.phantom}
     width={size}
     height={size}
-    viewBox="0 0 64 64"
-    fill="none"
-    xmlns="http://www.w3.org/2000/svg"
-    aria-hidden="true"
-  >
-    <rect width="64" height="64" rx="14" fill="#AB9FF2" />
-    {/* Ghost body — dome with a wavy bottom edge */}
-    <path
-      d="M16 32a16 16 0 0 1 32 0v17.5c0 1.5-1.7 2.3-2.9 1.4l-3.4-2.5a2 2 0 0 0-2.4 0l-3.4 2.5a2 2 0 0 1-2.4 0l-3.4-2.5a2 2 0 0 0-2.4 0l-3.4 2.5a2 2 0 0 1-2.4 0l-3.4-2.5C17.7 51.8 16 51 16 49.5V32z"
-      fill="#fff"
-    />
-    {/* Eyes */}
-    <circle cx="27" cy="30" r="3" fill="#AB9FF2" />
-    <circle cx="40" cy="30" r="3" fill="#AB9FF2" />
-  </svg>
+    style={imgStyle(size)}
+    referrerPolicy="no-referrer"
+    draggable={false}
+  />
 );
 
-// -----------------------------------------------------------------------------
-// Backpack — red/orange "B" mark.
-// -----------------------------------------------------------------------------
 export const BackpackLogo: FC<WalletLogoProps> = ({ size = 36 }) => (
-  <svg
+  <img
+    src={LOGO_PATH.backpack}
+    alt={LOGO_ALT.backpack}
     width={size}
     height={size}
-    viewBox="0 0 64 64"
-    fill="none"
-    xmlns="http://www.w3.org/2000/svg"
-    aria-hidden="true"
-  >
-    <rect width="64" height="64" rx="14" fill="#E33E3F" />
-    {/* Stylized "B" — two stacked tabs */}
-    <path
-      d="M20 18h16c5.5 0 10 4 10 9 0 2.7-1.3 5-3.3 6.5 2.8 1.4 4.7 4.3 4.7 7.5 0 5-4.5 9-10 9H20V18zm6 5v8h10c2.5 0 4.5-1.8 4.5-4s-2-4-4.5-4H26zm0 13v9h11c2.7 0 5-2 5-4.5S39.7 36 37 36H26z"
-      fill="#fff"
-    />
-  </svg>
+    style={imgStyle(size)}
+    referrerPolicy="no-referrer"
+    draggable={false}
+  />
 );
-
-import type { WalletId } from "../services/solflare";
 
 export const WalletLogo: FC<{ id: WalletId; size?: number }> = ({
   id,
