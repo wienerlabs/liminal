@@ -63,8 +63,15 @@ export function useRoute(): {
         "",
         window.location.pathname + window.location.search,
       );
-      // hashchange fires only when hash actually changes — manually sync.
+      // BUG FIX: replaceState does NOT emit a `hashchange` event, so OTHER
+      // useRoute() instances (App.tsx body, mobile tab bar, etc.) keep
+      // their stale route state — the header pill flips to "Execute"
+      // but the page stays on Wallet/Analytics. Setting our own state
+      // updates only this hook's subscribers. Dispatch a synthetic
+      // hashchange so every useRoute() consumer re-reads the URL and
+      // converges on "home".
       setRoute("home");
+      window.dispatchEvent(new Event("hashchange"));
     } else {
       window.location.hash = target;
     }
