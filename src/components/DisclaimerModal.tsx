@@ -120,19 +120,25 @@ export const DisclaimerModal: FC<DisclaimerModalProps> = ({ onAccept }) => {
         tabIndex={-1}
         style={styles.card}
       >
-        <div style={{ textAlign: "center", marginBottom: 8 }}>
-          <LiminalMark size={64} style={{ margin: "0 auto" }} />
+        {/* Header — logo + title + lead. Stays put at the top of the
+            card while the acknowledgement list scrolls beneath it. */}
+        <div style={styles.cardHeader}>
+          <div style={{ textAlign: "center", marginBottom: 8 }}>
+            <LiminalMark size={56} style={{ margin: "0 auto" }} />
+          </div>
+          <h2 id="liminal-disclaimer-title" style={styles.title}>
+            Before you continue
+          </h2>
+          <p style={styles.lead}>
+            LIMINAL is unaudited, hackathon-stage software running on Solana
+            mainnet. Read and acknowledge every line below before you
+            connect — there is no partial entry.
+          </p>
         </div>
-        <h2 id="liminal-disclaimer-title" style={styles.title}>
-          Before you continue
-        </h2>
 
-        <p style={styles.lead}>
-          LIMINAL is unaudited, hackathon-stage software running on Solana
-          mainnet. Read and acknowledge every line below before you
-          connect — there is no partial entry.
-        </p>
-
+        {/* Body — only this section scrolls if the four ack cards push
+            past the viewport ceiling. Footer + header remain anchored. */}
+        <div style={styles.cardBody}>
         <label style={styles.check}>
           <input
             type="checkbox"
@@ -199,8 +205,12 @@ export const DisclaimerModal: FC<DisclaimerModalProps> = ({ onAccept }) => {
             liable for losses incurred while using this software.
           </span>
         </label>
+        </div>
 
-        <div style={styles.footer}>
+        {/* Footer — Accept button stays pinned at the bottom so it's
+            always reachable, even on short viewports where the ack list
+            overflows. */}
+        <div style={styles.cardFooter}>
           <Button
             variant="primary"
             disabled={!canAccept}
@@ -231,38 +241,62 @@ const styles: Record<string, CSSProperties> = {
     padding: "var(--space-4)",
   },
   card: {
+    // Flex column so the body can scroll independently while the
+    // footer (Accept button + fine print) stays pinned at the bottom.
+    // maxHeight prevents the card overflowing the viewport once we
+    // grew from 2 to 4 acknowledgements — previously the button slid
+    // off the bottom of the screen with no way to reach it.
+    display: "flex",
+    flexDirection: "column",
     background: "var(--color-2)",
     border: "1px solid var(--color-stroke-nested)",
     borderRadius: "var(--radius-lg)",
-    padding: "28px 28px 20px",
     maxWidth: 480,
     width: "100%",
+    maxHeight: "min(90vh, 720px)",
     boxShadow: "var(--shadow-raised)",
     fontFamily: "var(--font-sans)",
     outline: "none",
+    overflow: "hidden",
+  },
+  cardHeader: {
+    padding: "24px 24px 8px",
+    flexShrink: 0,
+  },
+  cardBody: {
+    padding: "0 24px",
+    overflowY: "auto",
+    flex: "1 1 auto",
+    WebkitOverflowScrolling: "touch",
+  },
+  cardFooter: {
+    padding: "16px 24px 20px",
+    borderTop: "1px solid var(--color-stroke)",
+    background: "var(--color-2)",
+    flexShrink: 0,
   },
   title: {
     margin: 0,
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: 700,
     letterSpacing: "-0.01em",
     color: "var(--color-text)",
   },
   lead: {
-    marginTop: 12,
-    marginBottom: 20,
-    fontSize: 16,
-    lineHeight: 1.55,
+    marginTop: 10,
+    marginBottom: 16,
+    fontSize: 14,
+    lineHeight: 1.5,
     color: "var(--color-text-muted)",
   },
   check: {
     display: "flex",
     alignItems: "flex-start",
-    gap: 12,
-    padding: "12px 14px",
+    gap: 10,
+    padding: "10px 12px",
     border: "1px solid var(--color-stroke)",
     borderRadius: "var(--radius-md)",
-    marginBottom: 10,
+    marginBottom: 8,
     cursor: "pointer",
     background: "var(--surface-card)",
   },
