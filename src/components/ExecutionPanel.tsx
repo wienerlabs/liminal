@@ -102,11 +102,26 @@ function getTokenColor(symbol: string): string {
 }
 
 // Execution window preset'leri (BLOK 7 Adım 3)
+//
+// `note` (optional) renders as the chip's tooltip and a small caption
+// under the row when the preset is active. We use it on the 5-minute
+// preset to flag it as a demo-only convenience: in production a TWAP
+// over a single five-minute window doesn't give Kamino yield enough
+// time to accrue meaningfully and amplifies the impact of any short-
+// term price move on individual slices.
 const WINDOW_PRESETS: Array<{
   label: string;
   ms: number;
   suggestedSlices: number;
+  note?: string;
 }> = [
+  {
+    label: "5m · demo",
+    ms: 5 * 60 * 1000,
+    suggestedSlices: 3,
+    note:
+      "Demo only — a five-minute TWAP leaves almost no time for Kamino yield to accrue and amplifies slippage from short-term price moves. Production runs should use 30 minutes or longer.",
+  },
   { label: "30m", ms: 30 * 60 * 1000, suggestedSlices: 3 },
   { label: "1h", ms: 60 * 60 * 1000, suggestedSlices: 4 },
   { label: "2h", ms: 2 * 60 * 60 * 1000, suggestedSlices: 6 },
@@ -1010,6 +1025,12 @@ export const ExecutionPanel: FC = () => {
             >
               {WINDOW_PRESETS.map((preset) => {
                 const active = preset.ms === windowMs;
+                // Prefer the preset's own note (e.g. demo warning) over the
+                // generic "locked while in-flight" copy. Locked state still
+                // wins when an execution is running.
+                const tooltip = isInFlight
+                  ? lockedTooltip
+                  : preset.note ?? undefined;
                 return (
                   <button
                     key={preset.label}
@@ -1018,7 +1039,7 @@ export const ExecutionPanel: FC = () => {
                     onClick={() =>
                       handleWindowPreset(preset.ms, preset.suggestedSlices)
                     }
-                    title={isInFlight ? lockedTooltip : undefined}
+                    title={tooltip}
                     style={{
                       ...styles.chip,
                       background: active ? THEME.accent : "var(--surface-card)",
@@ -1036,6 +1057,17 @@ export const ExecutionPanel: FC = () => {
                 );
               })}
             </div>
+            {/* Surface the active preset's caveat (e.g. demo-only warning)
+                inline so users who skip the tooltip still see it. */}
+            {(() => {
+              const activePreset = WINDOW_PRESETS.find((p) => p.ms === windowMs);
+              if (!activePreset?.note) return null;
+              return (
+                <p style={styles.windowPresetNote} role="note">
+                  ⚠️ {activePreset.note}
+                </p>
+              );
+            })()}
 
             <div style={styles.formCardSubLabel}>
               Slice count
@@ -2741,6 +2773,18 @@ const styles: Record<string, CSSProperties> = {
   windowRow: {
     display: "flex",
     gap: 8,
+  },
+  windowPresetNote: {
+    marginTop: 8,
+    marginBottom: 0,
+    padding: "8px 12px",
+    fontSize: 12,
+    lineHeight: 1.5,
+    color: "var(--color-warn)",
+    background: "rgba(245, 158, 11, 0.08)",
+    border: "1px solid rgba(245, 158, 11, 0.25)",
+    borderRadius: "var(--radius-sm)",
+    fontFamily: "var(--font-sans)",
   },
   chip: {
     fontFamily: MONO,
