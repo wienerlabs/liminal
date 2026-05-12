@@ -25,9 +25,9 @@ bootstrapTheme();
 // DSN and completely opt-in in production.
 void initTelemetry();
 
-// Service worker — installs an offline shell + stale-while-revalidate
-// for static assets. No-op in dev (Vite serves /sw.js but we skip
-// registration when import.meta.env.DEV) so HMR isn't intercepted.
+// Service worker — disabled for hackathon submission. This call
+// actively unregisters any SW installed by previous visits and clears
+// their caches so deploys propagate without a manual storage flush.
 void registerServiceWorker();
 
 const rootEl = document.getElementById("root");
