@@ -186,7 +186,14 @@ export type SignTransactionFn = <T extends VersionedTransaction>(
  * yönetimi).
  */
 export function isDFlowSlippageError(message: string | null | undefined): boolean {
-  return !!message && message.startsWith("Anlık slippage");
+  // BUG FIX (pre-demo audit): the slippage-exceeded error string was
+  // translated to English in getQuote ("Current slippage %X, configured
+  // limit %Y. Execution skipped.") but this detector kept matching the
+  // legacy Turkish prefix "Anlık slippage". Without this fix every
+  // slippage hit lands in DFLOW_QUOTE_FAILED ERROR instead of the
+  // 30s defer path, halting the entire TWAP on the first volatile tick.
+  // Accept both phrasings so a future re-translation can't re-break it.
+  return !!message && /^(Current slippage|Anlık slippage)/.test(message);
 }
 
 // ---------------------------------------------------------------------------
@@ -956,30 +963,52 @@ export async function executeSwap(
   }
 
   // 5) Confirm — 60s timeout (BLOK 6 kural 7).
-  let confirmedAt: Date;
-  try {
-    const { blockhash, lastValidBlockHeight } =
-      await connection.getLatestBlockhash(COMMITMENT);
-    await Promise.race([
-      connection.confirmTransaction(
-        { signature, blockhash, lastValidBlockHeight },
-        COMMITMENT,
-      ),
-      new Promise((_, reject) =>
-        setTimeout(
-          () =>
-            reject(
-              new Error(
-                `Confirmation ${TX_TIMEOUT_MS / 1000}s did not arrive in time. Signature: ${signature}`,
-              ),
-            ),
-          TX_TIMEOUT_MS,
-        ),
-      ),
-    ]);
-    confirmedAt = new Date();
-  } catch (err) {
-    throw new Error(err instanceof Error ? err.message : String(err));
+  //
+  // BUG FIX (pre-demo audit, C-3): the previous implementation fetched a
+  // FRESH (blockhash, lastValidBlockHeight) pair AFTER broadcast and
+  // passed it to confirmTransaction. The signed tx already had its own
+  // recentBlockhash (set by Ultra at quote time). Under congestion the
+  // freshly-fetched lastValidBlockHeight can be past the tx's actual
+  // validity window, so confirmTransaction times out spuriously even
+  // while the swap is in flight or already landed. A retry then
+  // double-swaps the same slice — catastrophic with real money.
+  //
+  // Fix: poll getSignatureStatus until "confirmed" / "finalized" or the
+  // 60s budget elapses. Status polling is independent of any blockhash
+  // and works identically for durable-nonced and regular-blockhash txs.
+  const POLL_MS = 1500;
+  const confirmStart = Date.now();
+  let confirmedAt: Date | null = null;
+  while (Date.now() - confirmStart < TX_TIMEOUT_MS) {
+    let value: Awaited<
+      ReturnType<typeof connection.getSignatureStatus>
+    >["value"] = null;
+    try {
+      const status = await connection.getSignatureStatus(signature, {
+        searchTransactionHistory: false,
+      });
+      value = status.value;
+    } catch {
+      // Transient RPC blip — fall through and retry on next tick.
+    }
+    if (value?.err) {
+      throw new Error(
+        `Transaction failed on-chain: ${safeStringify(value.err)}`,
+      );
+    }
+    if (
+      value?.confirmationStatus === "confirmed" ||
+      value?.confirmationStatus === "finalized"
+    ) {
+      confirmedAt = new Date();
+      break;
+    }
+    await new Promise((resolve) => setTimeout(resolve, POLL_MS));
+  }
+  if (!confirmedAt) {
+    throw new Error(
+      `Confirmation ${TX_TIMEOUT_MS / 1000}s did not arrive in time. Signature: ${signature}`,
+    );
   }
 
   // 6) Network fee — confirmed transaction'dan oku.
