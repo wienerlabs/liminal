@@ -11,59 +11,18 @@
  *   - Sky     #CFECF3  → hover / secondary surface
  *   - Pink    #F9B2D7  → accent (CTA, active state, vurgu)
  *
- * Typography: Space Grotesk (sans) + JetBrains Mono (mono).
- * Note: Bricolage Grotesque kaldırıldı — bu projede kullanılmaz.
+ * Typography: Funnel Display (Google Fonts). Single typeface across the
+ * entire UI — body, labels, headings, numerics. Falls back to system
+ * sans on font-load failure so layout never breaks. Tabular numerals
+ * are enabled per-element via `font-variant-numeric: tabular-nums` on
+ * stat values so prices and slice indices still align cleanly.
  * Spacing scale: 4-8-12-16-20-24-32-48 (8pt grid).
  * Radius scale: 4 / 8 / 12 — üç tier.
  */
 
-/* ABC Favorit Mono — self-hosted. Replaces Space Grotesk + JetBrains
-   Mono. Trading-terminal aesthetic: every glyph on the same advance
-   width grid means prices, slice indices, and addresses align without
-   font-variant-numeric tricks. ABC Dinamo commercial license assumed.
-
-   Font weights:
-     Book        — body, labels, metric values (default 400-equivalent)
-     Bold        — headings, primary CTAs (700)
-     BookItalic  — predicted/estimated values (italic 400)
-     BoldItalic  — emphasized prediction (italic 700)
-
-   Plus ABC Favorit (sans, Bold) for hero text only. */
-@font-face {
-  font-family: 'ABC Favorit Mono';
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-  src: url('/fonts/ABCFavoritMono-Book.otf') format('opentype');
-}
-@font-face {
-  font-family: 'ABC Favorit Mono';
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-  src: url('/fonts/ABCFavoritMono-Bold.otf') format('opentype');
-}
-@font-face {
-  font-family: 'ABC Favorit Mono';
-  font-weight: 400;
-  font-style: italic;
-  font-display: swap;
-  src: url('/fonts/ABCFavoritMono-BookItalic.otf') format('opentype');
-}
-@font-face {
-  font-family: 'ABC Favorit Mono';
-  font-weight: 700;
-  font-style: italic;
-  font-display: swap;
-  src: url('/fonts/ABCFavoritMono-BoldItalic.otf') format('opentype');
-}
-@font-face {
-  font-family: 'ABC Favorit';
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-  src: url('/fonts/ABCFavorit-Bold.otf') format('opentype');
-}
+/* Funnel Display is loaded via the <link> tag in index.html (Google
+   Fonts). Self-host migration is tracked as a follow-up — TTF/WOFF
+   files would land in /public/fonts/ with @font-face rules here. */
 
 :root {
   /* ----- Pastel palette tokens (kullanıcı seçimi) ----------------------
@@ -145,17 +104,19 @@
   --color-overlay: rgba(26, 26, 26, 0.45);
 
   /* ----- Tipografi --------------------------------------------------
-     ABC Favorit Mono — every glyph on a uniform grid. Used for ALL UI:
-     body, labels, numerics, headings. Single-typeface design system,
-     no Space Grotesk / JetBrains Mono mix. Trading-terminal aesthetic.
-     `--font-hero` = ABC Favorit (sans, Bold) — only for the largest
-     marketing-style hero text (Welcome H1) where mono can feel cramped.
-     `--font-code` keeps the same Mono — it IS monospace, so the
-     legacy `.liminal-code` references continue to render correctly. */
-  --font-sans: 'ABC Favorit Mono', ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
-  --font-mono: 'ABC Favorit Mono', ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
-  --font-code: 'ABC Favorit Mono', ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
-  --font-hero: 'ABC Favorit', 'ABC Favorit Mono', system-ui, -apple-system, sans-serif;
+     Funnel Display — Google Fonts variable-style display sans serving
+     ALL UI surfaces: body, labels, numerics, headings. Single-typeface
+     design system. The legacy --font-mono / --font-code variables are
+     kept (renaming would touch ~80 components) but now point at the
+     same Funnel Display family; tabular numerals are turned on at the
+     usage site via `font-variant-numeric: tabular-nums` so prices and
+     slice indices stay aligned without a true monospace.
+     `--font-hero` matches sans for the Welcome H1; the Bold weight at
+     larger sizes carries the same display character. */
+  --font-sans: 'Funnel Display', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  --font-mono: 'Funnel Display', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  --font-code: 'Funnel Display', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --font-hero: 'Funnel Display', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
 
   /* ----- Type scale (1.25 ratio — major third, base 18) -------------
      Bumped one step in PR #5m per user feedback ("yazı fontları daha
